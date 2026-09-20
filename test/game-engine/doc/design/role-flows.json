@@ -1,0 +1,764 @@
+{
+  "schemaVersion": 1,
+  "description": "依据现有功能描述与源码编排的示例流程，不是运行时跟踪；每一步都由生成器定位源码。",
+  "roles": {
+    "主循环": [
+      {
+        "id": "frame",
+        "name": "推进一帧",
+        "description": "按功能描述的计时→固定更新→渲染顺序，展示一次 50ms 的示例帧。",
+        "scenarios": [
+          {
+            "id": "normal",
+            "name": "正常帧 · 50ms",
+            "inputs": {
+              "deltaTime": 0.05,
+              "fixedDeltaTime": 0.02
+            },
+            "initialState": {
+              "阶段": "等待帧回调",
+              "帧号": 10,
+              "delta": 0,
+              "更新次数": 0,
+              "插值": 0
+            },
+            "steps": [
+              {
+                "title": "读取本帧时间",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.frameLoop",
+                "quote": "const deltaTime: number = this.timer.tick();",
+                "description": "帧回调向 Timer 请求时间增量。",
+                "set": {
+                  "阶段": "计时"
+                }
+              },
+              {
+                "title": "累计时间与帧数",
+                "file": "src/services/impl/timer/timer.ts",
+                "symbol": "PerformanceTimer.tick",
+                "quote": "this.frameCount += 1;",
+                "description": "示例时钟推进 50ms，累计帧号加一。",
+                "set": {
+                  "帧号": 11,
+                  "delta": 0.05
+                }
+              },
+              {
+                "title": "计算固定更新步数",
+                "file": "src/pipelines/gameloop/fixed.timestep.ts",
+                "symbol": "FixedTimestep.update",
+                "quote": "const steps: number = Math.floor(this.accumulator / this.fixedDeltaTime);",
+                "description": "初始累加器为 0；0.05 / 0.02 得到两次更新，余量 0.01，插值 0.5。",
+                "set": {
+                  "阶段": "固定更新",
+                  "更新次数": 2,
+                  "插值": 0.5
+                }
+              },
+              {
+                "title": "派发逻辑更新回调",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.frameLoop",
+                "quote": "this.callbacks.onFixedUpdate(this.fixedTimestep.getFixedDeltaTime());",
+                "description": "外部提供的 onFixedUpdate 在这个示例中被调用两次；图谱不展开回调内部全部实现。",
+                "set": {
+                  "逻辑更新": "2 × 0.02s"
+                }
+              },
+              {
+                "title": "派发渲染回调",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.frameLoop",
+                "quote": "this.callbacks.onRender(result.interpolation, frameTiming);",
+                "description": "将插值和时序信息交给渲染回调。",
+                "set": {
+                  "阶段": "渲染",
+                  "渲染回调": 1
+                }
+              },
+              {
+                "title": "预约下一帧",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.scheduleFrame",
+                "quote": "this.animationFrameId = requestAnimationFrame(() => {",
+                "description": "这里只模拟预约状态，不实际创建浏览器游戏循环。",
+                "set": {
+                  "阶段": "等待下一帧",
+                  "下一帧": "已预约"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "pause-resume",
+        "name": "暂停与恢复",
+        "description": "展示当前示例源码的真实委派顺序，并标注累计计时清零的问题；不把验证副本中的修复冒充已应用。",
+        "scenarios": [
+          {
+            "id": "current",
+            "name": "当前源码 · 含已知问题",
+            "inputs": {
+              "暂停前累计秒数": 0.1,
+              "暂停前帧号": 1
+            },
+            "initialState": {
+              "循环状态": "Running",
+              "累计秒数": 0.1,
+              "帧号": 1
+            },
+            "steps": [
+              {
+                "title": "暂停主循环",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.pause",
+                "quote": "this.state = EngineState.Paused;",
+                "description": "状态切换为 Paused，随后当前代码调用 timer.stop。",
+                "set": {
+                  "循环状态": "Paused"
+                }
+              },
+              {
+                "title": "停止计时",
+                "file": "src/services/impl/timer/timer.ts",
+                "symbol": "PerformanceTimer.stop",
+                "quote": "this.running = false;",
+                "description": "计时器停止；这里沿当前源码展示，尚不是独立的 pause 方法。",
+                "set": {
+                  "计时器": "停止"
+                }
+              },
+              {
+                "title": "恢复调用 start",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.resume",
+                "quote": "this.timer.start();",
+                "description": "恢复路径重新调用 start。这个调用与新会话启动共用同一方法。",
+                "set": {
+                  "循环状态": "Running"
+                },
+                "occurrence": 2
+              },
+              {
+                "title": "累计状态被重置",
+                "file": "src/services/impl/timer/timer.ts",
+                "symbol": "PerformanceTimer.start",
+                "quote": "this.elapsedTimeInSeconds = 0;",
+                "description": "当前 start 清空累计时间与帧数。示例与既有回归证据一致，属于已知实现问题。",
+                "set": {
+                  "累计秒数": 0,
+                  "帧号": 0,
+                  "计时器": "运行"
+                },
+                "warning": "当前源码问题：恢复后累计时间、帧数被清零。仅在隔离验证副本中修复过。"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "实体管理": [
+      {
+        "id": "create",
+        "name": "创建实体",
+        "description": "依据功能描述的获取 ID→注册实体→派发事件→返回对象。",
+        "scenarios": [
+          {
+            "id": "normal",
+            "name": "创建第一个实体",
+            "inputs": {},
+            "initialState": {
+              "实体数": 0,
+              "下一个ID": 1,
+              "事件": "无"
+            },
+            "steps": [
+              {
+                "title": "申请唯一 ID",
+                "file": "src/services/impl/entity/component.container.ts",
+                "symbol": "ComponentContainer.acquireId",
+                "quote": "this.nextId += 1;",
+                "description": "取出当前 ID，并递增供后续实体使用。",
+                "set": {
+                  "新实体ID": 1,
+                  "下一个ID": 2
+                }
+              },
+              {
+                "title": "构造实体",
+                "file": "src/services/impl/entity/entity.service.ts",
+                "symbol": "GameEntityService.createEntity",
+                "quote": "alive: true,",
+                "description": "创建空组件映射，并将实体标记为存活。",
+                "set": {
+                  "存活": true,
+                  "组件数": 0
+                }
+              },
+              {
+                "title": "注册到容器",
+                "file": "src/services/impl/entity/component.container.ts",
+                "symbol": "ComponentContainer.addEntity",
+                "quote": "this.entities.set(entity.id, entity);",
+                "description": "实体加入 Map，后续可按 ID 查询。",
+                "set": {
+                  "实体数": 1
+                }
+              },
+              {
+                "title": "派发创建事件",
+                "file": "src/services/impl/entity/entity.service.ts",
+                "symbol": "GameEntityService.createEntity",
+                "quote": "type: EntityEventType.Created,",
+                "description": "发布 entity:created；监听器执行属于动态回调，不在这里伪造结果。",
+                "set": {
+                  "事件": "entity:created"
+                }
+              },
+              {
+                "title": "返回实体",
+                "file": "src/services/impl/entity/entity.service.ts",
+                "symbol": "GameEntityService.createEntity",
+                "quote": "return entity;",
+                "description": "将新建实体交给调用者。",
+                "set": {
+                  "结果": "Entity(id=1)"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "场景管理": [
+      {
+        "id": "switch",
+        "name": "切换场景",
+        "description": "检查目标场景，通知旧场景退出，再进入新场景并更新当前指针。",
+        "scenarios": [
+          {
+            "id": "normal",
+            "name": "菜单 → 游戏",
+            "inputs": {
+              "目标": "game"
+            },
+            "initialState": {
+              "当前场景": "menu",
+              "旧场景": "active",
+              "新场景": "ready"
+            },
+            "steps": [
+              {
+                "title": "查找目标场景",
+                "file": "src/services/impl/scene/scene.manager.ts",
+                "symbol": "SceneManagerImpl.switchScene",
+                "quote": "const nextScene = this.scenes.get(name);",
+                "description": "示例假定 game 已创建；找不到时抛出异常，不执行后续步骤。",
+                "set": {
+                  "目标存在": true
+                }
+              },
+              {
+                "title": "通知旧场景退出",
+                "file": "src/services/impl/scene/scene.manager.ts",
+                "symbol": "SceneManagerImpl.switchScene",
+                "quote": "this.activeScene.onExit();",
+                "description": "若旧场景配置了生命周期回调，先通知回调，再通知场景对象。",
+                "set": {
+                  "旧场景": "exited"
+                }
+              },
+              {
+                "title": "进入新场景",
+                "file": "src/services/impl/scene/scene.manager.ts",
+                "symbol": "SceneManagerImpl.switchScene",
+                "quote": "nextScene.onEnter();",
+                "description": "通知新场景进入，再执行其可选生命周期回调。",
+                "set": {
+                  "新场景": "active"
+                }
+              },
+              {
+                "title": "更新活动场景",
+                "file": "src/services/impl/scene/scene.manager.ts",
+                "symbol": "SceneManagerImpl.switchScene",
+                "quote": "this.activeScene = nextScene;",
+                "description": "替换当前场景指针。",
+                "set": {
+                  "当前场景": "game"
+                }
+              }
+            ]
+          },
+          {
+            "id": "missing",
+            "name": "目标不存在",
+            "inputs": {
+              "目标": "missing"
+            },
+            "initialState": {
+              "当前场景": "menu"
+            },
+            "steps": [
+              {
+                "title": "查找目标",
+                "file": "src/services/impl/scene/scene.manager.ts",
+                "symbol": "SceneManagerImpl.switchScene",
+                "quote": "const nextScene = this.scenes.get(name);",
+                "description": "示例目标未注册。",
+                "set": {
+                  "目标存在": false
+                }
+              },
+              {
+                "title": "终止切换",
+                "file": "src/services/impl/scene/scene.manager.ts",
+                "symbol": "SceneManagerImpl.switchScene",
+                "quote": "throw new Error(`Scene \"${name}\" not found`);",
+                "description": "直接抛错；原场景保持不变。",
+                "set": {
+                  "错误": "Scene \"missing\" not found",
+                  "当前场景": "menu"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "渲染": [
+      {
+        "id": "render-frame",
+        "name": "提交并绘制一帧",
+        "description": "开始帧→清空队列→提交命令→按 layer 排序→绘制并结束。",
+        "scenarios": [
+          {
+            "id": "rect",
+            "name": "绘制一个矩形",
+            "inputs": {
+              "layer": 2
+            },
+            "initialState": {
+              "队列长度": 0,
+              "已绘制": 0,
+              "帧号": 4
+            },
+            "steps": [
+              {
+                "title": "开始帧并清屏",
+                "file": "src/pipelines/render/render.pipeline.ts",
+                "symbol": "RenderPipeline.beginFrame",
+                "quote": "this.renderer.clear(this.config.clearColor);",
+                "description": "使用帧配置清屏；页面演示不会访问 Canvas。",
+                "set": {
+                  "阶段": "清屏"
+                }
+              },
+              {
+                "title": "清空旧命令",
+                "file": "src/pipelines/render/render.pipeline.ts",
+                "symbol": "RenderPipeline.beginFrame",
+                "quote": "this.commandQueue.length = 0;",
+                "description": "新帧不继承上一帧的命令。",
+                "set": {
+                  "队列长度": 0
+                }
+              },
+              {
+                "title": "提交矩形命令",
+                "file": "src/pipelines/render/render.pipeline.ts",
+                "symbol": "RenderPipeline.submitRect",
+                "quote": "type: RenderCommandType.Rect,",
+                "description": "将矩形绘制命令加入当前帧队列。",
+                "set": {
+                  "队列长度": 1,
+                  "命令": "Rect(layer=2)"
+                }
+              },
+              {
+                "title": "排序命令",
+                "file": "src/pipelines/render/render.pipeline.ts",
+                "symbol": "RenderPipeline.endFrame",
+                "quote": "const sorted = [...this.commandQueue].sort((a, b) => a.layer - b.layer);",
+                "description": "按 layer 从小到大处理。",
+                "set": {
+                  "阶段": "排序"
+                }
+              },
+              {
+                "title": "委派实际绘制",
+                "file": "src/pipelines/render/render.pipeline.ts",
+                "symbol": "RenderPipeline.executeCommand",
+                "quote": "this.renderer.drawRect(rect, command.color!);",
+                "description": "委派 renderer 绘制矩形；外部效果仅标注，不执行。",
+                "set": {
+                  "已绘制": 1
+                }
+              },
+              {
+                "title": "结束当前帧",
+                "file": "src/pipelines/render/render.pipeline.ts",
+                "symbol": "RenderPipeline.endFrame",
+                "quote": "this.frameCount++;",
+                "description": "renderer.endFrame 后，管线累计帧号加一。",
+                "set": {
+                  "帧号": 5,
+                  "阶段": "帧完成"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "资源加载": [
+      {
+        "id": "load",
+        "name": "加载资源",
+        "description": "展示缓存命中、加载成功与缺少加载器三条路径。",
+        "scenarios": [
+          {
+            "id": "miss",
+            "name": "未命中 → 加载成功",
+            "inputs": {
+              "key": "hero",
+              "type": "image"
+            },
+            "initialState": {
+              "缓存": "未命中",
+              "请求数": 0,
+              "成功数": 0
+            },
+            "steps": [
+              {
+                "title": "检查缓存",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "const cached = this.cache.get(descriptor.key);",
+                "description": "示例缓存不存在，进入加载分支。",
+                "set": {
+                  "缓存": "未命中"
+                }
+              },
+              {
+                "title": "选择类型加载器",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "const loader = this.loaders.get(descriptor.type);",
+                "description": "选择已注册的 image 加载器。",
+                "set": {
+                  "加载器": "image"
+                }
+              },
+              {
+                "title": "等待加载结果",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "const data = await loader.load(descriptor);",
+                "description": "这是异步外部依赖；演示假设返回成功，不真正下载资源。",
+                "set": {
+                  "请求数": 1,
+                  "结果": "示例 image 数据"
+                }
+              },
+              {
+                "title": "写入缓存",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "this.cache.set(descriptor.key, resource);",
+                "description": "保存资源对象以便后续命中。",
+                "set": {
+                  "缓存": "hero 已缓存"
+                }
+              },
+              {
+                "title": "更新进度",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "this.totalLoaded++;",
+                "description": "成功计数增加并通知进度监听器。",
+                "set": {
+                  "成功数": 1
+                }
+              }
+            ]
+          },
+          {
+            "id": "hit",
+            "name": "缓存命中",
+            "inputs": {
+              "key": "hero"
+            },
+            "initialState": {
+              "缓存": "hero 已缓存",
+              "新增请求数": 0
+            },
+            "steps": [
+              {
+                "title": "读取缓存",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "const cached = this.cache.get(descriptor.key);",
+                "description": "找到已有对象。",
+                "set": {
+                  "缓存命中": true
+                }
+              },
+              {
+                "title": "直接返回",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "return cached;",
+                "description": "不请求加载器，计数不增加。",
+                "set": {
+                  "结果": "缓存 Resource",
+                  "新增请求数": 0
+                }
+              }
+            ]
+          },
+          {
+            "id": "unsupported",
+            "name": "缺少加载器",
+            "inputs": {
+              "type": "unknown"
+            },
+            "initialState": {
+              "请求数": 0,
+              "失败数": 0
+            },
+            "steps": [
+              {
+                "title": "未找到类型加载器",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "if (loader === undefined) {",
+                "description": "进入失败分支。",
+                "set": {
+                  "加载器": "未注册"
+                }
+              },
+              {
+                "title": "统计失败并抛错",
+                "file": "src/providers/impl/resource/resource.loader.ts",
+                "symbol": "GameResourceLoader.load",
+                "quote": "`No resource loader registered for type: ${descriptor.type}`",
+                "description": "请求数和失败数增加，通知进度后抛错。",
+                "set": {
+                  "请求数": 1,
+                  "失败数": 1,
+                  "错误": "No resource loader registered"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "输入": [
+      {
+        "id": "poll",
+        "name": "轮询输入",
+        "description": "按当前 poll 实现重置鼠标帧增量，再更新手柄。",
+        "scenarios": [
+          {
+            "id": "ready",
+            "name": "已初始化",
+            "inputs": {},
+            "initialState": {
+              "已初始化": true,
+              "鼠标帧增量": "上一帧",
+              "手柄状态": "旧值"
+            },
+            "steps": [
+              {
+                "title": "检查初始化状态",
+                "file": "src/providers/impl/input/input.provider.ts",
+                "symbol": "BrowserInputProvider.poll",
+                "quote": "poll(): void {",
+                "description": "已初始化才能继续。",
+                "set": {
+                  "可轮询": true
+                }
+              },
+              {
+                "title": "清理鼠标帧增量",
+                "file": "src/providers/impl/input/input.provider.ts",
+                "symbol": "BrowserInputProvider.poll",
+                "quote": "this.mouseHandler.resetFrameDelta();",
+                "description": "重置鼠标上一帧的增量数据。",
+                "set": {
+                  "鼠标帧增量": 0
+                }
+              },
+              {
+                "title": "轮询手柄",
+                "file": "src/providers/impl/input/input.provider.ts",
+                "symbol": "BrowserInputProvider.poll",
+                "quote": "this.gamepadHandler.poll();",
+                "description": "委派手柄处理器读取状态，演示不读取真实设备。",
+                "set": {
+                  "手柄状态": "示例采样完成"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "音频": [
+      {
+        "id": "mute",
+        "name": "静音与恢复",
+        "description": "更新配置标志和主音量节点，演示不播放音频。",
+        "scenarios": [
+          {
+            "id": "toggle",
+            "name": "主音量 0.8",
+            "inputs": {},
+            "initialState": {
+              "静音": false,
+              "主音量": 0.8,
+              "输出增益": 0.8
+            },
+            "steps": [
+              {
+                "title": "设置静音标志",
+                "file": "src/providers/impl/audio/audio.provider.ts",
+                "symbol": "GameAudioProvider.mute",
+                "quote": "this.config = { ...this.config, muted: true };",
+                "description": "记录配置状态。",
+                "set": {
+                  "静音": true
+                }
+              },
+              {
+                "title": "将输出增益设为零",
+                "file": "src/providers/impl/audio/audio.provider.ts",
+                "symbol": "GameAudioProvider.mute",
+                "quote": "this.masterGainNode.gain.value = 0;",
+                "description": "示例假设音频节点已初始化。",
+                "set": {
+                  "输出增益": 0
+                }
+              },
+              {
+                "title": "取消静音标志",
+                "file": "src/providers/impl/audio/audio.provider.ts",
+                "symbol": "GameAudioProvider.unmute",
+                "quote": "this.config = { ...this.config, muted: false };",
+                "description": "恢复配置标志。",
+                "set": {
+                  "静音": false
+                }
+              },
+              {
+                "title": "恢复主音量",
+                "file": "src/providers/impl/audio/audio.provider.ts",
+                "symbol": "GameAudioProvider.unmute",
+                "quote": "this.masterGainNode.gain.value = this.config.masterVolume;",
+                "description": "恢复之前配置的主音量。",
+                "set": {
+                  "输出增益": 0.8
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "装配": [
+      {
+        "id": "start",
+        "name": "启动引擎主循环",
+        "description": "展示已初始化引擎的 start 路径，以及传给主循环的业务回调。",
+        "scenarios": [
+          {
+            "id": "initialized",
+            "name": "已初始化 → Running",
+            "inputs": {},
+            "initialState": {
+              "已初始化": true,
+              "引擎状态": "Stopped",
+              "回调": "未设置"
+            },
+            "steps": [
+              {
+                "title": "确认初始化",
+                "file": "src/interface/engine.ts",
+                "symbol": "GameEngine.start",
+                "quote": "this.ensureInitialized();",
+                "description": "示例前提是 initialize 已成功完成。",
+                "set": {
+                  "启动条件": "通过"
+                }
+              },
+              {
+                "title": "构建逻辑更新回调",
+                "file": "src/interface/engine.ts",
+                "symbol": "GameEngine.start",
+                "quote": "this.sceneManager.update(deltaTime);",
+                "description": "这里只注册回调，逻辑更新将在后续帧中发生。",
+                "set": {
+                  "固定更新回调": "SceneManager.update"
+                }
+              },
+              {
+                "title": "构建渲染回调",
+                "file": "src/interface/engine.ts",
+                "symbol": "GameEngine.start",
+                "quote": "this.renderPipeline.beginFrame();",
+                "description": "注册帧开始/结束回调；此刻尚未真正绘制。",
+                "set": {
+                  "渲染回调": "RenderPipeline.beginFrame/endFrame"
+                }
+              },
+              {
+                "title": "启动已组装的循环",
+                "file": "src/interface/engine.ts",
+                "symbol": "GameEngine.start",
+                "quote": "this.gameLoop.start(callbacks);",
+                "description": "将回调交给 DefaultGameLoop。",
+                "set": {
+                  "回调": "已传递"
+                }
+              },
+              {
+                "title": "切换循环状态",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.start",
+                "quote": "this.state = EngineState.Running;",
+                "description": "进入外部主循环角色的实现，设置 Running 状态。",
+                "set": {
+                  "引擎状态": "Running"
+                }
+              },
+              {
+                "title": "初始化计时",
+                "file": "src/services/impl/timer/timer.ts",
+                "symbol": "PerformanceTimer.start",
+                "quote": "this.frameCount = 0;",
+                "description": "新会话从帧号 0 开始。",
+                "set": {
+                  "帧号": 0
+                }
+              },
+              {
+                "title": "预约首帧",
+                "file": "src/pipelines/gameloop/game.loop.ts",
+                "symbol": "DefaultGameLoop.scheduleFrame",
+                "quote": "this.animationFrameId = requestAnimationFrame(() => {",
+                "description": "浏览器实际调度不在此执行；下一帧流程见主循环角色。",
+                "set": {
+                  "下一帧": "待浏览器回调"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

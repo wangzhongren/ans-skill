@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+/output/
+
+# Generated example views; keep only reproducible design inputs.
+/test/game-engine/doc/architecture/
+/test/game-engine/doc/role-atlas/
+/test/game-engine/src/doc/architecture/
