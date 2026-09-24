@@ -12,7 +12,7 @@ import sys
 
 CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 TOPIC_ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 SCHEMA = '''
 PRAGMA foreign_keys=ON;
 CREATE TABLE meta (schema_version INTEGER NOT NULL);
@@ -28,7 +28,7 @@ CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position
 CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
 CREATE TABLE flow_trigger_conditions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, when_text TEXT NOT NULL, source_flow_id TEXT, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,source_flow_id) REFERENCES topics(role_id,topic_id));
 CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
-CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('network','internal')), protocol TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 '''
 
@@ -158,10 +158,22 @@ def interface_input(value):
         raise ValueError('Interface topics require input or output fields')
     method = optional_text(value.get('method', ''), 'HTTP method').upper()
     request_url = optional_text(value.get('requestUrl', ''), 'request URL')
-    if bool(method) != bool(request_url):
-        raise ValueError('HTTP method and request URL must be provided together')
+    kind = value.get('kind', 'network' if request_url else 'internal')
+    if kind not in ('network', 'internal'):
+        raise ValueError('interface.kind must be network or internal')
+    protocol = optional_text(value.get('protocol', ''), 'network protocol')
+    if kind == 'network':
+        if not request_url:
+            raise ValueError('Network interfaces require requestUrl')
+        if not protocol:
+            protocol = 'HTTP' if method else 'Network'
+        if protocol.upper() == 'HTTP' and not method:
+            raise ValueError('HTTP interfaces require method')
+    elif method or request_url or protocol:
+        raise ValueError('Internal interfaces cannot have HTTP method, request URL, or network protocol')
     return {'entry': required_text(value.get('entry'), 'interface entry'),
-            'method': method, 'requestUrl': request_url, 'inputs': inputs, 'outputs': outputs}
+            'kind': kind, 'protocol': protocol, 'method': method, 'requestUrl': request_url,
+            'inputs': inputs, 'outputs': outputs}
 
 
 def topic_input(value):
@@ -282,7 +294,7 @@ class ContextStore:
             if version == SCHEMA_VERSION:
                 connection.commit()
                 return {'schemaVersion': version, 'changed': False}
-            if version not in (1, 2, 3, 4):
+            if version not in (1, 2, 3, 4, 5):
                 raise ValueError('Unsupported context database schema')
             if version == 1:
                 connection.execute('CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
@@ -301,6 +313,11 @@ class ContextStore:
                 version = 4
             if version == 4:
                 connection.execute('CREATE TABLE flow_trigger_conditions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, when_text TEXT NOT NULL, source_flow_id TEXT, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,source_flow_id) REFERENCES topics(role_id,topic_id))')
+                version = 5
+            if version == 5:
+                connection.execute("ALTER TABLE interface_specs ADD COLUMN kind TEXT NOT NULL DEFAULT 'internal'")
+                connection.execute("ALTER TABLE interface_specs ADD COLUMN protocol TEXT NOT NULL DEFAULT ''")
+                connection.execute("UPDATE interface_specs SET kind='network', protocol='HTTP' WHERE request_url<>''")
             connection.execute('UPDATE meta SET schema_version=?', (SCHEMA_VERSION,))
             connection.commit()
             return {'schemaVersion': SCHEMA_VERSION, 'changed': True}
@@ -447,9 +464,10 @@ class ContextStore:
                                                   'description': field['description'], 'required': bool(field['required'])})
             data_row = connection.execute('SELECT owner FROM data_schemas WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
             data = {'owner': data_row['owner'], 'fields': fields['data']} if data_row is not None else None
-            interface_row = connection.execute('SELECT entry,method,request_url FROM interface_specs WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
+            interface_row = connection.execute('SELECT entry,method,request_url,kind,protocol FROM interface_specs WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
             interface = ({'entry': interface_row['entry'], 'method': interface_row['method'],
-                          'requestUrl': interface_row['request_url'], 'inputs': fields['input'],
+                          'requestUrl': interface_row['request_url'], 'kind': interface_row['kind'],
+                          'protocol': interface_row['protocol'], 'inputs': fields['input'],
                           'outputs': fields['output']} if interface_row is not None else None)
             return {**dict(row), 'refs': references, 'links': linked, 'event': event,
                     'triggeredFlows': triggered_flows, 'flow': flow, 'data': data, 'interface': interface}
@@ -513,8 +531,8 @@ class ContextStore:
                                        (self.role, topic_id, 'data', position, field['name'], field['type'], field['description'], int(field['required'])))
             if topic['interface'] is not None:
                 spec = topic['interface']
-                connection.execute('INSERT INTO interface_specs VALUES (?,?,?,?,?)',
-                                   (self.role, topic_id, spec['entry'], spec['method'], spec['requestUrl']))
+                connection.execute('INSERT INTO interface_specs VALUES (?,?,?,?,?,?,?)',
+                                   (self.role, topic_id, spec['entry'], spec['method'], spec['requestUrl'], spec['kind'], spec['protocol']))
                 for section, values in (('input', spec['inputs']), ('output', spec['outputs'])):
                     for position, field in enumerate(values):
                         connection.execute('INSERT INTO topic_fields VALUES (?,?,?,?,?,?,?,?)',

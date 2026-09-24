@@ -90,6 +90,7 @@ class HTTPTests(unittest.TestCase):
   store.set_category('data','订单输入字段',0)
   store.upsert('order-record',{'category':'data','title':'订单数据','summary':'只读输入','data':{'owner':'订单角色','fields':[{'name':'orderId','type':'string','required':True}]}},0)
   store.upsert('export-api',{'category':'interfaces','title':'导出接口','summary':'HTTP 接口','interface':{'entry':'orders.export','method':'POST','requestUrl':'/api/orders/export','inputs':[{'name':'status','type':'string'}],'outputs':[{'name':'taskId','type':'string'}]}},0)
+  store.upsert('internal-api',{'category':'interfaces','title':'订单内部接口','summary':'内部契约','interface':{'kind':'internal','entry':'OrderService.public.export','inputs':[{'name':'orderId','type':'string'}],'outputs':[{'name':'result','type':'ExportResult'}]}},0)
   store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取订单'}]}},0)
   server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(self.app));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
@@ -104,7 +105,10 @@ class HTTPTests(unittest.TestCase):
    with urlopen(url+'/api/context?'+urlencode({'role':'订单','category':'data'}),timeout=5) as response:
     self.assertEqual(json.load(response)['topics'][0]['data']['fields'][0]['name'],'orderId')
    with urlopen(url+'/api/context?'+urlencode({'role':'订单','category':'interfaces'}),timeout=5) as response:
-    self.assertEqual(json.load(response)['topics'][0]['interface']['requestUrl'],'/api/orders/export')
+    interfaces={topic['topic_id']:topic['interface'] for topic in json.load(response)['topics']}
+    self.assertEqual(interfaces['export-api']['requestUrl'],'/api/orders/export')
+    self.assertEqual(interfaces['export-api']['kind'],'network')
+    self.assertEqual(interfaces['internal-api']['kind'],'internal')
    with urlopen(url+'/role-atlas?embedded=1',timeout=5) as response:
     self.assertIn("frame-ancestors 'self'",response.headers['Content-Security-Policy'])
     self.assertIn('ROLE FLOW EXPLORER',response.read().decode())

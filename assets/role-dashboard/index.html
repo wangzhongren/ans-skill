@@ -71,8 +71,9 @@ function structuredFields(host,record){
   }
   if(record.category==='interfaces'){
     if(!record.interface){host.append(el('p','接口字段待补充。'));return}
-    host.append(el('p','入口：'+record.interface.entry));
-    if(record.interface.requestUrl){const url=el('div',undefined,'requesturl');url.append(el('b',record.interface.method),el('code',record.interface.requestUrl));host.append(url)}
+    const spec=record.interface,network=spec.kind==='network';
+    host.append(el('p',network?'类型：网络接口 · '+(spec.protocol||'Network'):'类型：内部接口'),el('p','入口：'+spec.entry));
+    if(network&&spec.requestUrl){const url=el('div',undefined,'requesturl');url.append(el('b',spec.method||spec.protocol),el('code',spec.requestUrl));host.append(url)}
     if(record.interface.inputs?.length)host.append(el('strong','输入字段'),fieldTable(record.interface.inputs));
     if(record.interface.outputs?.length)host.append(el('strong','输出字段'),fieldTable(record.interface.outputs));
   }
@@ -129,7 +130,15 @@ function renderContext(){
         const expectedRole=role.id,expectedCategory=category;
         fetch('/api/context?role='+encodeURIComponent(expectedRole)+'&category='+encodeURIComponent(expectedCategory),{cache:'no-store'}).then(async response=>{const result=await response.json();if(!response.ok)throw Error(result.error);if(contextCategoryCache.size>50)contextCategoryCache.clear();contextCategoryCache.set(key,result);if(view==='context'&&contextRoleId===expectedRole&&contextPage.category===expectedCategory&&!contextPage.topicId)renderContext()}).catch(error=>{if(contextRoleId===expectedRole&&contextPage.category===expectedCategory&&!contextPage.topicId)body.replaceChildren(empty('字段读取失败',error.message))});return;
       }
-      for(const topic of cached.topics){const card=el('article',undefined,'contextschema'),button=el('button','查看完整说明 →','btn');card.append(el('h3',topic.title),el('p',topic.summary));structuredFields(card,topic);button.onclick=()=>contextGo(category,topic.topic_id);card.append(button);body.append(card)}
+      function topicCard(topic){const card=el('article',undefined,'contextschema'),button=el('button','查看完整说明 →','btn');card.append(el('h3',topic.title),el('p',topic.summary));structuredFields(card,topic);button.onclick=()=>contextGo(category,topic.topic_id);card.append(button);return card}
+      if(category==='interfaces'){
+        for(const [kind,label] of [['network','网络接口'],['internal','内部接口']]){
+          const group=cached.topics.filter(topic=>(topic.interface?.kind||'internal')===kind),section=el('section',undefined,'contextsection');section.append(el('h3',label+' · '+group.length));
+          if(group.length)for(const topic of group)section.append(topicCard(topic));
+          else section.append(el('p','暂无'+label+'。','small muted'));
+          body.append(section);
+        }
+      }else for(const topic of cached.topics)body.append(topicCard(topic));
       return;
     }
     const grid=el('div',undefined,'contextgrid');for(const topic of topics)grid.append(contextCard(topic.title,topic.summary,'版本 '+topic.revision,()=>contextGo(category,topic.topic_id)));

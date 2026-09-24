@@ -98,7 +98,7 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 Dashboard 包含 **项目概览、项目理解、阶段任务、协作事件** 四个视图。点击角色卡可进入该角色的项目理解，先看到职责和修改边界。没有执行记录就显示“未上报”，不会用示例数据填充。
 
-项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 直接提供流程、数据、接口和定义总览；数据与接口总览展示具体字段，HTTP 接口还展示请求方法和 URL。点条目进入详情，流程详情展示触发条件、步骤、输入/输出数据和接口。角色职责与边界直接取自角色卡和边界文档。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。
+项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 直接提供流程、数据、接口和定义总览；接口总览分为**网络接口**与**内部接口**，网络接口展示协议、请求方法与 URL，两类都展示具体字段。点条目进入详情，流程详情展示触发条件、步骤、输入/输出数据和接口。角色职责与边界直接取自角色卡和边界文档。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。
 
 按钮点击或键盘激活如果启动了流程，直接写入该流程的触发条件；同次操作产生的 HTTP 请求作为流程步骤。“协作事件”只记录任务状态和设计变更，不采集每次真实按钮点击。
 
@@ -160,7 +160,7 @@ doc/                        # 本技能的变更、修复与验证记录
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-当前 71 项测试通过，覆盖图谱、查询、Dashboard、项目理解增删改查、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
+当前 72 项测试通过，覆盖图谱、查询、Dashboard、项目理解增删改查、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
 
 ```sh
 python3 scripts/validate_task_flow.py --source test/game-engine --output output/new-validation-run --node /absolute/path/to/node

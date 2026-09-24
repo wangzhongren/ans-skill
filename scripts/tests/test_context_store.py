@@ -85,7 +85,10 @@ class ContextStoreTests(unittest.TestCase):
   self.assertEqual(orders.get_topic('order-api')['interface']['requestUrl'],'/api/orders/export')
   self.assertEqual(orders.get_topic('order-api')['interface']['outputs'][0]['name'],'exportId')
   self.assertEqual(orders.get_topic('order-api')['interface']['method'],'POST')
-  with self.assertRaises(ValueError):orders.upsert('bad-api',{'category':'interfaces','title':'缺少方法','summary':'错误','interface':{'entry':'orders.export','requestUrl':'/api/orders/export','inputs':[{'name':'orderId','type':'string'}],'outputs':[]}},0)
+  self.assertEqual(orders.get_topic('order-api')['interface']['kind'],'network')
+  orders.upsert('order-service',{'category':'interfaces','title':'订单服务接口','summary':'内部公共契约','interface':{'kind':'internal','entry':'OrderService.public.export','inputs':[{'name':'orderId','type':'string'}],'outputs':[{'name':'result','type':'ExportResult'}]}},0)
+  self.assertEqual(orders.get_topic('order-service')['interface']['kind'],'internal')
+  with self.assertRaises(ValueError):orders.upsert('bad-api',{'category':'interfaces','title':'缺少方法','summary':'错误','interface':{'kind':'network','protocol':'HTTP','entry':'orders.export','requestUrl':'/api/orders/export','inputs':[{'name':'orderId','type':'string'}],'outputs':[]}},0)
   self.assertEqual(orders.overview()['steps'][0]['links'],linked)
   payments.upsert('payment-event',{'category':'events','title':'支付事件','summary':'支付专属','event':{'occurrence':'支付成功'}},0)
   self.assertTrue(payments.validate()['valid'])
@@ -115,7 +118,7 @@ class ContextStoreTests(unittest.TestCase):
   with self.assertRaises(ValueError):orders.overview()
   self.assertTrue(orders.migrate()['changed'])
   self.assertFalse(orders.migrate()['changed'])
-  self.assertEqual(orders.migrate()['schemaVersion'],5)
+  self.assertEqual(orders.migrate()['schemaVersion'],6)
   self.assertEqual(orders.overview()['summary'],'保留内容')
   self.assertEqual(orders.list_topics(),[])
 
@@ -134,7 +137,7 @@ class ContextStoreTests(unittest.TestCase):
   orders.upsert('export-click',{'category':'events','title':'点击导出','summary':'按钮事件','event':{'occurrence':'用户点击导出按钮'}},0)
   database=self.root/'project-context/context.sqlite3'
   with closing(sqlite3.connect(database)) as connection:
-   connection.executescript("DROP TABLE flow_trigger_conditions; CREATE TABLE event_triggers(role_id TEXT,topic_id TEXT,when_text TEXT,action_text TEXT); INSERT INTO event_triggers SELECT role_id,topic_id,occurrence,'旧动作' FROM event_definitions; DROP TABLE event_definitions; UPDATE meta SET schema_version=3;")
+   connection.executescript("DROP TABLE flow_trigger_conditions; CREATE TABLE event_triggers(role_id TEXT,topic_id TEXT,when_text TEXT,action_text TEXT); INSERT INTO event_triggers SELECT role_id,topic_id,occurrence,'旧动作' FROM event_definitions; DROP TABLE event_definitions; DROP TABLE interface_specs; CREATE TABLE interface_specs(role_id TEXT,topic_id TEXT,entry TEXT,method TEXT,request_url TEXT); UPDATE meta SET schema_version=3;")
    connection.commit()
   self.assertTrue(orders.migrate()['changed'])
   self.assertEqual(orders.get_topic('export-click')['event']['occurrence'],'用户点击导出按钮')
@@ -154,10 +157,21 @@ class ContextStoreTests(unittest.TestCase):
   orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'版本四内容'})
   database=self.root/'project-context/context.sqlite3'
   with closing(sqlite3.connect(database)) as connection:
-   connection.executescript('DROP TABLE flow_trigger_conditions; UPDATE meta SET schema_version=4;')
+   connection.executescript('DROP TABLE flow_trigger_conditions; DROP TABLE interface_specs; CREATE TABLE interface_specs(role_id TEXT,topic_id TEXT,entry TEXT,method TEXT,request_url TEXT); UPDATE meta SET schema_version=4;')
    connection.commit()
   self.assertTrue(orders.migrate()['changed'])
   self.assertEqual(orders.overview()['summary'],'版本四内容')
+
+ def test_migration_classifies_existing_network_interface(self):
+  orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'版本五内容'})
+  orders.upsert('export-api',{'category':'interfaces','title':'导出接口','summary':'HTTP','interface':{'entry':'orders.export','method':'POST','requestUrl':'/api/orders/export','inputs':[{'name':'status','type':'string'}],'outputs':[]}},0)
+  database=self.root/'project-context/context.sqlite3'
+  with closing(sqlite3.connect(database)) as connection:
+   connection.executescript('CREATE TABLE interface_specs_old AS SELECT role_id,topic_id,entry,method,request_url FROM interface_specs; DROP TABLE interface_specs; ALTER TABLE interface_specs_old RENAME TO interface_specs; UPDATE meta SET schema_version=5;')
+   connection.commit()
+  self.assertTrue(orders.migrate()['changed'])
+  self.assertEqual(orders.get_topic('export-api')['interface']['kind'],'network')
+  self.assertEqual(orders.get_topic('export-api')['interface']['protocol'],'HTTP')
 
 
 if __name__=='__main__':unittest.main()

@@ -29,15 +29,23 @@ For example, `订单导出` can have `when: "用户点击导出按钮"`; `导出
 }
 ```
 
-Data topics declare an owner and concrete fields. Interface topics declare an entry, input/output fields and, for HTTP, a method plus request URL. The Dashboard shows those fields in their overviews as well as Flow detail. Referenced topic IDs must already exist under the same role and expected category. For non-HTTP interfaces omit both `method` and `requestUrl`.
+Data topics declare an owner and concrete fields. Interface topics are explicitly divided into **network interfaces** (`kind: "network"`) and **internal interfaces** (`kind: "internal"`). Network entries show protocol, endpoint/request URL and input/output fields; HTTP also shows the method. Internal entries show the public code entry and its input/output fields. The Dashboard groups both in the Interface overview and shows their fields in Flow detail. Referenced topic IDs must already exist under the same role and expected category.
 
 ```json
 {"category":"data","title":"订单记录","summary":"导出的只读输入。","data":{"owner":"订单角色","fields":[{"name":"orderId","type":"string","required":true,"description":"订单编号"}]}}
 ```
 
 ```json
-{"category":"interfaces","title":"订单导出接口","summary":"接收条件并返回任务。","interface":{"entry":"orders.export","method":"POST","requestUrl":"/api/orders/export","inputs":[{"name":"status","type":"string","required":false,"description":"状态筛选"}],"outputs":[{"name":"taskId","type":"string","required":true,"description":"导出任务编号"}]}}
+{"category":"interfaces","title":"订单导出接口","summary":"接收条件并返回任务。","interface":{"kind":"network","protocol":"HTTP","entry":"orders.export","method":"POST","requestUrl":"/api/orders/export","inputs":[{"name":"status","type":"string","required":false,"description":"状态筛选"}],"outputs":[{"name":"taskId","type":"string","required":true,"description":"导出任务编号"}]}}
 ```
+
+Internal interface example:
+
+```json
+{"category":"interfaces","title":"订单服务公开接口","summary":"供相邻层调用订单能力。","interface":{"kind":"internal","entry":"OrderService.public.export","inputs":[{"name":"orderId","type":"string","required":true,"description":"订单编号"}],"outputs":[{"name":"result","type":"ExportResult","required":true,"description":"导出结果"}]}}
+```
+
+For an HTTP network interface, provide `protocol`, `method`, and `requestUrl`. A non-HTTP network interface still needs an endpoint URL and protocol but may omit the HTTP method. Internal interfaces omit all network fields. Existing version 5 HTTP records migrate to `network/HTTP`; records without a URL migrate to `internal`. Field names and types are required, descriptions are optional, and `required` is a boolean. Do not invent fields or URLs absent from accepted contracts or code.
 
 ## AI read and write commands
 
@@ -57,6 +65,6 @@ python3 /path/to/skill/scripts/context_store.py --root PROJECT --role orders --a
 python3 /path/to/skill/scripts/context_store.py --root PROJECT --role orders --actor-role orders restore order-export --expect-revision 2
 ```
 
-`init` creates the database on first use or adds a new role's overview; it does not overwrite existing rows. A new category summary or topic uses expected revision `0`; updates, deletion and restore require the current revision from a fresh read. Delete is a reversible tombstone. `migrate` upgrades version 1–4 databases to version 5 without erasing legacy Event rows; old Event links remain readable and can be converted to direct Flow triggers during an authorized update. Schema changes require the governance workflow, not an execution role's routine content task.
+`init` creates the database on first use or adds a new role's overview; it does not overwrite existing rows. A new category summary or topic uses expected revision `0`; updates, deletion and restore require the current revision from a fresh read. Delete is a reversible tombstone. `migrate` upgrades version 1–5 databases to version 6 without erasing legacy Event rows; old Event links remain readable and can be converted to direct Flow triggers during an authorized update. Schema changes require the governance workflow, not an execution role's routine content task.
 
 The database records current understanding, not a timeline. Dated design, feature, change and fix history stays in Markdown under `docs/`. After a verified change, the owning role updates affected rows only. Missing or stale rows are navigation gaps, not proof that source behavior is absent.
