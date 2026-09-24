@@ -1,8 +1,9 @@
 import json
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 import io
 from pathlib import Path
 import sys
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -11,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from dashboard.cloud_store import CloudStore
+from dashboard.cloud_store import CloudStore, digest, password_digest
 from dashboard.server import ThreadingHTTPServer, main, make_handler
 from dashboard.sync import projection
 
@@ -52,6 +53,70 @@ class CloudStoreTests(unittest.TestCase):
         self.assertEqual(self.store.projection('beta')['snapshot']['roles'], [])
         self.store.revoke_key(alpha['id'])
         self.assertFalse(self.store.key_allows('alpha', alpha['key']))
+        with self.assertRaisesRegex(ValueError, 'Project not found'):
+            self.store.ingest('ghost', sample('ghost', 'unknown'))
+        self.assertFalse((Path(self.tmp.name)/'projects/ghost.sqlite3').exists())
+
+    def test_each_project_owns_a_separate_sqlite_file(self):
+        self.store.add_project('alpha', 'Alpha')
+        self.store.add_project('beta', 'Beta')
+        alpha_value = sample('alpha', 'orders')
+        alpha_value['contexts'] = {'orders': {'outline': {'title': 'Order flow'}, 'topics': {}}}
+        self.store.ingest('alpha', alpha_value)
+        self.store.ingest('beta', sample('beta', 'billing'))
+        alpha = Path(self.tmp.name)/'projects/alpha.sqlite3'
+        beta = Path(self.tmp.name)/'projects/beta.sqlite3'
+        self.assertTrue(alpha.is_file() and beta.is_file())
+        with closing(sqlite3.connect(alpha)) as connection:
+            stored = json.loads(connection.execute('SELECT snapshot_json FROM projection').fetchone()[0])
+            self.assertEqual(stored['roles'][0]['id'], 'orders')
+        with closing(sqlite3.connect(beta)) as connection:
+            stored = json.loads(connection.execute('SELECT snapshot_json FROM projection').fetchone()[0])
+            self.assertEqual(stored['roles'][0]['id'], 'billing')
+        with closing(sqlite3.connect(self.store.db)) as connection:
+            columns = {row[1] for row in connection.execute('PRAGMA table_info(projects)')}
+            self.assertNotIn('snapshot_json', columns)
+        reopened = CloudStore(self.tmp.name)
+        self.assertEqual(reopened.projection('alpha')['snapshot']['roles'][0]['id'], 'orders')
+        self.assertEqual(reopened.projection('alpha')['contexts']['orders']['outline']['title'], 'Order flow')
+        self.assertEqual(reopened.projection('beta')['snapshot']['roles'][0]['id'], 'billing')
+        self.assertEqual(reopened.projection('beta')['contexts'], {})
+
+    def test_legacy_shared_snapshots_migrate_without_loss(self):
+        with tempfile.TemporaryDirectory() as root:
+            old_db = Path(root)/'dashboard.sqlite3'
+            with closing(sqlite3.connect(old_db)) as connection:
+                connection.execute('''CREATE TABLE projects (
+                    id TEXT PRIMARY KEY,title TEXT NOT NULL,snapshot_json TEXT,
+                    contexts_json TEXT,received_at TEXT,created_at TEXT NOT NULL)''')
+                connection.execute('''CREATE TABLE users (
+                    id INTEGER PRIMARY KEY,username TEXT NOT NULL UNIQUE,salt BLOB NOT NULL,
+                    password_hash BLOB NOT NULL,role TEXT NOT NULL,active INTEGER NOT NULL,
+                    failures INTEGER NOT NULL,locked_until REAL NOT NULL,created_at TEXT NOT NULL)''')
+                connection.execute('''CREATE TABLE project_keys (
+                    id INTEGER PRIMARY KEY,project_id TEXT NOT NULL,label TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL,revoked_at TEXT)''')
+                connection.execute('INSERT INTO projects VALUES (?,?,?,?,?,?)',
+                                   ('alpha', 'Old Alpha', json.dumps(sample('alpha', 'orders')['snapshot']),
+                                    '{}', '2026-09-24T00:00:00Z', '2026-09-24T00:00:00Z'))
+                salt = b'legacy-test-salt'
+                connection.execute('INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?)',
+                                   (1, 'legacy-admin', salt, password_digest(PASSWORD, salt),
+                                    'admin', 1, 0, 0, '2026-09-24T00:00:00Z'))
+                connection.execute('INSERT INTO project_keys VALUES (?,?,?,?,?,?)',
+                                   (1, 'alpha', 'old collector', digest('ansp_legacy_test'),
+                                    '2026-09-24T00:00:00Z', None))
+                connection.commit()
+            store = CloudStore(root)
+            self.assertEqual(store.projection('alpha')['snapshot']['roles'][0]['id'], 'orders')
+            self.assertEqual(store.authenticate('legacy-admin', PASSWORD)['role'], 'admin')
+            self.assertTrue(store.key_allows('alpha', 'ansp_legacy_test'))
+            self.assertTrue((Path(root)/'projects/alpha.sqlite3').is_file())
+            with closing(sqlite3.connect(old_db)) as connection:
+                record = connection.execute('''SELECT snapshot_json,contexts_json,received_at,last_received_at
+                    FROM projects WHERE id='alpha' ''').fetchone()
+                self.assertEqual(record, (None, None, None, '2026-09-24T00:00:00Z'))
+            self.assertEqual(CloudStore(root).projection('alpha')['snapshot']['roles'][0]['id'], 'orders')
 
     def test_membership_and_last_admin(self):
         self.store.add_project('alpha', 'Alpha')

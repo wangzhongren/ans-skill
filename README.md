@@ -104,7 +104,7 @@ Dashboard 包含 **项目概览、项目理解、阶段任务、协作事件** �
 
 业务项目本地运行 `python3 -m dashboard.sync`，读取角色卡摘要、边界路径、项目理解 SQLite 和任务记录，将**展示快照**同步到对应项目。服务器不用访问业务仓库，也不接收源码或角色文档全文。完整启动、Key 配置和部署示例见 [独立 Dashboard README](dashboard/README.md)。本地单项目模式无需登录，仍使用上面的启动命令。
 
-**数据库不是“服务器每项目一份”。**每个业务项目本地各有一份 `project-context/context.sqlite3`，按 `role_id` 保存角色理解；共享服务器只有一份 `dashboard.sqlite3`，按项目 ID 保存各项目的展示快照，同时保存用户、授权和项目 Key。同步的是页面需要的 JSON，不是本地 SQLite 文件。Docker 部署时服务器数据库位于持久卷中的 `/data/dashboard.sqlite3`。
+**服务器按项目分库。**每个业务项目本地各有一份 `project-context/context.sqlite3`；共享服务器为每个项目保存一份 `projects/<project-id>.sqlite3`，存该项目的展示快照。服务器另有一份 `dashboard.sqlite3`，只管用户、授权、Key 和项目元数据。同步的是页面需要的 JSON，不是本地 SQLite 文件。Docker 部署时这些数据库都位于 `/data` 持久卷中。
 
 项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 直接提供流程、数据、接口和定义总览；接口总览分为**网络接口**与**内部接口**，网络接口展示协议、请求方法与 URL，两类都展示具体字段。点条目进入详情，流程详情展示触发条件、步骤、输入/输出数据和接口。角色职责与边界直接取自角色卡和边界文档。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。
 

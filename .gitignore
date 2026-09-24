@@ -9,3 +9,4 @@ __pycache__/
 /test/game-engine/doc/role-atlas/
 /test/game-engine/src/doc/architecture/
 /dashboard/.env
+/dashboard/state/

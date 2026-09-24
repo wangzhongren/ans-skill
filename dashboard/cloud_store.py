@@ -1,5 +1,5 @@
-"""Persistent users, sessions, project keys, and dashboard projections."""
-from contextlib import contextmanager
+"""Shared access metadata and separate SQLite projections for each project."""
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 import hashlib
 import hmac
@@ -40,6 +40,10 @@ class CloudStore:
         self.state_dir = Path(state_dir).resolve()
         self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.db = self.state_dir/'dashboard.sqlite3'
+        self.projects_dir = self.state_dir/'projects'
+        if self.projects_dir.is_symlink():
+            raise ValueError('Project database directory must not be a symlink')
+        self.projects_dir.mkdir(mode=0o700, exist_ok=True)
         created = not self.db.exists()
         with self.connection() as connection:
             connection.executescript('''
@@ -52,8 +56,8 @@ class CloudStore:
                     token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     csrf_token TEXT NOT NULL, expires_at REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS projects (
-                    id TEXT PRIMARY KEY, title TEXT NOT NULL, snapshot_json TEXT,
-                    contexts_json TEXT, received_at TEXT, created_at TEXT NOT NULL);
+                    id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                    last_received_at TEXT, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS memberships (
                     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -63,8 +67,71 @@ class CloudStore:
                     label TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
                     created_at TEXT NOT NULL, revoked_at TEXT);
             ''')
+            columns = {row['name'] for row in connection.execute('PRAGMA table_info(projects)')}
+            if 'last_received_at' not in columns:
+                connection.execute('ALTER TABLE projects ADD COLUMN last_received_at TEXT')
+            self.has_legacy_projection = {'snapshot_json', 'contexts_json', 'received_at'} <= columns
         if created:
             os.chmod(self.db, 0o600)
+        self.migrate_project_data()
+
+    def project_path(self, project_id):
+        if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
+            raise ValueError('Invalid project id')
+        if self.projects_dir.is_symlink():
+            raise ValueError('Project database directory must not be a symlink')
+        path = self.projects_dir/(project_id+'.sqlite3')
+        if path.is_symlink():
+            raise ValueError('Project database file must not be a symlink')
+        return path
+
+    def ensure_project_db(self, project_id):
+        path = self.project_path(project_id)
+        created = not path.exists()
+        with closing(sqlite3.connect(path, timeout=5)) as connection:
+            connection.execute('PRAGMA busy_timeout=5000')
+            connection.execute('''CREATE TABLE IF NOT EXISTS projection (
+                singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                snapshot_json TEXT NOT NULL, contexts_json TEXT NOT NULL,
+                received_at TEXT NOT NULL)''')
+            connection.commit()
+        if created:
+            os.chmod(path, 0o600)
+        return path
+
+    def write_project_data(self, project_id, snapshot_json, contexts_json, received_at, migrate=False):
+        with self.connection() as connection:
+            if connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
+                raise ValueError('Project not found')
+        path = self.ensure_project_db(project_id)
+        with self.connection() as connection:
+            if migrate:
+                connection.execute('PRAGMA secure_delete=ON')
+            connection.execute('ATTACH DATABASE ? AS project_data', (str(path),))
+            connection.execute('BEGIN IMMEDIATE')
+            if connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
+                raise ValueError('Project not found')
+            connection.execute('''INSERT OR REPLACE INTO project_data.projection
+                (singleton,snapshot_json,contexts_json,received_at) VALUES (1,?,?,?)''',
+                               (snapshot_json, contexts_json, received_at))
+            if migrate:
+                connection.execute('''UPDATE projects SET last_received_at=?,
+                    snapshot_json=NULL,contexts_json=NULL,received_at=NULL WHERE id=?''',
+                                   (received_at, project_id))
+            else:
+                connection.execute('UPDATE projects SET last_received_at=? WHERE id=?',
+                                   (received_at, project_id))
+
+    def migrate_project_data(self):
+        with self.connection() as connection:
+            rows = connection.execute('SELECT id FROM projects').fetchall()
+            legacy = connection.execute('''SELECT id,snapshot_json,contexts_json,received_at FROM projects
+                WHERE snapshot_json IS NOT NULL''').fetchall() if self.has_legacy_projection else []
+        for row in rows:
+            self.ensure_project_db(row['id'])
+        for row in legacy:
+            self.write_project_data(row['id'], row['snapshot_json'], row['contexts_json'] or '{}',
+                                    row['received_at'] or utcnow(), migrate=True)
 
     @contextmanager
     def connection(self):
@@ -146,13 +213,13 @@ class CloudStore:
     def projects_for(self, user):
         with self.connection() as connection:
             if user['role'] == 'admin':
-                rows = connection.execute('SELECT id,title,received_at FROM projects ORDER BY title,id')
+                rows = connection.execute('SELECT id,title,last_received_at FROM projects ORDER BY title,id')
             else:
-                rows = connection.execute('''SELECT projects.id,projects.title,projects.received_at
+                rows = connection.execute('''SELECT projects.id,projects.title,projects.last_received_at
                     FROM projects JOIN memberships ON memberships.project_id=projects.id
                     WHERE memberships.user_id=? ORDER BY projects.title,projects.id''', (user['id'],))
             return [{'id': row['id'], 'name': row['title'], 'url': '/p/'+row['id']+'/',
-                     'receivedAt': row['received_at']} for row in rows]
+                     'receivedAt': row['last_received_at']} for row in rows]
 
     def can_view(self, user, project_id):
         if user['role'] == 'admin':
@@ -170,6 +237,7 @@ class CloudStore:
         with self.connection() as connection:
             connection.execute('INSERT INTO projects(id,title,created_at) VALUES (?,?,?)',
                                (project_id, title.strip(), utcnow()))
+            self.ensure_project_db(project_id)
         return {'id': project_id, 'name': title.strip(), 'url': '/p/'+project_id+'/'}
 
     def users(self):
@@ -257,26 +325,32 @@ class CloudStore:
         serialized = json.dumps({'snapshot': clean_snapshot, 'contexts': contexts}, ensure_ascii=False)
         if len(serialized.encode('utf-8')) > MAX_PROJECTION_BYTES:
             raise ValueError('Projection exceeds 4 MiB')
-        with self.connection() as connection:
-            if connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
-                raise ValueError('Project not found')
-            connection.execute('UPDATE projects SET snapshot_json=?,contexts_json=?,received_at=? WHERE id=?',
-                               (json.dumps(clean_snapshot, ensure_ascii=False), json.dumps(contexts, ensure_ascii=False), utcnow(), project_id))
+        self.write_project_data(project_id, json.dumps(clean_snapshot, ensure_ascii=False),
+                                json.dumps(contexts, ensure_ascii=False), utcnow())
         return {'projectId': project_id, 'received': True}
 
     def projection(self, project_id):
         with self.connection() as connection:
-            row = connection.execute('SELECT title,snapshot_json,contexts_json,received_at FROM projects WHERE id=?',
+            row = connection.execute('SELECT title,last_received_at FROM projects WHERE id=?',
                                      (project_id,)).fetchone()
             if row is None:
                 raise ValueError('Project not found')
-            if row['snapshot_json'] is None:
-                return {'snapshot': {'project': row['title'], 'projectId': project_id, 'roles': [],
-                                     'tasks': [], 'events': [], 'issues': [], 'sampledAt': None,
-                                     'refreshSeconds': 2, 'limitations': ['项目尚未同步数据。']},
-                        'contexts': {}, 'receivedAt': None}
-            snapshot = json.loads(row['snapshot_json'])
-            snapshot['project'] = row['title']
-            snapshot['receivedAt'] = row['received_at']
-            return {'snapshot': snapshot, 'contexts': json.loads(row['contexts_json']),
-                    'receivedAt': row['received_at']}
+        path = self.project_path(project_id)
+        if not path.exists():
+            raise sqlite3.DatabaseError('Project database file is missing')
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro', uri=True, timeout=5)) as connection:
+            connection.row_factory = sqlite3.Row
+            projection = connection.execute('''SELECT snapshot_json,contexts_json,received_at
+                FROM projection WHERE singleton=1''').fetchone()
+        if projection is None:
+            if row['last_received_at'] is not None:
+                raise sqlite3.DatabaseError('Project projection is missing')
+            return {'snapshot': {'project': row['title'], 'projectId': project_id, 'roles': [],
+                                 'tasks': [], 'events': [], 'issues': [], 'sampledAt': None,
+                                 'refreshSeconds': 2, 'limitations': ['项目尚未同步数据。']},
+                    'contexts': {}, 'receivedAt': None}
+        snapshot = json.loads(projection['snapshot_json'])
+        snapshot['project'] = row['title']
+        snapshot['receivedAt'] = projection['received_at']
+        return {'snapshot': snapshot, 'contexts': json.loads(projection['contexts_json']),
+                'receivedAt': projection['received_at']}

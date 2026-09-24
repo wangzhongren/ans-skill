@@ -17,7 +17,7 @@ docker compose up -d
 docker compose ps
 ```
 
-管理员初始化命令会交互读取密码，至少 15 个字符；只执行一次。Compose 项目名固定为 `ans-dashboard`，状态放在 `dashboard-state` 命名卷，容器以非 root 身份运行。宿主机只发布 `127.0.0.1:${ANS_DASHBOARD_PORT:-8765}`；用下方 Nginx 示例将 HTTPS 域名转发到这个端口，修改端口时同步修改代理配置。不要将容器端口直接发布到公网，也不要用 `docker compose down -v` 删除状态卷。升级时在新代码目录运行 `docker compose up -d --build`，保留同一个 Compose 项目名和状态卷。查看日志用 `docker compose logs -f dashboard`。
+管理员初始化命令会交互读取密码，至少 15 个字符；只执行一次。Compose 项目名固定为 `ans-dashboard`，元数据库和各项目数据库都保存在 `dashboard-state` 命名卷中，容器以非 root 身份运行。宿主机只发布 `127.0.0.1:${ANS_DASHBOARD_PORT:-8765}`；用下方 Nginx 示例将 HTTPS 域名转发到这个端口，修改端口时同步修改代理配置。不要将容器端口直接发布到公网，也不要用 `docker compose down -v` 删除状态卷。升级时在新代码目录运行 `docker compose up -d --build`，保留同一个 Compose 项目名和状态卷。查看日志用 `docker compose logs -f dashboard`。
 
 Docker 镜像只包含 Dashboard 的 Python/HTML/CSS/JS；业务项目文件仍在各自本地，通过下方同步命令发送展示快照。容器内服务监听 `0.0.0.0`，这是为了接收 Docker 端口映射；宿主机映射依然只监听回环地址。首次启动前必须创建管理员，否则服务会拒绝启动。
 
@@ -34,7 +34,7 @@ python3 -m dashboard.server --cloud-state /srv/ans-dashboard/state --port 8765 -
 
 第一条命令交互输入管理员密码，至少 15 个字符。只可用它创建第一个管理员；以后在网页 `/manage` 添加用户、项目和项目 Key。Key **仅创建时显示一次**，请交给对应项目的同步端。用户权限与 Key 分开：用户登录看获授权项目；Key 只允许同步和读取它所属项目的投影。
 
-直接运行时服务默认监听 `127.0.0.1`。线上用 HTTPS 反向代理把域名转发到该端口，并把原始 `Host` 传给服务。`--trusted-host` 写公开域名（如使用非默认端口则包含端口）；生产会话 Cookie 设置 `Secure`，所以网页必须经 HTTPS 访问。确保状态目录只允许服务账号读写，并备份其中的 `dashboard.sqlite3`。建议用服务器的进程管理器托管上述命令。不要将本地预览参数 `--insecure-local-preview` 用在线上。
+直接运行时服务默认监听 `127.0.0.1`。线上用 HTTPS 反向代理把域名转发到该端口，并把原始 `Host` 传给服务。`--trusted-host` 写公开域名（如使用非默认端口则包含端口）；生产会话 Cookie 设置 `Secure`，所以网页必须经 HTTPS 访问。确保状态目录只允许服务账号读写，并备份整个状态目录（元数据库与 `projects/`）。建议用服务器的进程管理器托管上述命令。不要将本地预览参数 `--insecure-local-preview` 用在线上。
 
 一个 Nginx 入口示例：
 
@@ -84,8 +84,12 @@ python3 -m dashboard.server --root /path/to/business-project --port 0
 ## 数据库存储
 
 1. **业务项目本地**：每个项目各有自己的 `project-context/context.sqlite3`，按 `role_id` 保存角色理解。同步器只读取它并生成展示 JSON；原数据库文件不会上传。
-2. **共享服务器**：一份 Dashboard 实例只用一份 `<cloud-state>/dashboard.sqlite3`。Docker 中路径是 `/data/dashboard.sqlite3`，位于持久 `dashboard-state` 卷。项目展示快照按项目 ID 存在不同记录中；用户、项目授权、会话和项目 Key 也在同一数据库中。服务器不会为每个项目另建 SQLite 文件。
-3. **隔离与备份**：用户授权和项目 Key 按项目检查，这是逻辑隔离，不是数据库文件隔离。备份服务器数据库会同时覆盖所有项目和账号；若需单项目独立备份或物理隔离，需要另行设计每项目数据库方案。
+2. **共享服务器**：每个项目的展示快照单独存于 `<cloud-state>/projects/<project-id>.sqlite3`。共享的 `<cloud-state>/dashboard.sqlite3` 只保存用户、会话、项目登记、授权、Key 和最近同步时间，不保存新写入的项目快照。Docker 中 `<cloud-state>` 是 `/data`，这些文件都在同一个持久卷里。
+3. **隔离与备份**：项目展示数据是物理分库，查看与同步权限仍由共享元数据库校验。备份时应停止服务并备份整个状态目录或卷，包含 `dashboard.sqlite3` 和 `projects/`；只备份一个项目文件不能恢复该项目的账号和授权。
+
+### 从旧版共享库升级
+
+先停止旧服务并备份完整状态目录或 Docker 状态卷。用新代码启动时，服务会把旧 `dashboard.sqlite3` 中的项目快照迁移到 `projects/<project-id>.sqlite3`，然后清空旧的快照字段；用户、授权与 Key 保留。迁移失败会停止启动，尚未迁移的旧记录不会清空；修复原因后可重新启动继续迁移。确认各项目页面和授权正常后，再恢复同步器。
 
 ## 数据边界
 
