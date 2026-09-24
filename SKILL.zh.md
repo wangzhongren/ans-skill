@@ -51,6 +51,8 @@ Model：由全部四个操作层共享
 
 项目只维护一份 [`project-context/context.sqlite3`](references/project-context.md)。每个角色按 `role_id` 先读自己的总览，再查询相关主题；新增、修改、删除通过统一 CLI 和已接受的行级边界执行。正式契约与源码仍是定义依据，项目理解不扩大修改权限。
 
+按钮点击、键盘激活等 UI 操作如果会启动行为，直接写在流程的 `triggers` 中，说明触发条件和对应的 Interface 入口。同一次用户操作产生的 HTTP 请求是流程步骤；不要为了这个条件再单独创建事件条目。详见 [Interface 约束](references/interface.md)与[项目理解规范](references/project-context.md)。
+
 ### 角色卡（Role Card）
 
 每张角色卡标识一个智能体角色及其范围边界，包含：

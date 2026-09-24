@@ -17,14 +17,14 @@
 </style>
 </head>
 <body>
-<div class="layout"><aside class="sidebar"><div class="brand"><div class="brandmark">A/N</div><div><b>ANS</b><small>PROJECT CONTROL</small></div></div><div class="navlabel">工作空间</div><button class="navbtn active" data-view="overview"><span class="navicon">▦</span>项目概览<span class="navcount">01</span></button><button class="navbtn" data-view="context"><span class="navicon">▤</span>项目理解</button><button class="navbtn" data-view="tasks"><span class="navicon">☷</span>阶段任务<span class="navcount" id="navTasks">—</span></button><button class="navbtn" data-view="events"><span class="navicon">◷</span>事件记录<span class="navcount" id="navEvents">—</span></button><div class="sidebottom"><strong><span class="dot"></span>LOCAL WORKSPACE</strong>记录留在本机<br>只读观察 · 不派发任务</div></aside>
+<div class="layout"><aside class="sidebar"><div class="brand"><div class="brandmark">A/N</div><div><b>ANS</b><small>PROJECT CONTROL</small></div></div><div class="navlabel">工作空间</div><button class="navbtn active" data-view="overview"><span class="navicon">▦</span>项目概览<span class="navcount">01</span></button><button class="navbtn" data-view="context"><span class="navicon">▤</span>项目理解</button><button class="navbtn" data-view="tasks"><span class="navicon">☷</span>阶段任务<span class="navcount" id="navTasks">—</span></button><button class="navbtn" data-view="events"><span class="navicon">◷</span>协作事件<span class="navcount" id="navEvents">—</span></button><div class="sidebottom"><strong><span class="dot"></span>LOCAL WORKSPACE</strong>记录留在本机<br>只读观察 · 不派发任务</div></aside>
 <div class="shell"><header class="topbar"><div class="crumb"><span>工作空间</span><span>/</span><strong id="project">加载项目…</strong></div><div class="connection" id="connection"><span><i class="dot"></i><span id="connectionText">正在连接</span></span><span class="readonly">READ ONLY</span></div></header><main class="content">
 <div class="heading"><div><div class="eyebrow">ROLE COORDINATION</div><h1 id="pageTitle">每个角色，进展清晰。</h1><p class="subtitle" id="pageSubtitle">角色、阶段与设计版本，在一个视图中保持同步。</p></div><div class="actions"><button class="btn" id="refresh">↻ 刷新记录</button><button class="btn primary" id="help">接入说明 ↗</button></div></div>
 <div id="notice" class="notice" hidden><button id="issuesButton">查看详情</button><span id="noticeText"></span></div>
 <section class="metrics" id="metrics" aria-label="项目指标"><div class="metric"><div class="label">已定义角色<span class="symbol">▧</span></div><strong id="roleCount">—</strong><small id="roleHint">从项目角色卡读取</small></div><div class="metric"><div class="label">执行中<span class="symbol">↗</span></div><strong id="runningCount">—</strong><small>依据最新阶段记录</small></div><div class="metric"><div class="label">待验收<span class="symbol">◉</span></div><strong id="reviewCount">—</strong><small>等待项目角色核对证据</small></div><div class="metric"><div class="label">需要关注<span class="symbol">◇</span></div><strong id="attentionCount">—</strong><small>阻塞、失败或记录不一致</small></div></section>
 <div class="columns" id="overview"><div><section class="panel"><div class="panelhead"><h2>角色工作台</h2><span class="pill" id="roleTotal">读取中</span></div><div class="tools"><label class="searchbox"><span>⌕</span><input id="roleSearch" type="search" placeholder="搜索角色名称或职责" aria-label="搜索角色"></label><select id="roleFilter" aria-label="角色状态筛选"><option value="all">全部状态</option><option value="running">执行中</option><option value="awaiting-verification">待验收</option><option value="blocked">需要关注</option><option value="unreported">未上报</option><option value="verified">已完成</option></select></div><div id="roleGrid" class="rolegrid"></div></section><section class="panel"><div class="panelhead"><h2>阶段任务</h2><button class="btn" id="allTasks">全部任务 ↗</button></div><div id="taskPreview"></div></section></div><aside class="rightpanel"><section class="panel"><div class="panelhead"><h2>最近事件</h2><span class="small muted">最新 100 条内</span></div><div class="timeline" id="eventPreview"></div></section><div class="info"><strong>从角色定义，到可追踪的执行</strong><div class="step"><b>1</b><span>项目角色写入计划与状态</span></div><div class="step"><b>2</b><span>执行角色反馈结果与依据版本</span></div><div class="step"><b>3</b><span>项目角色验收，页面自动刷新</span></div><button id="helpInline">查看记录格式与接入方式 →</button></div></aside></div>
 <section class="panel" id="tasksView" hidden><div class="panelhead"><h2>全部阶段任务</h2><span class="small muted">每行对应一个阶段，不等于整个角色</span></div><div class="tools"><label class="searchbox"><span>⌕</span><input id="taskSearch" type="search" placeholder="搜索任务、角色或反馈" aria-label="搜索任务"></label></div><div id="taskTable"></div></section>
-	<section class="panel" id="eventsView" hidden><div class="panelhead"><h2>事件记录</h2><span class="small muted">需求变更与设计修订作为事件保留</span></div><div id="eventFull" class="timeline" style="max-height:none"></div></section>
+	<section class="panel" id="eventsView" hidden><div class="panelhead"><h2>协作事件记录</h2><span class="small muted">任务反馈、需求变更与设计修订；业务触发器见“项目理解 → 事件总览”</span></div><div id="eventFull" class="timeline" style="max-height:none"></div></section>
 	<section id="contextView" hidden><div class="contexttoolbar"><div id="contextTrail" class="contexttrail"></div><select id="contextRole" aria-label="项目理解角色"></select></div><div id="contextRoleInfo" class="contextroleinfo"></div><div id="contextTabs" class="contexttabs" aria-label="项目理解总览"></div><div id="contextBody"></div></section>
 <footer class="footer"><span>每 2 秒读取磁盘记录 · 不代表代理进程在线 · 不自动验收</span><span id="lastUpdated">尚未收到记录</span></footer>
 </main></div></div>
@@ -54,7 +54,7 @@ function roleDetail(r){
   }
   body.append(el('h3','只读文档'),buttons,content);
 }
-const contextLabels={flows:['流程总览','该角色参与的工作路径'],events:['事件总览','触发条件与后续动作'],data:['数据总览','输入、输出与数据归属'],interfaces:['接口总览','公开能力与调用关系'],definitions:['定义总览','术语与职责边界']};
+const contextLabels={flows:['流程总览','该角色参与的工作路径'],data:['数据总览','输入、输出与数据归属'],interfaces:['接口总览','公开能力与调用关系'],definitions:['定义总览','术语与职责边界']};
 function openContext(roleId){contextRoleId=roleId;contextPage={category:'flows',topicId:null};contextDetail=null;setView('context')}
 function contextGo(category,topicId=null){contextPage={category,topicId};contextDetail=null;renderContext();window.scrollTo({top:0})}
 function contextCard(title,description,meta,action){const card=el('button',undefined,'contextcard');card.append(el('span',meta,'count'),el('strong',title),el('p',description||'暂无摘要'),el('span','查看详情 →','arrow'));card.onclick=action;return card}
@@ -87,8 +87,7 @@ function contextRelated(ids,topics,roleId){
     function show(record){
       if(!card.isConnected)return;
       details.replaceChildren();
-      if(record.trigger){details.append(el('p','触发：'+record.trigger.when),el('p','动作：'+record.trigger.action));if(record.trigger.consumers?.length)details.append(el('small','消费方：'+record.trigger.consumers.join(' · ')))}
-      else details.append(el('p',record.details||'暂无详细说明'));
+      details.append(el('p',record.details||'暂无详细说明'));
       structuredFields(details,record);
       if(record.refs?.length)details.append(el('small',record.refs.join(' · ')));
     }
@@ -148,15 +147,10 @@ function renderContext(){
   if(category==='flows'){
     const flow=topic.flow;
     if(flow){
-      relatedSection('触发流程的事件',flow.triggeredBy);
+      if(flow.triggers?.length){const section=el('section',undefined,'contextsection'),list=el('div',undefined,'contextrelated');section.append(el('h3','触发条件'));for(const trigger of flow.triggers){const card=el('article',undefined,'contextrelatedcard');card.append(el('strong',trigger.when));if(trigger.sourceFlow){const source=context.topics.find(item=>item.topic_id===trigger.sourceFlow);card.append(el('p','来自流程：'+(source?.title||trigger.sourceFlow)))}if(trigger.ref)card.append(el('small',trigger.ref));list.append(card)}section.append(list);body.append(section)}
       if(flow.steps?.length){const section=el('section',undefined,'contextsection'),steps=el('div',undefined,'contextflow');section.append(el('h3','流程步骤'));for(const [index,step] of flow.steps.entries()){const card=el('article',undefined,'contextstep');card.append(el('b',String(index+1).padStart(2,'0')),el('strong',step.title),el('p',step.description));if(step.ref)card.append(el('small',step.ref));steps.append(card)}section.append(steps);body.append(section)}
-      relatedSection('输入数据',flow.inputs);relatedSection('输出数据',flow.outputs);relatedSection('相关接口',flow.interfaces);relatedSection('流程产生的事件',flow.emits);
-    }else body.append(empty('流程结构待补充','请补充触发事件、执行步骤、输入和输出数据。'));
-  }
-  if(category==='events'){
-    const trigger=topic.trigger;
-    if(trigger){const section=el('section',undefined,'contextsection'),card=el('article',undefined,'contextbody');section.append(el('h3','触发器'));card.append(el('strong','触发条件'),el('p',trigger.when),el('strong','执行动作'),el('p',trigger.action));if(trigger.consumers?.length)card.append(el('strong','消费方'),el('p',trigger.consumers.join(' · ')));section.append(card);body.append(section)}
-    else body.append(empty('触发器待补充','请补充触发条件、执行动作与消费方。'));
+      relatedSection('输入数据',flow.inputs);relatedSection('输出数据',flow.outputs);relatedSection('相关接口',flow.interfaces);
+    }else body.append(empty('流程结构待补充','请补充触发条件、执行步骤、输入和输出数据。'));
   }
   if(category==='data'||category==='interfaces'){const section=el('section',undefined,'contextsection'),fields=el('div',undefined,'contextbody');section.append(el('h3',category==='data'?'数据字段':'接口字段'));structuredFields(fields,topic);section.append(fields);body.append(section)}
   if(topic.details){const section=el('section',undefined,'contextsection'),detail=el('div',undefined,'contextbody');section.append(el('h3','说明'));for(const paragraph of topic.details.split(/\n+/).filter(Boolean))detail.append(el('p',paragraph));section.append(detail);body.append(section)}
@@ -172,7 +166,7 @@ function setView(v){
   view=v;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   $('overview').hidden=v!=='overview';$('contextView').hidden=v!=='context';$('tasksView').hidden=v!=='tasks';$('eventsView').hidden=v!=='events';$('metrics').hidden=v==='context';
   $('pageTitle').textContent={overview:'每个角色，进展清晰。',context:'按角色查看项目理解。',tasks:'从阶段任务，看到交付。',events:'每一次变化，都有记录。'}[v];
-  $('pageSubtitle').textContent=v==='context'?'角色职责、边界和流程、事件、数据、接口一页可查。':'角色、阶段与设计版本，在一个视图中保持同步。';
+  $('pageSubtitle').textContent=v==='context'?'角色职责、边界和流程、数据、接口一页可查。':'角色、阶段与设计版本，在一个视图中保持同步。';
   if(v==='context')renderContext();
 }
 async function refresh(){if(loading)return;clearTimeout(refreshTimer);loading=true;$('refresh').disabled=true;try{const r=await fetch('/api/snapshot',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();const signature=JSON.stringify({...d,sampledAt:null});data=d;lastSuccess=d.sampledAt;if(signature!==lastDataSignature){render();lastDataSignature=signature;}else{$('lastUpdated').textContent='最近读取 '+when(d.sampledAt);}$('notice').hidden=!d.issues.length;if(d.issues.length)$('noticeText').textContent=d.issues.length+' 项记录需要核对，受影响状态不会显示为已验收。';$('connection').classList.remove('failed');$('connectionText').textContent='记录已连接 · 2s 刷新';}catch(e){$('connection').classList.add('failed');$('connectionText').textContent='连接中断';$('notice').hidden=false;$('noticeText').textContent='无法刷新：'+e.message+(lastSuccess?'。当前展示 '+when(lastSuccess)+' 的旧快照。':'。请检查本地服务是否启动。');}finally{loading=false;$('refresh').disabled=false;refreshTimer=setTimeout(refresh,2000)}}

@@ -12,7 +12,7 @@ import sys
 
 CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 TOPIC_ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 5
 SCHEMA = '''
 PRAGMA foreign_keys=ON;
 CREATE TABLE meta (schema_version INTEGER NOT NULL);
@@ -23,10 +23,10 @@ CREATE TABLE category_summaries (role_id TEXT NOT NULL REFERENCES overview(role_
 CREATE TABLE topics (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, category TEXT NOT NULL CHECK(category IN ('flows','definitions','events','interfaces','data')), title TEXT NOT NULL, summary TEXT NOT NULL, details TEXT NOT NULL, revision INTEGER NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, PRIMARY KEY(role_id,topic_id));
 CREATE TABLE topic_refs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE topic_links (role_id TEXT NOT NULL, source_topic_id TEXT NOT NULL, position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,source_topic_id,position), FOREIGN KEY(role_id,source_topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
-CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
-CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE event_definitions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, occurrence TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
+CREATE TABLE flow_trigger_conditions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, when_text TEXT NOT NULL, source_flow_id TEXT, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,source_flow_id) REFERENCES topics(role_id,topic_id));
 CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
@@ -98,9 +98,24 @@ def flow_input(value):
         cleaned.append({'title': required_text(step.get('title'), 'flow step title'),
                         'description': optional_text(step.get('description', ''), 'flow step description'),
                         'ref': optional_text(step.get('ref', ''), 'flow step ref')})
-    result = {'steps': cleaned}
+    triggers = value.get('triggers', [])
+    if not isinstance(triggers, list):
+        raise ValueError('Flow triggers must be an array')
+    cleaned_triggers = []
+    for trigger in triggers:
+        if not isinstance(trigger, dict):
+            raise ValueError('Flow trigger must be an object')
+        source_flow = trigger.get('sourceFlow')
+        if source_flow is not None and (not isinstance(source_flow, str) or not TOPIC_ID.fullmatch(source_flow)):
+            raise ValueError('sourceFlow must be a flow topic ID')
+        cleaned_triggers.append({'when': required_text(trigger.get('when'), 'flow trigger.when'),
+                                 'sourceFlow': source_flow,
+                                 'ref': optional_text(trigger.get('ref', ''), 'flow trigger.ref')})
+    result = {'steps': cleaned, 'triggers': cleaned_triggers}
     for name in FLOW_RELATIONS:
         result[name] = links(value.get(name, []))
+    if result['triggers'] and result['triggeredBy']:
+        raise ValueError('Use direct flow triggers or legacy event links, not both')
     return result
 
 
@@ -155,15 +170,15 @@ def topic_input(value):
     category = value.get('category')
     if category not in CATEGORIES:
         raise ValueError('category must be one of '+', '.join(CATEGORIES))
-    trigger = value.get('trigger')
+    event = value.get('event')
     if category == 'events':
-        if not isinstance(trigger, dict):
-            raise ValueError('Event topics require trigger details')
-        trigger = {'when': required_text(trigger.get('when'), 'trigger.when'),
-                   'action': required_text(trigger.get('action'), 'trigger.action'),
-                   'consumers': refs(trigger.get('consumers', []))}
-    elif trigger is not None:
-        raise ValueError('Only event topics may define a trigger')
+        if not isinstance(event, dict):
+            raise ValueError('Event topics require an event definition')
+        event = {'occurrence': required_text(event.get('occurrence'), 'event.occurrence')}
+    elif event is not None:
+        raise ValueError('Only event topics may define an occurrence')
+    if value.get('trigger') is not None:
+        raise ValueError('Use event.occurrence; flow relationships define what happens next')
     flow = value.get('flow')
     if category == 'flows':
         flow = flow_input(flow)
@@ -183,7 +198,7 @@ def topic_input(value):
             'summary': optional_text(value.get('summary'), 'summary'),
             'details': optional_text(value.get('details', ''), 'details'),
             'refs': refs(value.get('refs', [])), 'links': links(value.get('links', [])),
-            'trigger': trigger, 'flow': flow, 'data': data, 'interface': interface}
+            'event': event, 'flow': flow, 'data': data, 'interface': interface}
 
 
 def category_input(value):
@@ -267,16 +282,25 @@ class ContextStore:
             if version == SCHEMA_VERSION:
                 connection.commit()
                 return {'schemaVersion': version, 'changed': False}
-            if version not in (1, 2):
+            if version not in (1, 2, 3, 4):
                 raise ValueError('Unsupported context database schema')
             if version == 1:
                 connection.execute('CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
                 connection.execute('CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE)')
                 connection.execute('CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
                 connection.execute("CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id))")
-            connection.execute('CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
-            connection.execute('CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
-            connection.execute("CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)")
+                version = 2
+            if version == 2:
+                connection.execute('CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute('CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute("CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)")
+                version = 3
+            if version == 3:
+                connection.execute('CREATE TABLE event_definitions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, occurrence TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute('INSERT INTO event_definitions SELECT role_id,topic_id,when_text FROM event_triggers')
+                version = 4
+            if version == 4:
+                connection.execute('CREATE TABLE flow_trigger_conditions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, when_text TEXT NOT NULL, source_flow_id TEXT, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,source_flow_id) REFERENCES topics(role_id,topic_id))')
             connection.execute('UPDATE meta SET schema_version=?', (SCHEMA_VERSION,))
             connection.commit()
             return {'schemaVersion': SCHEMA_VERSION, 'changed': True}
@@ -399,17 +423,24 @@ class ContextStore:
                 raise ValueError('Topic not found for this role')
             references = [ref['ref'] for ref in connection.execute('SELECT ref FROM topic_refs WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
             linked = [item['target_topic_id'] for item in connection.execute('SELECT target_topic_id FROM topic_links WHERE role_id=? AND source_topic_id=? ORDER BY position', (self.role, topic_id))]
-            trigger_row = connection.execute('SELECT when_text,action_text FROM event_triggers WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
-            trigger = None
-            if trigger_row is not None:
-                consumers = [item['consumer'] for item in connection.execute('SELECT consumer FROM event_trigger_consumers WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
-                trigger = {'when': trigger_row['when_text'], 'action': trigger_row['action_text'], 'consumers': consumers}
+            event_row = connection.execute('SELECT occurrence FROM event_definitions WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
+            event = {'occurrence': event_row['occurrence']} if event_row is not None else None
+            triggered_flows = []
+            if row['category'] == 'events':
+                triggered_flows = [item['topic_id'] for item in connection.execute("SELECT flow.topic_id FROM flow_relations AS relation JOIN topics AS flow ON flow.role_id=relation.role_id AND flow.topic_id=relation.topic_id WHERE relation.role_id=? AND relation.target_topic_id=? AND relation.kind='triggered_by' AND flow.deleted_at IS NULL ORDER BY flow.title", (self.role, topic_id))]
             flow = None
             if row['category'] == 'flows':
                 steps = [dict(step) for step in connection.execute('SELECT title,description,ref FROM flow_steps WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
                 flow = {'steps': steps}
                 for name, (kind, _) in FLOW_RELATIONS.items():
                     flow[name] = [item['target_topic_id'] for item in connection.execute('SELECT target_topic_id FROM flow_relations WHERE role_id=? AND topic_id=? AND kind=? ORDER BY position', (self.role, topic_id, kind))]
+                flow['triggers'] = [{'when': item['when_text'], 'sourceFlow': item['source_flow_id'], 'ref': item['ref']}
+                                    for item in connection.execute('SELECT when_text,source_flow_id,ref FROM flow_trigger_conditions WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
+                if not flow['triggers']:
+                    for event_id in flow['triggeredBy']:
+                        occurrence = connection.execute('SELECT occurrence FROM event_definitions WHERE role_id=? AND topic_id=?', (self.role, event_id)).fetchone()
+                        if occurrence is not None:
+                            flow['triggers'].append({'when': occurrence['occurrence'], 'sourceFlow': None, 'ref': '', 'legacyEventId': event_id})
             fields = {'data': [], 'input': [], 'output': []}
             for field in connection.execute('SELECT section,name,field_type,description,required FROM topic_fields WHERE role_id=? AND topic_id=? ORDER BY section,position', (self.role, topic_id)):
                 fields[field['section']].append({'name': field['name'], 'type': field['field_type'],
@@ -420,8 +451,8 @@ class ContextStore:
             interface = ({'entry': interface_row['entry'], 'method': interface_row['method'],
                           'requestUrl': interface_row['request_url'], 'inputs': fields['input'],
                           'outputs': fields['output']} if interface_row is not None else None)
-            return {**dict(row), 'refs': references, 'links': linked, 'trigger': trigger, 'flow': flow,
-                    'data': data, 'interface': interface}
+            return {**dict(row), 'refs': references, 'links': linked, 'event': event,
+                    'triggeredFlows': triggered_flows, 'flow': flow, 'data': data, 'interface': interface}
 
     def upsert(self, topic_id, value, expected):
         if not TOPIC_ID.fullmatch(topic_id):
@@ -444,9 +475,10 @@ class ContextStore:
                                    (topic['category'], topic['title'], topic['summary'], topic['details'], expected+1, now(), self.role, topic_id))
                 connection.execute('DELETE FROM topic_refs WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM topic_links WHERE role_id=? AND source_topic_id=?', (self.role, topic_id))
-                connection.execute('DELETE FROM event_triggers WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM event_definitions WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM flow_steps WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM flow_relations WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM flow_trigger_conditions WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM data_schemas WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM interface_specs WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM topic_fields WHERE role_id=? AND topic_id=?', (self.role, topic_id))
@@ -454,12 +486,18 @@ class ContextStore:
                 connection.execute('INSERT INTO topic_refs VALUES (?,?,?,?)', (self.role, topic_id, position, ref))
             for position, target in enumerate(topic['links']):
                 connection.execute('INSERT INTO topic_links VALUES (?,?,?,?)', (self.role, topic_id, position, target))
-            if topic['trigger'] is not None:
-                connection.execute('INSERT INTO event_triggers VALUES (?,?,?,?)',
-                                   (self.role, topic_id, topic['trigger']['when'], topic['trigger']['action']))
-                for position, consumer in enumerate(topic['trigger']['consumers']):
-                    connection.execute('INSERT INTO event_trigger_consumers VALUES (?,?,?,?)', (self.role, topic_id, position, consumer))
+            if topic['event'] is not None:
+                connection.execute('INSERT INTO event_definitions VALUES (?,?,?)',
+                                   (self.role, topic_id, topic['event']['occurrence']))
             if topic['flow'] is not None:
+                for position, trigger in enumerate(topic['flow']['triggers']):
+                    source_flow = trigger['sourceFlow']
+                    if source_flow is not None:
+                        source = connection.execute('SELECT category,deleted_at FROM topics WHERE role_id=? AND topic_id=?', (self.role, source_flow)).fetchone()
+                        if source is None or source['category'] != 'flows' or source['deleted_at'] is not None:
+                            raise ValueError('sourceFlow must reference an active Flow of this role: '+source_flow)
+                    connection.execute('INSERT INTO flow_trigger_conditions VALUES (?,?,?,?,?,?)',
+                                       (self.role, topic_id, position, trigger['when'], source_flow, trigger['ref']))
                 for position, step in enumerate(topic['flow']['steps']):
                     connection.execute('INSERT INTO flow_steps VALUES (?,?,?,?,?,?)', (self.role, topic_id, position, step['title'], step['description'], step['ref']))
                 for name, (kind, category) in FLOW_RELATIONS.items():
@@ -505,9 +543,27 @@ class ContextStore:
             sql = "SELECT topic_id,category,title,summary,revision FROM topics WHERE role_id=? AND deleted_at IS NULL AND (title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR details LIKE ? ESCAPE '\\') ORDER BY category,title LIMIT 50"
             return [dict(row) for row in connection.execute(sql, (self.role, '%'+term+'%', '%'+term+'%', '%'+term+'%'))]
 
+    def flows_without_triggers(self):
+        with self.connection() as connection:
+            query = """SELECT flow.topic_id FROM topics AS flow
+                       WHERE flow.role_id=? AND flow.category='flows' AND flow.deleted_at IS NULL
+                       AND NOT EXISTS (
+                         SELECT 1 FROM flow_trigger_conditions AS condition
+                         WHERE condition.role_id=flow.role_id AND condition.topic_id=flow.topic_id
+                       ) AND NOT EXISTS (
+                         SELECT 1 FROM flow_relations AS legacy
+                         WHERE legacy.role_id=flow.role_id AND legacy.topic_id=flow.topic_id AND legacy.kind='triggered_by'
+                       ) ORDER BY flow.topic_id"""
+            return [row['topic_id'] for row in connection.execute(query, (self.role,))]
+
+    def validate(self):
+        missing = self.flows_without_triggers()
+        return {'valid': not missing, 'roleId': self.role, 'flowsWithoutTriggers': missing}
+
     def outline(self):
         return {'roleId': self.role, 'role': self.role_metadata(), 'overview': self.overview(),
-                'categorySummaries': self.list_categories(), 'topics': self.list_topics()}
+                'categorySummaries': self.list_categories(), 'topics': self.list_topics(),
+                'flowsWithoutTriggers': self.flows_without_triggers()}
 
 
 def input_json(path):
@@ -524,6 +580,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest='command', required=True)
     for name in ('outline', 'overview'):
         commands.add_parser(name)
+    commands.add_parser('validate')
     commands.add_parser('migrate')
     for name in ('init', 'set-overview'):
         command = commands.add_parser(name)
@@ -561,6 +618,7 @@ def main(argv=None):
         elif args.command == 'set-overview': result = store.set_overview(input_json(args.input), args.expect_revision)
         elif args.command == 'overview': result = store.overview()
         elif args.command == 'outline': result = store.outline()
+        elif args.command == 'validate': result = store.validate()
         elif args.command == 'list': result = store.list_topics(args.category)
         elif args.command == 'get-category': result = store.get_category(args.category)
         elif args.command == 'set-category': result = store.set_category(args.category, category_input(input_json(args.input)), args.expect_revision)
@@ -570,6 +628,8 @@ def main(argv=None):
         elif args.command == 'delete': result = store.delete(args.topic_id, args.expect_revision)
         else: result = store.delete(args.topic_id, args.expect_revision, restore=True)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == 'validate' and not result['valid']:
+            return 2
         return 0
     except (OSError, ValueError, sqlite3.Error) as exc:
         print(json.dumps({'error': str(exc)}, ensure_ascii=False), file=sys.stderr)

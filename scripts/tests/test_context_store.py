@@ -24,19 +24,20 @@ class ContextStoreTests(unittest.TestCase):
   payments.init({'title':'支付总览','summary':'支付流程'})
   self.assertEqual(len(list((self.root/'project-context').glob('*.sqlite3'))),1)
   self.assertEqual(orders.outline()['role']['boundaryPaths'],['src/订单.py'])
-  created=orders.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'steps':[{'title':'读取订单'}]}},0)
+  created=orders.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取订单'}]}},0)
   self.assertEqual(created['revision'],1)
   self.assertEqual(payments.list_topics(),[])
   with self.assertRaises(ValueError):payments.get_topic('order-export')
-  with self.assertRaises(ValueError):orders.upsert('order-export',{'category':'flows','title':'覆盖','summary':'错误版本','flow':{'steps':[{'title':'读取'}]}},0)
+  with self.assertRaises(ValueError):orders.upsert('order-export',{'category':'flows','title':'覆盖','summary':'错误版本','flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取'}]}},0)
   self.assertEqual(orders.get_topic('order-export')['title'],'导出')
-  self.assertEqual(orders.upsert('order-export',{'category':'flows','title':'导出','summary':'生成文件','flow':{'steps':[{'title':'写文件'}]}},1)['revision'],2)
+  self.assertEqual(orders.upsert('order-export',{'category':'flows','title':'导出','summary':'生成文件','flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'写文件'}]}},1)['revision'],2)
   self.assertEqual(orders.search('生成')[0]['topic_id'],'order-export')
   self.assertIsNotNone(orders.delete('order-export',2)['deleted_at'])
   self.assertEqual(orders.list_topics(),[])
   self.assertIsNone(orders.delete('order-export',3,restore=True)['deleted_at'])
   self.assertEqual(orders.set_overview({'title':'订单总览','summary':'已更新'},1)['revision'],2)
   self.assertEqual(payments.overview()['summary'],'支付流程')
+  self.assertTrue(orders.validate()['valid'])
 
  def test_cli_requires_matching_actor_for_writes(self):
   source=Path(__file__).parents[1]/'context_store.py'
@@ -68,7 +69,7 @@ class ContextStoreTests(unittest.TestCase):
   with self.assertRaises(ValueError):payments.get_category('events')
   for topic_id,category in [('order-created','events'),('order-record','data'),('order-api','interfaces')]:
    value={'category':category,'title':topic_id,'summary':'可从流程进入'}
-   if category=='events':value['trigger']={'when':'订单创建','action':'启动导出','consumers':['导出流程']}
+   if category=='events':value['event']={'occurrence':'订单创建'}
    if category=='data':value['data']={'owner':'订单角色','fields':[{'name':'orderId','type':'string','description':'订单编号','required':True}]}
    if category=='interfaces':value['interface']={'entry':'orders.export','method':'POST','requestUrl':'/api/orders/export','inputs':[{'name':'orderId','type':'string','required':True}],'outputs':[{'name':'exportId','type':'string'}]}
    orders.upsert(topic_id,value,0)
@@ -78,14 +79,18 @@ class ContextStoreTests(unittest.TestCase):
   orders.set_overview({'title':'订单总览','summary':'流程','steps':[{'title':'处理','links':linked}]},1)
   self.assertEqual(orders.get_topic('order-export')['links'],linked)
   self.assertEqual(orders.get_topic('order-export')['flow']['triggeredBy'],['order-created'])
-  self.assertEqual(orders.get_topic('order-created')['trigger']['when'],'订单创建')
+  self.assertEqual(orders.get_topic('order-created')['event']['occurrence'],'订单创建')
+  self.assertEqual(orders.get_topic('order-created')['triggeredFlows'],['order-export'])
   self.assertEqual(orders.get_topic('order-record')['data']['fields'][0]['name'],'orderId')
   self.assertEqual(orders.get_topic('order-api')['interface']['requestUrl'],'/api/orders/export')
   self.assertEqual(orders.get_topic('order-api')['interface']['outputs'][0]['name'],'exportId')
   self.assertEqual(orders.get_topic('order-api')['interface']['method'],'POST')
   with self.assertRaises(ValueError):orders.upsert('bad-api',{'category':'interfaces','title':'缺少方法','summary':'错误','interface':{'entry':'orders.export','requestUrl':'/api/orders/export','inputs':[{'name':'orderId','type':'string'}],'outputs':[]}},0)
   self.assertEqual(orders.overview()['steps'][0]['links'],linked)
-  payments.upsert('payment-event',{'category':'events','title':'支付事件','summary':'支付专属','trigger':{'when':'支付成功','action':'更新支付状态'}},0)
+  payments.upsert('payment-event',{'category':'events','title':'支付事件','summary':'支付专属','event':{'occurrence':'支付成功'}},0)
+  self.assertTrue(payments.validate()['valid'])
+  payments.upsert('payment-flow',{'category':'flows','title':'支付完成处理','summary':'处理支付结果','flow':{'steps':[{'title':'更新状态'}],'triggeredBy':['payment-event']}},0)
+  self.assertTrue(payments.validate()['valid'])
   with self.assertRaises(ValueError):orders.upsert('invalid-flow',{'category':'flows','title':'无效关联','summary':'跨角色','flow':{'steps':[{'title':'处理'}],'triggeredBy':['payment-event']}},0)
   with self.assertRaises(ValueError):orders.upsert('wrong-input',{'category':'flows','title':'输入类型错误','summary':'错误','flow':{'steps':[{'title':'处理'}],'inputs':['order-created']}},0)
   self.assertEqual(orders.list_topics('flows')[0]['topic_id'],'order-export')
@@ -110,7 +115,7 @@ class ContextStoreTests(unittest.TestCase):
   with self.assertRaises(ValueError):orders.overview()
   self.assertTrue(orders.migrate()['changed'])
   self.assertFalse(orders.migrate()['changed'])
-  self.assertEqual(orders.migrate()['schemaVersion'],3)
+  self.assertEqual(orders.migrate()['schemaVersion'],5)
   self.assertEqual(orders.overview()['summary'],'保留内容')
   self.assertEqual(orders.list_topics(),[])
 
@@ -118,11 +123,41 @@ class ContextStoreTests(unittest.TestCase):
   orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'版本二内容'})
   database=self.root/'project-context/context.sqlite3'
   with closing(sqlite3.connect(database)) as connection:
-   connection.executescript('DROP TABLE topic_fields; DROP TABLE interface_specs; DROP TABLE data_schemas; UPDATE meta SET schema_version=2;')
+   connection.executescript('DROP TABLE flow_trigger_conditions; DROP TABLE event_definitions; DROP TABLE topic_fields; DROP TABLE interface_specs; DROP TABLE data_schemas; CREATE TABLE event_triggers(role_id TEXT,topic_id TEXT,when_text TEXT,action_text TEXT); CREATE TABLE event_trigger_consumers(role_id TEXT,topic_id TEXT,position INTEGER,consumer TEXT); UPDATE meta SET schema_version=2;')
    connection.commit()
   with self.assertRaises(ValueError):orders.overview()
   self.assertTrue(orders.migrate()['changed'])
   self.assertEqual(orders.overview()['summary'],'版本二内容')
+
+ def test_migration_preserves_event_occurrence_from_version_three(self):
+  orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'版本三内容'})
+  orders.upsert('export-click',{'category':'events','title':'点击导出','summary':'按钮事件','event':{'occurrence':'用户点击导出按钮'}},0)
+  database=self.root/'project-context/context.sqlite3'
+  with closing(sqlite3.connect(database)) as connection:
+   connection.executescript("DROP TABLE flow_trigger_conditions; CREATE TABLE event_triggers(role_id TEXT,topic_id TEXT,when_text TEXT,action_text TEXT); INSERT INTO event_triggers SELECT role_id,topic_id,occurrence,'旧动作' FROM event_definitions; DROP TABLE event_definitions; UPDATE meta SET schema_version=3;")
+   connection.commit()
+  self.assertTrue(orders.migrate()['changed'])
+  self.assertEqual(orders.get_topic('export-click')['event']['occurrence'],'用户点击导出按钮')
+
+ def test_direct_flow_triggers_and_upstream_flow(self):
+  orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'流程'})
+  orders.upsert('export-flow',{'category':'flows','title':'导出流程','summary':'生成文件','flow':{'triggers':[{'when':'用户点击导出按钮','ref':'src/interface/export_button.py'}],'steps':[{'title':'写文件'}]}},0)
+  orders.upsert('notify-flow',{'category':'flows','title':'通知流程','summary':'通知用户','flow':{'triggers':[{'when':'导出流程完成','sourceFlow':'export-flow'}],'steps':[{'title':'发送通知'}]}},0)
+  self.assertEqual(orders.get_topic('export-flow')['flow']['triggers'][0]['when'],'用户点击导出按钮')
+  self.assertEqual(orders.get_topic('notify-flow')['flow']['triggers'][0]['sourceFlow'],'export-flow')
+  self.assertTrue(orders.validate()['valid'])
+  orders.upsert('pending-flow',{'category':'flows','title':'待补充触发','summary':'未完成','flow':{'steps':[{'title':'等待'}]}},0)
+  self.assertEqual(orders.validate()['flowsWithoutTriggers'],['pending-flow'])
+  with self.assertRaises(ValueError):orders.upsert('bad-flow',{'category':'flows','title':'无效来源','summary':'错误','flow':{'triggers':[{'when':'错误','sourceFlow':'missing'}],'steps':[{'title':'停止'}]}},0)
+
+ def test_migration_from_version_four_adds_flow_triggers(self):
+  orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'版本四内容'})
+  database=self.root/'project-context/context.sqlite3'
+  with closing(sqlite3.connect(database)) as connection:
+   connection.executescript('DROP TABLE flow_trigger_conditions; UPDATE meta SET schema_version=4;')
+   connection.commit()
+  self.assertTrue(orders.migrate()['changed'])
+  self.assertEqual(orders.overview()['summary'],'版本四内容')
 
 
 if __name__=='__main__':unittest.main()

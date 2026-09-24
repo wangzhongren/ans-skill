@@ -176,6 +176,8 @@ class Dashboard:
                         if db_path.exists():
                             try:
                                 context = self.context_outline(folder.name)
+                                if context and context.get('flowsWithoutTriggers'):
+                                    issue(db_path, 'Flows without a trigger for '+folder.name+': '+', '.join(context['flowsWithoutTriggers']))
                             except (OSError, ValueError, sqlite3.Error) as exc:
                                 issue(db_path, exc)
                         result['roles'].append({'id': folder.name, 'name': title, 'description': description,

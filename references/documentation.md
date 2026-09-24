@@ -11,7 +11,7 @@ There are two levels of documentation:
 
 Both use the same subdirectory structure: `design/`, `feature/`, `change/`, `fix/`.
 
-The project also has one [SQLite project-understanding store](project-context.md) at `project-context/context.sqlite3`. Its role-filtered rows provide living workflow, definition, event, interface and data navigation; they are not dated change records and do not replace canonical contracts or the Markdown records under `docs/`.
+The project also has one [SQLite project-understanding store](project-context.md) at `project-context/context.sqlite3`. Its role-filtered rows provide living workflow, definition, interface and data navigation; they are not dated change records and do not replace canonical contracts or the Markdown records under `docs/`. Legacy Event rows remain readable for compatibility but are not needed for ordinary flow triggers.
 
 Name records `YYYY-MM-DD_<type>_<topic>.md`, where type is `design`, `feature`, `change`, or `fix`. Use the actual creation date in the user's/project's timezone. The reference defines topic naming, collisions, required content, and how to maintain records across task iterations.
 

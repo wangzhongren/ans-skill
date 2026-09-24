@@ -46,6 +46,8 @@ Role cards (角色卡) and module boundary documents (模块边界文档) togeth
 
 The project keeps one [SQLite project-understanding store](references/project-context.md) at `project-context/context.sqlite3`. Each role reads its overview first, then queries task-relevant topics by `role_id`. Content writes use the role-scoped CRUD tool and its accepted logical row scope; the store does not replace canonical contracts or authorize changes.
 
+Record GUI control activation, including button clicks, directly as an Interface-origin Flow trigger when it starts behavior. A resulting HTTP request is a flow/Interface step for the same action. Do not create a separate Event topic merely to name that trigger. See [Interface constraints](references/interface.md) and [project context](references/project-context.md).
+
 ### Bootstrap
 
 On a project with no boundary documents, follow the [bootstrap workflow](references/bootstrap-workflow.md) under the ANS Governance built-in role.

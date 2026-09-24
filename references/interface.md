@@ -4,6 +4,8 @@ Use this reference with role-card.md's Required reading. Its global call directi
 
 Interface owns boundary adaptation for HTTP, CLI, RPC, events, scheduled jobs, or GUI entry points. Adapt inputs and outputs and delegate orchestration to Pipeline.
 
+For GUI entry points, a button click, keyboard activation, or form submission is a **flow trigger condition**. Record the control/handler, validation condition, input payload, and Pipeline it starts in the Flow's `triggers` and steps. The button widget is the Interface control. If the handler sends an HTTP request for the same user action, show the request as an Interface/flow step rather than creating another trigger entity. A disabled button or rejected input must not start the Pipeline.
+
 ## Organization and Dependencies
 
 Create `abstract/` and `impl/` only when a distinct contract and implementation boundary is needed. Otherwise start with focused files and grow purpose-named directories for actual related responsibilities; do not create empty trees for symmetry.
