@@ -1,6 +1,6 @@
 # Local Role Dashboard
 
-The [dashboard server](../scripts/serve_dashboard.py) serves the [local HTML viewer](../assets/role-dashboard/index.html) using Python 3 standard-library HTTP tools. It reads the [coordination records](coordination.md); it neither dispatches workers nor authorizes actions. Python is the tool implementation language, not a business-project requirement.
+The [dashboard server](../dashboard/server.py) serves the [HTML viewer](../dashboard/index.html) using Python 3 standard-library HTTP tools. The old `scripts/serve_dashboard.py` path remains a compatibility entry point. It reads the [coordination records](coordination.md); it neither dispatches workers nor authorizes actions. Python is the tool implementation language, not a business-project requirement. For a shared server, follow the [standalone Dashboard deployment guide](../dashboard/README.md): a local collector synchronizes only the project display projection, not the source tree.
 
 ## Default Per-Project Workflow
 
@@ -10,7 +10,7 @@ The [dashboard server](../scripts/serve_dashboard.py) serves the [local HTML vie
 4. The project role maintains approved plan/state/event records through the task gateway. Execution roles send feedback, not separate dashboards. Missing records remain unreported. The UI includes role overview, project understanding, tasks and coordination events in one place.
 5. Role graph content belongs to the actual project: generate its role overviews from accepted boundaries, and author function scenarios from its functional descriptions and real source once implementations exist. Keep generated graph/flow document paths in the project role's accepted design-output scope. Do not copy example functions or fabricate steps for source that does not exist. Only relevant role graph data is generated/loaded; the whole-codebase atlas remains opt-in.
 
-This is a standard workflow for this Skill, not a game-engine feature or an extra application module. Do not copy dashboard code into the project's src/ or test/ directories. Reuse the installed assets and scripts, and let each project supply its own metadata. Respect an explicit user opt-out and unavailable hosting permissions; do not deploy remotely or add a persistent system service implicitly.
+This is a standard workflow for this Skill, not a game-engine feature or an extra application module. Do not copy dashboard code into the project's src/ or test/ directories. Reuse the installed Dashboard and scripts, and let each project supply its own metadata. Respect an explicit user opt-out and unavailable hosting permissions; deploy remotely or add a persistent system service only when the user requests it.
 
 ## Start and Stop
 
@@ -63,7 +63,7 @@ A green connection means the local record reader responded, not that worker proc
 
 The server binds only to 127.0.0.1, serves no remote assets, and does not expose a write API. It checks loopback Host values, restricts Markdown document reads to named files in direct role folders, and reads project understanding through a role-filtered, read-only SQLite connection. Outside-root paths and symlink escapes are rejected. Dynamic text is rendered with textContent, not interpreted as HTML.
 
-This is a local observation tool, not an authenticated multi-user deployment. Do not expose it through a public proxy without a separate authorization and security design. Records larger than 2 MiB are reported instead of loaded; it is intended for bounded task records, not unbounded production logs.
+Local mode is an observation tool, not an authenticated multi-user deployment. Do not expose that mode through a public proxy. The separate cloud mode has built-in login, per-project membership and project Keys; it receives the bounded projection from a local collector. See [deployment and data boundary](../dashboard/README.md). Local records larger than 2 MiB are reported instead of loaded; the viewer is intended for bounded task records, not unbounded production logs.
 
 ## Verification
 

@@ -80,7 +80,7 @@ Governance creates the [default project role](references/project-role.md), which
 
 ### Default Project Dashboard
 
-Every project using this skill gets the reusable Dashboard workflow in [dashboard.md](references/dashboard.md). After the project role is accepted, it starts or reuses one local read-only dashboard for the actual project, opens it when possible, and provides its URL. The shared assets and server remain in the Skill installation; role cards, boundaries, project understanding and coordination records come from that project. Never point a real task at `test/game-engine` or copy its example data as if it described the new project. If the user opts out or the environment cannot host a local viewer, report that limitation without blocking otherwise authorized development.
+Every project using this skill gets the reusable Dashboard workflow in [dashboard.md](references/dashboard.md). After the project role is accepted, it starts or reuses one local read-only dashboard for the actual project, opens it when possible, and provides its URL. The shared UI and server remain in the Skill installation; role cards, boundaries, project understanding and coordination records come from that project. A separately deployed shared Dashboard is optional: when the user requests it, the local sync tool sends only a bounded display projection using that project's Key, while the server holds users and project-specific snapshots. See [dashboard/README.md](dashboard/README.md). Never point a real task at `test/game-engine` or copy its example data as if it described the new project. If the user opts out or the environment cannot host a viewer, report that limitation without blocking otherwise authorized development.
 
 ## Role Switching
 

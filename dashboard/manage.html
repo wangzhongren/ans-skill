@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ANS Dashboard 管理</title><link rel="stylesheet" href="/static/auth.css"><script defer src="/static/manage.js"></script></head>
+<body><main><header><div><h1>Dashboard 管理</h1><p>管理项目、用户授权和项目 Key。</p></div><div class="toolbar"><a href="/">返回面板</a><button class="secondary" id="logout">退出登录</button></div></header><p class="message" id="message" role="alert"></p><div class="grid">
+<section class="card"><h2>添加项目</h2><form id="projectForm"><label for="projectId">项目 ID（用于 /p/项目ID/）</label><input id="projectId" pattern="[a-z0-9]+(-[a-z0-9]+)*" required><label for="projectTitle">显示名称</label><input id="projectTitle" required><button type="submit">添加项目</button></form></section>
+<section class="card"><h2>添加用户</h2><form id="userForm"><label for="newUsername">用户名</label><input id="newUsername" required><label for="newPassword">初始密码（至少 15 位）</label><input id="newPassword" type="password" autocomplete="new-password" minlength="15" required><label for="userRole">角色</label><select id="userRole"><option value="viewer">查看者</option><option value="admin">管理员</option></select><button type="submit">添加用户</button></form></section>
+<section class="card"><h2>授权项目</h2><form id="grantForm"><label for="grantUsername">用户名</label><input id="grantUsername" required><label for="grantProject">项目 ID</label><input id="grantProject" required><button type="submit">授权访问</button></form></section>
+<section class="card"><h2>创建项目 Key</h2><form id="keyForm"><label for="keyProject">项目 ID</label><input id="keyProject" required><label for="keyLabel">用途标签</label><input id="keyLabel" required><button type="submit">创建 Key</button></form><div class="secret" id="keyResult" hidden><strong>只显示这一次，请立即安全保存：</strong><br><code id="issuedKey"></code></div></section>
+<section class="card wide"><h2>项目</h2><div id="projects" class="rows"></div></section>
+<section class="card wide"><h2>用户</h2><div id="users" class="rows"></div></section>
+<section class="card wide"><h2>项目 Key</h2><div id="keys" class="rows"></div></section>
+</div></main></body></html>

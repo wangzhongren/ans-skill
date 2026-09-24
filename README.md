@@ -1,6 +1,6 @@
 # ANS Skill
 
-一套可复用的五层架构与角色协作开发技能。**使用本技能的项目，默认提供自己的本地 Dashboard**：查看角色、职责边界、项目理解、任务进展以及需求与设计版本。
+一套可复用的五层架构与角色协作开发技能。**使用本技能的项目，默认提供自己的本地 Dashboard**：查看角色、职责边界、项目理解、任务进展以及需求与设计版本。需要多人或多项目共用时，也可单独部署一份云端 Dashboard；各项目只同步展示快照，不上传整个仓库。
 
 通用页面、服务和规则都在技能目录中。业务项目只提供自己的角色卡、设计文档和协同记录；`test/game-engine` 是验证样例，不是运行其他项目的依赖。
 
@@ -47,7 +47,7 @@ git submodule add https://github.com/wangzhongren/ans-skill.git .agents/skills/a
 git submodule update --init --recursive
 ```
 
-两种方式都要保留完整的 `SKILL.md`、`references/`、`assets/` 和 `scripts/`，不能只复制主文件。目标目录已存在时请更新，不要覆盖重装。
+两种方式都要保留完整的 `SKILL.md`、`references/`、`assets/`、`dashboard/` 和 `scripts/`，不能只复制主文件。目标目录已存在时请更新，不要覆盖重装。
 
 ### 使用与更新
 
@@ -98,6 +98,12 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 Dashboard 包含 **项目概览、项目理解、阶段任务、协作事件** 四个视图。点击角色卡可进入该角色的项目理解，先看到职责和修改边界。没有执行记录就显示“未上报”，不会用示例数据填充。
 
+### 多项目共用一份 Dashboard
+
+把独立的 [`dashboard/`](dashboard/README.md) 目录部署在服务器，配置 HTTPS 反向代理，并创建第一个管理员。管理员在 `/manage` 添加项目、内置账号、项目授权和**每个项目自己的同步 Key**。用户通过 `/p/<project-id>/` 查看获授权项目。
+
+业务项目本地运行 `python3 -m dashboard.sync`，读取角色卡摘要、边界路径、项目理解 SQLite 和任务记录，将**展示快照**同步到对应项目。服务器不用访问业务仓库，也不接收源码或角色文档全文。完整启动、Key 配置和部署示例见 [独立 Dashboard README](dashboard/README.md)。本地单项目模式无需登录，仍使用上面的启动命令。
+
 项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 直接提供流程、数据、接口和定义总览；接口总览分为**网络接口**与**内部接口**，网络接口展示协议、请求方法与 URL，两类都展示具体字段。点条目进入详情，流程详情展示触发条件、步骤、输入/输出数据和接口。角色职责与边界直接取自角色卡和边界文档。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。
 
 按钮点击或键盘激活如果启动了流程，直接写入该流程的触发条件；同次操作产生的 HTTP 请求作为流程步骤。“协作事件”只记录任务状态和设计变更，不采集每次真实按钮点击。
@@ -135,11 +141,11 @@ python3 scripts/task_ops.py --root /path/to/project --task repair-export status
 SKILL.md / SKILL.zh.md       # 英文入口与中文说明
 references/                 # 角色、架构、测试、文档和工具使用规则
 assets/
-  role-dashboard/           # 通用协作台
   role-atlas/               # 可选的旧角色功能演示
   code-atlas/               # 可选的旧全项目图谱
+dashboard/                  # 可独立部署的页面、后端、用户/项目管理与同步器
 scripts/
-  serve_dashboard.py        # 本机只读服务
+  serve_dashboard.py        # 兼容的本机启动入口
   role_atlas.py             # 可选的旧角色图谱生成器
   context_store.py          # 项目理解 SQLite 的角色筛选与增删改查
   task_ops.py               # 统一任务入口
@@ -160,7 +166,7 @@ doc/                        # 本技能的变更、修复与验证记录
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-当前 72 项测试通过，覆盖图谱、查询、Dashboard、项目理解增删改查、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
+测试覆盖图谱、查询、本地及云端 Dashboard、项目理解增删改查、项目 Key 隔离、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
 
 ```sh
 python3 scripts/validate_task_flow.py --source test/game-engine --output output/new-validation-run --node /absolute/path/to/node
