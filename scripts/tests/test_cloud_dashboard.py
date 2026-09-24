@@ -1,15 +1,18 @@
 import json
+from contextlib import redirect_stderr, redirect_stdout
+import io
 from pathlib import Path
 import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dashboard.cloud_store import CloudStore
-from dashboard.server import ThreadingHTTPServer, make_handler
+from dashboard.server import ThreadingHTTPServer, main, make_handler
 from dashboard.sync import projection
 
 
@@ -166,6 +169,27 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/p/alpha/api/snapshot', cookie=cookie)[0], 200)
         self.assertEqual(self.request('/p/beta/api/snapshot', cookie=cookie)[0], 403)
         self.assertEqual(self.request('/api/admin/users', cookie=cookie)[0], 403)
+
+
+class ContainerBindingTests(unittest.TestCase):
+    def test_container_bind_requires_cloud_mode_and_trusted_host(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = CloudStore(root)
+            store.create_user('owner', PASSWORD, 'admin', bootstrap=True)
+            quiet = io.StringIO()
+            with redirect_stderr(quiet), self.assertRaises(SystemExit):
+                main(['--root', root, '--listen-host', '0.0.0.0'])
+            with redirect_stderr(quiet), self.assertRaises(SystemExit):
+                main(['--cloud-state', root, '--listen-host', '0.0.0.0'])
+            with redirect_stderr(quiet), self.assertRaises(SystemExit):
+                main(['--cloud-state', root, '--listen-host', '0.0.0.0',
+                      '--trusted-host', 'dashboard.example.com', '--insecure-local-preview'])
+            fake_server = MagicMock()
+            fake_server.server_port = 8765
+            with patch('dashboard.server.ThreadingHTTPServer', return_value=fake_server) as create, redirect_stdout(quiet):
+                main(['--cloud-state', root, '--listen-host', '0.0.0.0',
+                      '--trusted-host', 'dashboard.example.com', '--port', '8765'])
+            self.assertEqual(create.call_args.args[0], ('0.0.0.0', 8765))
 
 
 if __name__ == '__main__':

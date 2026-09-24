@@ -1,0 +1,40 @@
+name: ans-dashboard
+
+services:
+  dashboard:
+    build: .
+    image: ans-dashboard:local
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - python
+      - -m
+      - dashboard.server
+      - --cloud-state
+      - /data
+      - --listen-host
+      - 0.0.0.0
+      - --port
+      - "8765"
+      - --trusted-host
+      - "${ANS_DASHBOARD_HOST:?Set ANS_DASHBOARD_HOST in .env}"
+    ports:
+      - "127.0.0.1:${ANS_DASHBOARD_PORT:-8765}:8765"
+    volumes:
+      - dashboard-state:/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8765), timeout=2).close()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  dashboard-state:

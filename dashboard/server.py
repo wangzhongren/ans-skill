@@ -644,7 +644,9 @@ def main(argv=None):
     parser.add_argument('--scheduling', help='Local scheduling directory override')
     parser.add_argument('--trusted-host', action='append', default=[], help='Proxy Host header to accept')
     parser.add_argument('--insecure-local-preview', action='store_true', help='Allow session cookies over loopback HTTP for testing')
-    parser.add_argument('--port', type=int, default=8765, help='Loopback port; 0 chooses a free port')
+    parser.add_argument('--listen-host', choices=('127.0.0.1', '0.0.0.0'), default='127.0.0.1',
+                        help='Bind address; 0.0.0.0 is for cloud mode inside a container')
+    parser.add_argument('--port', type=int, default=8765, help='Listening port; 0 chooses a free port')
     args = parser.parse_args(argv)
     try:
         if args.root is not None:
@@ -652,22 +654,29 @@ def main(argv=None):
                 parser.error('Project root does not exist')
             if args.insecure_local_preview:
                 parser.error('--insecure-local-preview is for cloud mode only')
+            if args.listen_host != '127.0.0.1':
+                parser.error('Local project mode only listens on 127.0.0.1')
             dashboard = Dashboard(args.root, args.roles, args.scheduling)
             handler = make_handler(dashboard=dashboard, trusted_hosts=args.trusted_host)
             mode = 'local-read-only'
         else:
             if args.roles or args.scheduling:
                 parser.error('--roles and --scheduling are only for one local project')
+            if args.listen_host == '0.0.0.0' and not args.trusted_host:
+                parser.error('--trusted-host is required when listening on 0.0.0.0')
+            if args.listen_host == '0.0.0.0' and args.insecure_local_preview:
+                parser.error('--insecure-local-preview requires loopback listening')
             store = CloudStore(args.cloud_state)
             if not store.has_users():
                 parser.error('Create the initial admin with: python3 -m dashboard.admin --state-dir ... --username ...')
             handler = make_handler(cloud_store=store, trusted_hosts=args.trusted_host,
                                    insecure_local=args.insecure_local_preview)
             mode = 'cloud-projection'
-        server = ThreadingHTTPServer(('127.0.0.1', args.port), handler)
+        server = ThreadingHTTPServer((args.listen_host, args.port), handler)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
-    result = {'url': 'http://127.0.0.1:' + str(server.server_port), 'mode': mode}
+    result = {'url': 'http://127.0.0.1:' + str(server.server_port),
+              'listenHost': args.listen_host, 'mode': mode}
     if args.root is not None:
         result['project'] = dashboard.root.name
         result['projectRootUri'] = dashboard.root.as_uri()

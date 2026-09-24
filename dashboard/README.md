@@ -2,9 +2,30 @@
 
 Dashboard 可以部署一份服务，供多个项目共用。服务端只保存用户、项目权限、项目 Key 和**展示快照**；不需要上传业务仓库、角色文档全文或项目 SQLite 文件。每个项目通过 `/p/<project-id>/` 访问，网页按登录用户权限筛选；本地同步器通过该项目的 Key 上传角色摘要、职责、边界路径、项目理解和任务状态。
 
-仅部署云端时，复制整个 `dashboard/` 目录到服务器即可。它只使用 Python 3.10+ 标准库。运行命令需要从 `dashboard/` 的**父目录**执行，或者将该父目录加入 `PYTHONPATH`。项目业务语言不受 Python 限制。
+仅部署云端时，复制整个 `dashboard/` 目录到服务器即可。它只使用 Python 3.10+ 标准库。可用下面的 Docker Compose 部署，也可直接运行 Python。项目业务语言不受 Python 限制。
 
-## 1. 首次配置
+## Docker Compose 部署
+
+服务器需安装 Docker Engine 和 Compose，并准备一个对外的 HTTPS 反向代理。在服务器的 `dashboard/` 目录执行：
+
+```sh
+cp .env.example .env
+# 编辑 .env：ANS_DASHBOARD_HOST 填真实域名；必要时修改宿主机端口
+docker compose build
+docker compose run --rm --no-deps dashboard python -m dashboard.admin --state-dir /data --username admin
+docker compose up -d
+docker compose ps
+```
+
+管理员初始化命令会交互读取密码，至少 15 个字符；只执行一次。Compose 项目名固定为 `ans-dashboard`，状态放在 `dashboard-state` 命名卷，容器以非 root 身份运行。宿主机只发布 `127.0.0.1:${ANS_DASHBOARD_PORT:-8765}`；用下方 Nginx 示例将 HTTPS 域名转发到这个端口，修改端口时同步修改代理配置。不要将容器端口直接发布到公网，也不要用 `docker compose down -v` 删除状态卷。升级时在新代码目录运行 `docker compose up -d --build`，保留同一个 Compose 项目名和状态卷。查看日志用 `docker compose logs -f dashboard`。
+
+Docker 镜像只包含 Dashboard 的 Python/HTML/CSS/JS；业务项目文件仍在各自本地，通过下方同步命令发送展示快照。容器内服务监听 `0.0.0.0`，这是为了接收 Docker 端口映射；宿主机映射依然只监听回环地址。首次启动前必须创建管理员，否则服务会拒绝启动。
+
+## 直接运行 Python
+
+从 `dashboard/` 的**父目录**执行，或将该父目录加入 `PYTHONPATH`：
+
+### 首次配置
 
 ```sh
 python3 -m dashboard.admin --state-dir /srv/ans-dashboard/state --username admin
@@ -13,7 +34,7 @@ python3 -m dashboard.server --cloud-state /srv/ans-dashboard/state --port 8765 -
 
 第一条命令交互输入管理员密码，至少 15 个字符。只可用它创建第一个管理员；以后在网页 `/manage` 添加用户、项目和项目 Key。Key **仅创建时显示一次**，请交给对应项目的同步端。用户权限与 Key 分开：用户登录看获授权项目；Key 只允许同步和读取它所属项目的投影。
 
-服务固定监听 `127.0.0.1`。线上用 HTTPS 反向代理把域名转发到该端口，并把原始 `Host` 传给服务。`--trusted-host` 写公开域名（如使用非默认端口则包含端口）；生产会话 Cookie 设置 `Secure`，所以网页必须经 HTTPS 访问。确保状态目录只允许服务账号读写，并备份其中的 `dashboard.sqlite3`。建议用服务器的进程管理器托管上述命令。不要将本地预览参数 `--insecure-local-preview` 用在线上。
+直接运行时服务默认监听 `127.0.0.1`。线上用 HTTPS 反向代理把域名转发到该端口，并把原始 `Host` 传给服务。`--trusted-host` 写公开域名（如使用非默认端口则包含端口）；生产会话 Cookie 设置 `Secure`，所以网页必须经 HTTPS 访问。确保状态目录只允许服务账号读写，并备份其中的 `dashboard.sqlite3`。建议用服务器的进程管理器托管上述命令。不要将本地预览参数 `--insecure-local-preview` 用在线上。
 
 一个 Nginx 入口示例：
 
@@ -32,11 +53,11 @@ server {
 
 证书、域名和进程服务配置按实际环境替换；同时将 HTTP 重定向至 HTTPS。
 
-## 2. 管理项目与用户
+## 管理项目与用户
 
 登录 `https://dashboard.example.com/manage`，依次添加项目 ID、用户，授权该用户访问项目，再为项目创建同步 Key。管理员可查看全部项目；普通用户只看获授权项目。管理页可停用用户、撤销 Key。停用用户会使其现有会话失效；撤销 Key 后需重新创建并更新同步端。
 
-## 3. 在项目本地同步
+## 在项目本地同步
 
 同步端需要 `dashboard/` 代码和业务项目的本地读取权限；它不需要部署在云端服务器上。以下命令在技能目录执行：
 
