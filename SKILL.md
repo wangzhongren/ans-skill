@@ -44,6 +44,8 @@ Role cards (角色卡) and module boundary documents (模块边界文档) togeth
 
 **Files not listed in Section 1 are read-only by default.** To mutate an unlisted file, the AI must first propose updating the boundary document's Section 1 (Governing Invariant #1).
 
+Each project role maintains a concise, role-owned [`project-context/` index](references/project-context.md) with on-demand `flows/`, `definitions/`, `events/`, `interfaces/`, and `data/` topics. Read relevant topics for task context; the owning role updates affected topics within its accepted Section 1. This navigation view does not replace canonical contracts or authorize changes.
+
 ### Bootstrap
 
 On a project with no boundary documents, follow the [bootstrap workflow](references/bootstrap-workflow.md) under the ANS Governance built-in role.

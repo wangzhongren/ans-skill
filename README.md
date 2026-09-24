@@ -98,6 +98,8 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 Dashboard 包含 **项目概览、阶段任务、事件记录、角色功能图谱** 四个视图。角色详情可直接进入该角色的功能图谱。没有执行记录就显示“未上报”，不会用示例数据填充。
 
+每个角色可以在自己的 `project-context/` 下维护项目理解：`README.md` 提供流程纵览，按需在 `flows/`、`definitions/`、`events/`、`interfaces/`、`data/` 写主题文件。Dashboard 的角色详情按分类显示这些文件并支持只读查看；变更由对应角色在授权范围内更新，正式定义仍以契约和源码为准。规则见 [角色项目理解](references/project-context.md)。
+
 - `--root` 是项目根目录，不是默认的 `src/`。
 - 自动识别 `角色卡/` 或 `role-cards/`，以及 `docs/scheduling/` 或 `doc/scheduling/`。
 - 非标准目录使用 `--roles`、`--scheduling`，路径必须位于项目内部。

@@ -2,6 +2,8 @@
 
 A companion document to `boundary.md`. It contains architecture diagrams, key code locations, and detailed explanations — everything that is NOT the mutation whitelist.
 
+For the role's cross-project workflow position and topic navigation, use [project-context.md](project-context.md). Link shared contracts rather than copying their definitions into either document.
+
 ## Structure
 
 ````markdown

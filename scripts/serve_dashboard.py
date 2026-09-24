@@ -11,6 +11,7 @@ from urllib.parse import urlparse, parse_qs
 STATUSES = {'pending', 'ready', 'running', 'awaiting-verification', 'verified', 'failed', 'blocked', 'cancelled'}
 MAX_BYTES = 2 * 1024 * 1024
 DOC_NAMES = {'role-card.md', 'boundary.md', 'api-spec.md', 'functional-description.md', 'changelog.md'}
+CONTEXT_CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 
 
 def utcnow():
@@ -45,12 +46,41 @@ class Dashboard:
         return path.relative_to(self.root).as_posix()
 
     def document(self, relative):
+        source = Path(relative)
+        if source.is_absolute() or '..' in source.parts:
+            raise ValueError('Only project-relative role documentation is exposed')
+        candidate = self.root/source
+        while candidate != self.root:
+            if candidate.is_symlink():
+                raise ValueError('Symlinked role documentation is not readable')
+            candidate = candidate.parent
         path = self.within(relative)
-        if path.name not in DOC_NAMES or not path.is_relative_to(self.roles.resolve()):
+        if not path.is_relative_to(self.roles.resolve()):
             raise ValueError('Only role documentation is exposed')
-        if path.parent.parent != self.roles.resolve():
-            raise ValueError('Document must belong to a direct role folder')
+        parts = path.relative_to(self.roles.resolve()).parts
+        direct = len(parts) == 2 and parts[1] in DOC_NAMES
+        overview = len(parts) == 3 and parts[1:] == ('project-context', 'README.md')
+        topic = len(parts) == 4 and parts[1] == 'project-context' and parts[2] in CONTEXT_CATEGORIES and path.suffix == '.md'
+        if not (direct or overview or topic):
+            raise ValueError('Document must be an allowed file in a direct role folder')
         return self.text(path)
+
+    def context_documents(self, folder):
+        base = folder/'project-context'
+        if base.is_symlink() or not base.is_dir():
+            return []
+        found = []
+        overview = base/'README.md'
+        if overview.is_file() and not overview.is_symlink():
+            found.append({'category': 'overview', 'name': 'README.md', 'path': self.relative(overview)})
+        for category in CONTEXT_CATEGORIES:
+            directory = base/category
+            if directory.is_symlink() or not directory.is_dir():
+                continue
+            for path in sorted(directory.iterdir()):
+                if path.is_file() and not path.is_symlink() and path.suffix == '.md':
+                    found.append({'category': category, 'name': path.name, 'path': self.relative(path)})
+        return found
 
     def role_atlas(self, role_id=None):
         import role_atlas as graphs
@@ -137,7 +167,8 @@ class Dashboard:
                         description = next((line for line in lines if not line.startswith(('#', '-', '|', '```'))), '')
                         docs = {name: self.relative(folder/name) for name in sorted(DOC_NAMES) if (folder/name).is_file() and not (folder/name).is_symlink()}
                         result['roles'].append({'id': folder.name, 'name': title, 'description': description,
-                                                'path': self.relative(folder), 'documents': docs})
+                                                'path': self.relative(folder), 'documents': docs,
+                                                'projectContext': self.context_documents(folder)})
                     except (OSError, UnicodeError, ValueError) as exc:
                         issue(card, exc)
         except OSError as exc:
