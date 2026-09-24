@@ -1,12 +1,12 @@
 # Project Understanding Store
 
-The project has one SQLite database at `project-context/context.sqlite3`. Each accepted project role, including the default project role and assembly role, has its own category summaries and topics selected by `role_id`. The Dashboard has direct Flow, Event, Data, Interface, and Definition overviews; clicking an item opens its detail. The AI uses the same role filter and reads only topics relevant to its task.
+The project has one SQLite database at `project-context/context.sqlite3`. Each accepted project role, including the default project role and assembly role, has its own category summaries and topics selected by `role_id`. The Dashboard has direct Flow, Event, Data, Interface, and Definition overviews; clicking an item opens its detail. Role purpose and mutation paths are read live from that role's `role-card.md` and `boundary.md`, not copied into the database. The AI uses the same role filter and reads only topics relevant to its task.
 
 The database is a navigation aid, not a second specification. Canonical interfaces, event schemas, Model definitions, permissions, and implementation evidence remain in accepted designs, `api-spec.md`, Model/source, and `boundary.md`. Store short explanations and source/contract references, not copies of whole contracts. Mark proposed or uncertain claims in the text. Verify stored claims against current code before changing it.
 
 ## Shape and ownership
 
-The shared database has `overview`, `category_summaries`, `topics`, flow steps/relations, event triggers, and reference tables. Each content row has a `role_id`; `topics` have one of five categories: `flows`, `definitions`, `events`, `interfaces`, `data`. Each category has its own short summary, independent of its topics. The Flow overview lists workflows; a flow detail identifies the events that trigger it, ordered steps, input data, output data, related interfaces, and emitted events. An Event topic is a trigger definition: **when it fires, what action runs, and which consumers receive it**. The Dashboard shows related event/data/interface records directly inside the flow detail, while each category has its own overview and item detail. Referenced topic IDs must already exist under the same role and expected category. The CLI returns JSON, so the AI can query one category, topic, or search result without loading the whole database.
+The shared database has `overview`, `category_summaries`, `topics`, flow steps/relations, event triggers, data schemas, interface specifications, field rows, and reference tables. Each content row has a `role_id`; `topics` have one of five categories: `flows`, `definitions`, `events`, `interfaces`, `data`. Each category has its own short summary, independent of its topics. The Flow overview lists workflows; a flow detail identifies the events that trigger it, ordered steps, input data, output data, related interfaces, and emitted events. An Event topic is a trigger definition: **when it fires, what action runs, and which consumers receive it**. Data topics list concrete fields; Interface topics list their entry, optional HTTP method/request URL, and input/output fields. The Dashboard shows fields directly on the Data and Interface overviews and related records inside Flow detail. Referenced topic IDs must already exist under the same role and expected category. The CLI returns JSON, so the AI can query one category, topic, or search result without loading the whole database.
 
 One file is shared, but content ownership is by row. A role may change only rows with its own `role_id`, through the provided CLI, when its accepted `boundary.md` Section 1 includes that logical row scope and the current task authorizes the change. The CLI requires `--actor-role` to match `--role` on writes and checks the expected record revision. This is a workflow guard, not identity authentication or an OS permission boundary; do not edit the SQLite file directly or issue raw SQL. Schema changes belong to Skill governance, not to an execution role's content task.
 
@@ -32,7 +32,7 @@ python3 /path/to/skill/scripts/context_store.py --root PROJECT --role orders --a
 python3 /path/to/skill/scripts/context_store.py --root PROJECT --role orders --actor-role orders restore order-export --expect-revision 2
 ```
 
-`init` creates the database on the first role and adds another role's overview on later calls. It does not overwrite existing rows. Creating a category summary or topic uses expected revision `0`; editing, deleting, or restoring uses the current revision from a fresh read. Delete is a reversible topic tombstone; ordinary list/get/search omit deleted topics. A stale revision stops the write so the AI must reread and reconcile the current content. `migrate` upgrades an existing version 1 database to version 2 without erasing its rows; it requires the same scoped authorization and does not invent trigger or flow details for old records.
+`init` creates the database on the first role and adds another role's overview on later calls. It does not overwrite existing rows. Creating a category summary or topic uses expected revision `0`; editing, deleting, or restoring uses the current revision from a fresh read. Delete is a reversible topic tombstone; ordinary list/get/search omit deleted topics. A stale revision stops the write so the AI must reread and reconcile the current content. `migrate` upgrades an existing version 1 or 2 database to version 3 without erasing its rows; it requires the same scoped authorization and does not invent missing trigger, flow, or field details for old records.
 
 Role overview input:
 
@@ -51,6 +51,20 @@ Event topic input:
 ```json
 {"category":"events","title":"导出请求","summary":"用户提交导出条件。","details":"请求通过校验后启动导出流程。","trigger":{"when":"收到有效导出请求","action":"启动订单导出","consumers":["订单导出流程"]}}
 ```
+
+Data topic input:
+
+```json
+{"category":"data","title":"订单记录","summary":"导出流程的只读输入。","data":{"owner":"订单角色","fields":[{"name":"orderId","type":"string","required":true,"description":"订单编号"},{"name":"status","type":"string","required":false,"description":"订单状态"}]}}
+```
+
+HTTP interface topic input:
+
+```json
+{"category":"interfaces","title":"订单导出接口","summary":"接收导出条件并返回任务编号。","interface":{"entry":"orders.export","method":"POST","requestUrl":"/api/orders/export","inputs":[{"name":"status","type":"string","required":false,"description":"状态筛选"}],"outputs":[{"name":"taskId","type":"string","required":true,"description":"导出任务编号"}]}}
+```
+
+For a non-HTTP interface, omit both `method` and `requestUrl`; provide its entry and actual input/output fields. Field names and types are required, descriptions are optional, and `required` is a boolean. Do not invent fields or URLs that are absent from the accepted contract or code.
 
 Category-summary input is `{"summary":"导出请求触发导出流程；导出成功触发通知。"}`. Create the related event, data, and interface topics first, then create the flow topic with their IDs. Flow relation fields are `triggeredBy` and `emits` (Event topics), `inputs` and `outputs` (Data topics), and `interfaces` (Interface topics); `steps` must contain at least one ordered step. Event topics require a `trigger` with `when` and `action`; `consumers` may be empty. The Dashboard reads related details on demand and embeds them in the flow detail. Use the actual relationship rather than linking every topic to every flow.
 

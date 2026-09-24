@@ -26,7 +26,7 @@ Open the printed loopback URL, for example `http://127.0.0.1:<printed-port>`. St
 
 Do not modify business records merely to make the dashboard look populated. Role cards without task states display as unreported; missing stage records are not evidence that a role is idle or complete.
 
-The dedicated **项目理解** view has five direct overview tabs: Flow, Event, Data, Interface, and Definition. Each tab shows its category summary and topic cards; clicking a card opens its detail. A Flow detail shows its triggering events, ordered steps, input and output data, related interfaces, and emitted events. An Event detail shows its trigger condition, action, and consumers. Related event/data/interface details appear directly inside the Flow detail without an extra click. Clicking a role card opens this view for that role. The index refreshes from the [shared SQLite store](project-context.md) with the dashboard snapshot; item details are read only when selected or referenced by a flow. Missing context is shown as missing, not synthesized from another role or from the sample project.
+The dedicated **项目理解** view shows role purpose and mutation paths from its role card and boundary document, plus five direct overview tabs: Flow, Event, Data, Interface, and Definition. Each tab shows its category summary. Data and Interface overviews additionally show each item's concrete fields; HTTP interfaces show their method and request URL. Clicking an item opens its detail. A Flow detail shows its triggering events, ordered steps, input and output data, related interfaces, and emitted events. An Event detail shows its trigger condition, action, and consumers. Related event/data/interface details appear directly inside the Flow detail without an extra click. Clicking a role card opens this view for that role. The index refreshes from the [shared SQLite store](project-context.md) with the dashboard snapshot; item details are read only when selected or referenced by a flow. Missing context is shown as missing, not synthesized from another role or from the sample project.
 
 ## Data Adapter
 
@@ -48,10 +48,6 @@ State headers include nonnegative integer `stateRevision` and `lastEventSeq`, pl
 ```
 
 This is an illustrative node, not a claim of real execution. Events are newline-delimited JSON objects with unique `eventId`, contiguous `seq` starting at 1, `taskId`, optional known `nodeId`, `kind` (or `type`), summary, and received/reported timestamp. State.lastEventSeq must agree with the log. Empty history is an empty file with lastEventSeq 0. The protocol's other evidence/approval fields remain in source records; the viewer does not validate every contract or authorization condition.
-
-## Integrated Role Function View
-
-The Dashboard contains a 角色功能图谱 tab and a direct graph button in each role detail. It lazily loads [role-atlas.md](role-atlas.md) data and embeds the source-anchored walkthrough without navigating away. Choose a role, feature and scenario; previous/next, reset and autoplay operate on illustrative state only. Leaving the tab pauses playback; role selection is synchronized between the selector and embedded overview. Graphs must be generated explicitly first; the Dashboard does not scan code to fill missing graphs.
 
 ## Display Behavior
 

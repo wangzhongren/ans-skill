@@ -15,13 +15,15 @@ class ContextStoreTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
   for role in ('订单','支付'):
-   folder=self.root/'角色卡'/role;folder.mkdir(parents=True);(folder/'role-card.md').write_text('# '+role)
+   folder=self.root/'角色卡'/role;folder.mkdir(parents=True);(folder/'role-card.md').write_text('# '+role+'\n\n负责'+role+'流程。\n')
+   (folder/'boundary.md').write_text('# Section 1\n\n| Type | Path |\n| --- | --- |\n| File | `src/'+role+'.py` |\n')
 
  def test_one_database_role_filters_and_revisions(self):
   orders=ContextStore(self.root,'订单');payments=ContextStore(self.root,'支付')
   orders.init({'title':'订单总览','summary':'订单流程','steps':[{'title':'入口','description':'接收订单'}]})
   payments.init({'title':'支付总览','summary':'支付流程'})
   self.assertEqual(len(list((self.root/'project-context').glob('*.sqlite3'))),1)
+  self.assertEqual(orders.outline()['role']['boundaryPaths'],['src/订单.py'])
   created=orders.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'steps':[{'title':'读取订单'}]}},0)
   self.assertEqual(created['revision'],1)
   self.assertEqual(payments.list_topics(),[])
@@ -67,6 +69,8 @@ class ContextStoreTests(unittest.TestCase):
   for topic_id,category in [('order-created','events'),('order-record','data'),('order-api','interfaces')]:
    value={'category':category,'title':topic_id,'summary':'可从流程进入'}
    if category=='events':value['trigger']={'when':'订单创建','action':'启动导出','consumers':['导出流程']}
+   if category=='data':value['data']={'owner':'订单角色','fields':[{'name':'orderId','type':'string','description':'订单编号','required':True}]}
+   if category=='interfaces':value['interface']={'entry':'orders.export','method':'POST','requestUrl':'/api/orders/export','inputs':[{'name':'orderId','type':'string','required':True}],'outputs':[{'name':'exportId','type':'string'}]}
    orders.upsert(topic_id,value,0)
   linked=['order-created','order-record','order-api']
   flow={'steps':[{'title':'处理订单'}],'triggeredBy':['order-created'],'inputs':['order-record'],'outputs':['order-record'],'interfaces':['order-api']}
@@ -75,6 +79,11 @@ class ContextStoreTests(unittest.TestCase):
   self.assertEqual(orders.get_topic('order-export')['links'],linked)
   self.assertEqual(orders.get_topic('order-export')['flow']['triggeredBy'],['order-created'])
   self.assertEqual(orders.get_topic('order-created')['trigger']['when'],'订单创建')
+  self.assertEqual(orders.get_topic('order-record')['data']['fields'][0]['name'],'orderId')
+  self.assertEqual(orders.get_topic('order-api')['interface']['requestUrl'],'/api/orders/export')
+  self.assertEqual(orders.get_topic('order-api')['interface']['outputs'][0]['name'],'exportId')
+  self.assertEqual(orders.get_topic('order-api')['interface']['method'],'POST')
+  with self.assertRaises(ValueError):orders.upsert('bad-api',{'category':'interfaces','title':'缺少方法','summary':'错误','interface':{'entry':'orders.export','requestUrl':'/api/orders/export','inputs':[{'name':'orderId','type':'string'}],'outputs':[]}},0)
   self.assertEqual(orders.overview()['steps'][0]['links'],linked)
   payments.upsert('payment-event',{'category':'events','title':'支付事件','summary':'支付专属','trigger':{'when':'支付成功','action':'更新支付状态'}},0)
   with self.assertRaises(ValueError):orders.upsert('invalid-flow',{'category':'flows','title':'无效关联','summary':'跨角色','flow':{'steps':[{'title':'处理'}],'triggeredBy':['payment-event']}},0)
@@ -101,8 +110,19 @@ class ContextStoreTests(unittest.TestCase):
   with self.assertRaises(ValueError):orders.overview()
   self.assertTrue(orders.migrate()['changed'])
   self.assertFalse(orders.migrate()['changed'])
+  self.assertEqual(orders.migrate()['schemaVersion'],3)
   self.assertEqual(orders.overview()['summary'],'保留内容')
   self.assertEqual(orders.list_topics(),[])
+
+ def test_migration_preserves_version_two_rows(self):
+  orders=ContextStore(self.root,'订单');orders.init({'title':'订单总览','summary':'版本二内容'})
+  database=self.root/'project-context/context.sqlite3'
+  with closing(sqlite3.connect(database)) as connection:
+   connection.executescript('DROP TABLE topic_fields; DROP TABLE interface_specs; DROP TABLE data_schemas; UPDATE meta SET schema_version=2;')
+   connection.commit()
+  with self.assertRaises(ValueError):orders.overview()
+  self.assertTrue(orders.migrate()['changed'])
+  self.assertEqual(orders.overview()['summary'],'版本二内容')
 
 
 if __name__=='__main__':unittest.main()

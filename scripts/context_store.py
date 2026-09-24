@@ -12,7 +12,7 @@ import sys
 
 CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 TOPIC_ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SCHEMA = '''
 PRAGMA foreign_keys=ON;
 CREATE TABLE meta (schema_version INTEGER NOT NULL);
@@ -27,6 +27,9 @@ CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when
 CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
+CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 '''
 
 
@@ -101,6 +104,51 @@ def flow_input(value):
     return result
 
 
+def field_input(value):
+    if not isinstance(value, list):
+        raise ValueError('fields must be an array')
+    cleaned = []
+    names = set()
+    for field in value:
+        if not isinstance(field, dict):
+            raise ValueError('Each field must be an object')
+        name = required_text(field.get('name'), 'field name')
+        if name in names:
+            raise ValueError('Duplicate field name: '+name)
+        names.add(name)
+        required = field.get('required', False)
+        if type(required) is not bool:
+            raise ValueError('field required must be boolean')
+        cleaned.append({'name': name, 'type': required_text(field.get('type'), 'field type'),
+                        'description': optional_text(field.get('description', ''), 'field description'),
+                        'required': required})
+    return cleaned
+
+
+def data_input(value):
+    if not isinstance(value, dict):
+        raise ValueError('Data topics require a data object')
+    fields = field_input(value.get('fields'))
+    if not fields:
+        raise ValueError('Data topics require at least one field')
+    return {'owner': required_text(value.get('owner'), 'data owner'), 'fields': fields}
+
+
+def interface_input(value):
+    if not isinstance(value, dict):
+        raise ValueError('Interface topics require an interface object')
+    inputs = field_input(value.get('inputs'))
+    outputs = field_input(value.get('outputs'))
+    if not inputs and not outputs:
+        raise ValueError('Interface topics require input or output fields')
+    method = optional_text(value.get('method', ''), 'HTTP method').upper()
+    request_url = optional_text(value.get('requestUrl', ''), 'request URL')
+    if bool(method) != bool(request_url):
+        raise ValueError('HTTP method and request URL must be provided together')
+    return {'entry': required_text(value.get('entry'), 'interface entry'),
+            'method': method, 'requestUrl': request_url, 'inputs': inputs, 'outputs': outputs}
+
+
 def topic_input(value):
     if not isinstance(value, dict):
         raise ValueError('Topic input must be an object')
@@ -121,10 +169,21 @@ def topic_input(value):
         flow = flow_input(flow)
     elif flow is not None:
         raise ValueError('Only flow topics may define a flow')
+    data = value.get('data')
+    if category == 'data':
+        data = data_input(data)
+    elif data is not None:
+        raise ValueError('Only data topics may define data fields')
+    interface = value.get('interface')
+    if category == 'interfaces':
+        interface = interface_input(interface)
+    elif interface is not None:
+        raise ValueError('Only interface topics may define interface fields')
     return {'category': category, 'title': required_text(value.get('title'), 'title'),
             'summary': optional_text(value.get('summary'), 'summary'),
             'details': optional_text(value.get('details', ''), 'details'),
-            'refs': refs(value.get('refs', [])), 'links': links(value.get('links', [])), 'trigger': trigger, 'flow': flow}
+            'refs': refs(value.get('refs', [])), 'links': links(value.get('links', [])),
+            'trigger': trigger, 'flow': flow, 'data': data, 'interface': interface}
 
 
 def category_input(value):
@@ -153,6 +212,23 @@ class ContextStore:
             raise ValueError('Role card not found in a direct role folder')
         if self.folder.is_symlink() or self.db.is_symlink():
             raise ValueError('Symlinked context paths are not allowed')
+
+    def role_metadata(self):
+        card = self.role_dir/'role-card.md'
+        purpose = next((line.strip() for line in card.read_text(encoding='utf-8').splitlines()
+                        if line.strip() and not line.lstrip().startswith(('#', '-', '|', '```'))), '')
+        boundary = self.role_dir/'boundary.md'
+        paths = []
+        if boundary.is_file():
+            if boundary.is_symlink():
+                raise ValueError('Symlinked role boundary is not readable')
+            for line in boundary.read_text(encoding='utf-8').splitlines():
+                if not line.lstrip().startswith('|'):
+                    continue
+                match = re.search(r'`([^`]+)`', line)
+                if match and match.group(1) not in paths:
+                    paths.append(match.group(1))
+        return {'purpose': purpose, 'boundaryPaths': paths}
 
     @contextmanager
     def connection(self, readonly=True):
@@ -191,12 +267,16 @@ class ContextStore:
             if version == SCHEMA_VERSION:
                 connection.commit()
                 return {'schemaVersion': version, 'changed': False}
-            if version != 1:
+            if version not in (1, 2):
                 raise ValueError('Unsupported context database schema')
-            connection.execute('CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
-            connection.execute('CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE)')
-            connection.execute('CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
-            connection.execute("CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id))")
+            if version == 1:
+                connection.execute('CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute('CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute('CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute("CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id))")
+            connection.execute('CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+            connection.execute('CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+            connection.execute("CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)")
             connection.execute('UPDATE meta SET schema_version=?', (SCHEMA_VERSION,))
             connection.commit()
             return {'schemaVersion': SCHEMA_VERSION, 'changed': True}
@@ -330,7 +410,18 @@ class ContextStore:
                 flow = {'steps': steps}
                 for name, (kind, _) in FLOW_RELATIONS.items():
                     flow[name] = [item['target_topic_id'] for item in connection.execute('SELECT target_topic_id FROM flow_relations WHERE role_id=? AND topic_id=? AND kind=? ORDER BY position', (self.role, topic_id, kind))]
-            return {**dict(row), 'refs': references, 'links': linked, 'trigger': trigger, 'flow': flow}
+            fields = {'data': [], 'input': [], 'output': []}
+            for field in connection.execute('SELECT section,name,field_type,description,required FROM topic_fields WHERE role_id=? AND topic_id=? ORDER BY section,position', (self.role, topic_id)):
+                fields[field['section']].append({'name': field['name'], 'type': field['field_type'],
+                                                  'description': field['description'], 'required': bool(field['required'])})
+            data_row = connection.execute('SELECT owner FROM data_schemas WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
+            data = {'owner': data_row['owner'], 'fields': fields['data']} if data_row is not None else None
+            interface_row = connection.execute('SELECT entry,method,request_url FROM interface_specs WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
+            interface = ({'entry': interface_row['entry'], 'method': interface_row['method'],
+                          'requestUrl': interface_row['request_url'], 'inputs': fields['input'],
+                          'outputs': fields['output']} if interface_row is not None else None)
+            return {**dict(row), 'refs': references, 'links': linked, 'trigger': trigger, 'flow': flow,
+                    'data': data, 'interface': interface}
 
     def upsert(self, topic_id, value, expected):
         if not TOPIC_ID.fullmatch(topic_id):
@@ -356,6 +447,9 @@ class ContextStore:
                 connection.execute('DELETE FROM event_triggers WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM flow_steps WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM flow_relations WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM data_schemas WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM interface_specs WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM topic_fields WHERE role_id=? AND topic_id=?', (self.role, topic_id))
             for position, ref in enumerate(topic['refs']):
                 connection.execute('INSERT INTO topic_refs VALUES (?,?,?,?)', (self.role, topic_id, position, ref))
             for position, target in enumerate(topic['links']):
@@ -374,6 +468,19 @@ class ContextStore:
                         if target_row is None or target_row['category'] != category or target_row['deleted_at'] is not None:
                             raise ValueError(name+' must reference an active '+category+' topic of this role: '+target)
                         connection.execute('INSERT INTO flow_relations VALUES (?,?,?,?,?)', (self.role, topic_id, kind, position, target))
+            if topic['data'] is not None:
+                connection.execute('INSERT INTO data_schemas VALUES (?,?,?)', (self.role, topic_id, topic['data']['owner']))
+                for position, field in enumerate(topic['data']['fields']):
+                    connection.execute('INSERT INTO topic_fields VALUES (?,?,?,?,?,?,?,?)',
+                                       (self.role, topic_id, 'data', position, field['name'], field['type'], field['description'], int(field['required'])))
+            if topic['interface'] is not None:
+                spec = topic['interface']
+                connection.execute('INSERT INTO interface_specs VALUES (?,?,?,?,?)',
+                                   (self.role, topic_id, spec['entry'], spec['method'], spec['requestUrl']))
+                for section, values in (('input', spec['inputs']), ('output', spec['outputs'])):
+                    for position, field in enumerate(values):
+                        connection.execute('INSERT INTO topic_fields VALUES (?,?,?,?,?,?,?,?)',
+                                           (self.role, topic_id, section, position, field['name'], field['type'], field['description'], int(field['required'])))
         return self.get_topic(topic_id)
 
     def delete(self, topic_id, expected, restore=False):
@@ -399,7 +506,8 @@ class ContextStore:
             return [dict(row) for row in connection.execute(sql, (self.role, '%'+term+'%', '%'+term+'%', '%'+term+'%'))]
 
     def outline(self):
-        return {'roleId': self.role, 'overview': self.overview(), 'categorySummaries': self.list_categories(), 'topics': self.list_topics()}
+        return {'roleId': self.role, 'role': self.role_metadata(), 'overview': self.overview(),
+                'categorySummaries': self.list_categories(), 'topics': self.list_topics()}
 
 
 def input_json(path):

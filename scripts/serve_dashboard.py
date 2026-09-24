@@ -75,6 +75,17 @@ class Dashboard:
     def context_topic(self, role_id, topic_id):
         return ContextStore(self.root, role_id, self.roles).get_topic(topic_id)
 
+    def context_category(self, role_id, category):
+        store = ContextStore(self.root, role_id, self.roles)
+        try:
+            summary = store.get_category(category)
+        except ValueError as exc:
+            if str(exc) != 'Category summary not found for this role':
+                raise
+            summary = None
+        topics = [store.get_topic(row['topic_id']) for row in store.list_topics(category)]
+        return {'roleId': role_id, 'category': category, 'summary': summary, 'topics': topics}
+
     def role_atlas(self, role_id=None):
         import role_atlas as graphs
         base=self.root/'doc/role-atlas'
@@ -159,6 +170,7 @@ class Dashboard:
                         title = next((line.lstrip('# ').strip() for line in lines if line.startswith('# ')), folder.name)
                         description = next((line for line in lines if not line.startswith(('#', '-', '|', '```'))), '')
                         docs = {name: self.relative(folder/name) for name in sorted(DOC_NAMES) if (folder/name).is_file() and not (folder/name).is_symlink()}
+                        role_meta = ContextStore(self.root, folder.name, self.roles).role_metadata()
                         context = None
                         db_path = self.root/'project-context/context.sqlite3'
                         if db_path.exists():
@@ -168,7 +180,7 @@ class Dashboard:
                                 issue(db_path, exc)
                         result['roles'].append({'id': folder.name, 'name': title, 'description': description,
                                                 'path': self.relative(folder), 'documents': docs,
-                                                'projectContext': context})
+                                                'boundaryPaths': role_meta['boundaryPaths'], 'projectContext': context})
                     except (OSError, UnicodeError, ValueError) as exc:
                         issue(card, exc)
         except OSError as exc:
@@ -325,7 +337,15 @@ def make_handler(dashboard):
                     query = parse_qs(parsed.query)
                     role = query.get('role', [''])[0]
                     topic = query.get('topic', [None])[0]
-                    content = dashboard.context_topic(role, topic) if topic else dashboard.context_outline(role)
+                    category = query.get('category', [None])[0]
+                    if topic and category:
+                        raise ValueError('Choose topic or category, not both')
+                    if topic:
+                        content = dashboard.context_topic(role, topic)
+                    elif category:
+                        content = dashboard.context_category(role, category)
+                    else:
+                        content = dashboard.context_outline(role)
                     if content is None:
                         raise ValueError('This role has no project overview')
                     self.respond(200, json.dumps(content, ensure_ascii=False).encode())

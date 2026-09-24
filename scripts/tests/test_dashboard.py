@@ -28,11 +28,13 @@ class DashboardTests(unittest.TestCase):
   d=self.app.snapshot();self.assertEqual(d['roles'][0]['name'],'订单');self.assertEqual(d['projectRootUri'],self.root.as_uri());self.assertEqual(d['tasks'],[]);self.assertEqual(d['events'],[])
  def test_role_context_live_listing_and_read_boundary(self):
   store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
+  (self.role/'boundary.md').write_text('# Section 1\n| Type | Path |\n| --- | --- |\n| File | `src/orders.py` |\n')
   store.set_category('events','导出后发送完成事件',0)
   store.upsert('export-done',{'category':'events','title':'完成事件','summary':'导出成功后产生','details':'供通知消费','trigger':{'when':'导出文件写入成功','action':'通知消费者'}},0)
   store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'steps':[{'title':'读取订单'}],'emits':['export-done']}},0)
   store.set_overview({'title':'订单总览','summary':'订单处理','steps':[{'title':'导出','links':['export-done']}]},1)
   context=self.app.snapshot()['roles'][0]['projectContext']
+  self.assertEqual(self.app.snapshot()['roles'][0]['boundaryPaths'],['src/orders.py'])
   self.assertEqual(context['overview']['title'],'订单总览')
   self.assertEqual(context['categorySummaries']['events']['summary'],'导出后发送完成事件')
   self.assertEqual(context['overview']['steps'][0]['links'],['export-done'])
@@ -86,6 +88,9 @@ class HTTPTests(unittest.TestCase):
  setUp=DashboardTests.setUp
  def test_http_read_only_and_loopback_host(self):
   store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
+  store.set_category('data','订单输入字段',0)
+  store.upsert('order-record',{'category':'data','title':'订单数据','summary':'只读输入','data':{'owner':'订单角色','fields':[{'name':'orderId','type':'string','required':True}]}},0)
+  store.upsert('export-api',{'category':'interfaces','title':'导出接口','summary':'HTTP 接口','interface':{'entry':'orders.export','method':'POST','requestUrl':'/api/orders/export','inputs':[{'name':'status','type':'string'}],'outputs':[{'name':'taskId','type':'string'}]}},0)
   store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','flow':{'steps':[{'title':'读取订单'}]}},0)
   server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(self.app));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
@@ -97,6 +102,10 @@ class HTTPTests(unittest.TestCase):
    from urllib.parse import urlencode
    with urlopen(url+'/api/context?'+urlencode({'role':'订单','topic':'order-export'}),timeout=5) as response:
     self.assertEqual(json.load(response)['details'],'读取订单')
+   with urlopen(url+'/api/context?'+urlencode({'role':'订单','category':'data'}),timeout=5) as response:
+    self.assertEqual(json.load(response)['topics'][0]['data']['fields'][0]['name'],'orderId')
+   with urlopen(url+'/api/context?'+urlencode({'role':'订单','category':'interfaces'}),timeout=5) as response:
+    self.assertEqual(json.load(response)['topics'][0]['interface']['requestUrl'],'/api/orders/export')
    with urlopen(url+'/role-atlas?embedded=1',timeout=5) as response:
     self.assertIn("frame-ancestors 'self'",response.headers['Content-Security-Policy'])
     self.assertIn('ROLE FLOW EXPLORER',response.read().decode())

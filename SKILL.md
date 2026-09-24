@@ -78,7 +78,7 @@ Governance creates the [default project role](references/project-role.md), which
 
 ### Default Project Dashboard
 
-Every project using this skill gets the reusable Dashboard workflow in [dashboard.md](references/dashboard.md). After the project role is accepted, it starts or reuses one local read-only dashboard for the actual project, opens it when possible, and provides its URL. The shared assets and server remain in the Skill installation; project roles, coordination records and role-graph data come from that project. Never point a real task at `test/game-engine` or copy its example flows as if they described the new project. If the user opts out or the environment cannot host a local viewer, report that limitation without blocking otherwise authorized development.
+Every project using this skill gets the reusable Dashboard workflow in [dashboard.md](references/dashboard.md). After the project role is accepted, it starts or reuses one local read-only dashboard for the actual project, opens it when possible, and provides its URL. The shared assets and server remain in the Skill installation; role cards, boundaries, project understanding and coordination records come from that project. Never point a real task at `test/game-engine` or copy its example data as if it described the new project. If the user opts out or the environment cannot host a local viewer, report that limitation without blocking otherwise authorized development.
 
 ## Role Switching
 
@@ -152,7 +152,7 @@ Read only the relevant references, at the stated stage. These are mandatory task
 | Reference | Read before / when |
 | --- | --- |
 | [Default project role](references/project-role.md) | Main-conversation investigation, architecture/abstraction/integration design, and role-activation authorization |
-| [Role function graphs](references/role-atlas.md) | User-requested per-role overview, feature selection, step-by-step walkthroughs and source evidence |
+| [Legacy role function graphs](references/role-atlas.md) | User explicitly requests a step-by-step source walkthrough or the old role graph |
 | [Local dashboard](references/dashboard.md) | Default project handoff, resume, live role/stage viewing, and final project URL delivery |
 | [Task operations](references/task-operations.md) | Initialize/dispatch tasks, check scope and revisions, accept feedback, run approved checks, recover records |
 | [Coordination table](references/coordination.md) | Project/worker progress, issues, completion reports, requirement/design revisions, and shared status rendering |
