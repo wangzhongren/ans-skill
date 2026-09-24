@@ -98,7 +98,7 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 Dashboard 包含 **项目概览、项目理解、阶段任务、事件记录、角色功能图谱** 五个视图。点击角色卡可进入该角色的项目理解，总览里也可打开角色记录或功能图谱。没有执行记录就显示“未上报”，不会用示例数据填充。
 
-项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 先显示角色总览，在流程中直接展开关联的事件、数据和接口；五类内容也各有独立汇总页，可继续进入主题和详情。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。正式定义仍以契约和源码为准。
+项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 直接提供流程、事件、数据、接口和定义总览；点条目进入详情。流程详情展示触发事件、步骤、输入/输出数据和接口；事件详情展示触发条件、动作与消费方。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。正式定义仍以契约和源码为准。
 
 - `--root` 是项目根目录，不是默认的 `src/`。
 - 自动识别 `角色卡/` 或 `role-cards/`，以及 `docs/scheduling/` 或 `doc/scheduling/`。
@@ -177,7 +177,7 @@ doc/                        # 本技能的变更、修复与验证记录
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-当前 66 项测试通过，覆盖图谱、查询、Dashboard、项目理解增删改查、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
+当前 67 项测试通过，覆盖图谱、查询、Dashboard、项目理解增删改查、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
 
 ```sh
 python3 scripts/validate_task_flow.py --source test/game-engine --output output/new-validation-run --node /absolute/path/to/node

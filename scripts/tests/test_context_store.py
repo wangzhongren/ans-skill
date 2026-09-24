@@ -1,4 +1,5 @@
 import json
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -21,13 +22,13 @@ class ContextStoreTests(unittest.TestCase):
   orders.init({'title':'订单总览','summary':'订单流程','steps':[{'title':'入口','description':'接收订单'}]})
   payments.init({'title':'支付总览','summary':'支付流程'})
   self.assertEqual(len(list((self.root/'project-context').glob('*.sqlite3'))),1)
-  created=orders.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py']},0)
+  created=orders.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'steps':[{'title':'读取订单'}]}},0)
   self.assertEqual(created['revision'],1)
   self.assertEqual(payments.list_topics(),[])
   with self.assertRaises(ValueError):payments.get_topic('order-export')
-  with self.assertRaises(ValueError):orders.upsert('order-export',{'category':'flows','title':'覆盖','summary':'错误版本'},0)
+  with self.assertRaises(ValueError):orders.upsert('order-export',{'category':'flows','title':'覆盖','summary':'错误版本','flow':{'steps':[{'title':'读取'}]}},0)
   self.assertEqual(orders.get_topic('order-export')['title'],'导出')
-  self.assertEqual(orders.upsert('order-export',{'category':'flows','title':'导出','summary':'生成文件'},1)['revision'],2)
+  self.assertEqual(orders.upsert('order-export',{'category':'flows','title':'导出','summary':'生成文件','flow':{'steps':[{'title':'写文件'}]}},1)['revision'],2)
   self.assertEqual(orders.search('生成')[0]['topic_id'],'order-export')
   self.assertIsNotNone(orders.delete('order-export',2)['deleted_at'])
   self.assertEqual(orders.list_topics(),[])
@@ -64,15 +65,44 @@ class ContextStoreTests(unittest.TestCase):
   self.assertEqual(orders.outline()['categorySummaries']['events']['summary'],'订单事件说明')
   with self.assertRaises(ValueError):payments.get_category('events')
   for topic_id,category in [('order-created','events'),('order-record','data'),('order-api','interfaces')]:
-   orders.upsert(topic_id,{'category':category,'title':topic_id,'summary':'可从流程进入'},0)
+   value={'category':category,'title':topic_id,'summary':'可从流程进入'}
+   if category=='events':value['trigger']={'when':'订单创建','action':'启动导出','consumers':['导出流程']}
+   orders.upsert(topic_id,value,0)
   linked=['order-created','order-record','order-api']
-  orders.upsert('order-export',{'category':'flows','title':'导出','summary':'流程','links':linked},0)
+  flow={'steps':[{'title':'处理订单'}],'triggeredBy':['order-created'],'inputs':['order-record'],'outputs':['order-record'],'interfaces':['order-api']}
+  orders.upsert('order-export',{'category':'flows','title':'导出','summary':'流程','links':linked,'flow':flow},0)
   orders.set_overview({'title':'订单总览','summary':'流程','steps':[{'title':'处理','links':linked}]},1)
   self.assertEqual(orders.get_topic('order-export')['links'],linked)
+  self.assertEqual(orders.get_topic('order-export')['flow']['triggeredBy'],['order-created'])
+  self.assertEqual(orders.get_topic('order-created')['trigger']['when'],'订单创建')
   self.assertEqual(orders.overview()['steps'][0]['links'],linked)
-  payments.upsert('payment-event',{'category':'events','title':'支付事件','summary':'支付专属'},0)
-  with self.assertRaises(sqlite3.IntegrityError):orders.upsert('invalid-flow',{'category':'flows','title':'无效关联','summary':'跨角色','links':['payment-event']},0)
+  payments.upsert('payment-event',{'category':'events','title':'支付事件','summary':'支付专属','trigger':{'when':'支付成功','action':'更新支付状态'}},0)
+  with self.assertRaises(ValueError):orders.upsert('invalid-flow',{'category':'flows','title':'无效关联','summary':'跨角色','flow':{'steps':[{'title':'处理'}],'triggeredBy':['payment-event']}},0)
+  with self.assertRaises(ValueError):orders.upsert('wrong-input',{'category':'flows','title':'输入类型错误','summary':'错误','flow':{'steps':[{'title':'处理'}],'inputs':['order-created']}},0)
   self.assertEqual(orders.list_topics('flows')[0]['topic_id'],'order-export')
+
+ def test_migration_preserves_version_one_overview(self):
+  database=self.root/'project-context/context.sqlite3';database.parent.mkdir()
+  with closing(sqlite3.connect(database)) as connection:
+   connection.executescript('''
+    CREATE TABLE meta(schema_version INTEGER NOT NULL);
+    CREATE TABLE overview(role_id TEXT PRIMARY KEY,title TEXT,summary TEXT,revision INTEGER,updated_at TEXT);
+    CREATE TABLE overview_steps(role_id TEXT,position INTEGER,title TEXT,description TEXT,ref TEXT);
+    CREATE TABLE overview_step_links(role_id TEXT,step_position INTEGER,position INTEGER,target_topic_id TEXT);
+    CREATE TABLE category_summaries(role_id TEXT,category TEXT,summary TEXT,revision INTEGER,updated_at TEXT);
+    CREATE TABLE topics(role_id TEXT,topic_id TEXT,category TEXT,title TEXT,summary TEXT,details TEXT,revision INTEGER,updated_at TEXT,deleted_at TEXT,PRIMARY KEY(role_id,topic_id));
+    CREATE TABLE topic_refs(role_id TEXT,topic_id TEXT,position INTEGER,ref TEXT);
+    CREATE TABLE topic_links(role_id TEXT,source_topic_id TEXT,position INTEGER,target_topic_id TEXT);
+    INSERT INTO meta VALUES(1);
+    INSERT INTO overview VALUES('订单','旧总览','保留内容',1,'2026-09-24');
+   ''')
+   connection.commit()
+  orders=ContextStore(self.root,'订单')
+  with self.assertRaises(ValueError):orders.overview()
+  self.assertTrue(orders.migrate()['changed'])
+  self.assertFalse(orders.migrate()['changed'])
+  self.assertEqual(orders.overview()['summary'],'保留内容')
+  self.assertEqual(orders.list_topics(),[])
 
 
 if __name__=='__main__':unittest.main()

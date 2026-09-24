@@ -29,8 +29,8 @@ class DashboardTests(unittest.TestCase):
  def test_role_context_live_listing_and_read_boundary(self):
   store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
   store.set_category('events','导出后发送完成事件',0)
-  store.upsert('export-done',{'category':'events','title':'完成事件','summary':'导出成功后产生','details':'供通知消费'},0)
-  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py']},0)
+  store.upsert('export-done',{'category':'events','title':'完成事件','summary':'导出成功后产生','details':'供通知消费','trigger':{'when':'导出文件写入成功','action':'通知消费者'}},0)
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'steps':[{'title':'读取订单'}],'emits':['export-done']}},0)
   store.set_overview({'title':'订单总览','summary':'订单处理','steps':[{'title':'导出','links':['export-done']}]},1)
   context=self.app.snapshot()['roles'][0]['projectContext']
   self.assertEqual(context['overview']['title'],'订单总览')
@@ -38,7 +38,7 @@ class DashboardTests(unittest.TestCase):
   self.assertEqual(context['overview']['steps'][0]['links'],['export-done'])
   self.assertEqual([(row['category'],row['topic_id']) for row in context['topics']],[('events','export-done'),('flows','order-export')])
   self.assertEqual(self.app.context_topic('订单','order-export')['details'],'读取订单')
-  store.upsert('order-export',{'category':'flows','title':'导出','summary':'新版导出','details':'生成文件'},1)
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'新版导出','details':'生成文件','flow':{'steps':[{'title':'生成文件'}],'emits':['export-done']}},1)
   updated={row['topic_id']:row for row in self.app.snapshot()['roles'][0]['projectContext']['topics']}
   self.assertEqual(updated['order-export']['summary'],'新版导出')
   with self.assertRaises(ValueError):self.app.document('project-context/context.sqlite3')
@@ -86,7 +86,7 @@ class HTTPTests(unittest.TestCase):
  setUp=DashboardTests.setUp
  def test_http_read_only_and_loopback_host(self):
   store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
-  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单'},0)
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','flow':{'steps':[{'title':'读取订单'}]}},0)
   server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(self.app));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
    url='http://127.0.0.1:'+str(server.server_port)

@@ -12,7 +12,7 @@ import sys
 
 CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 TOPIC_ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SCHEMA = '''
 PRAGMA foreign_keys=ON;
 CREATE TABLE meta (schema_version INTEGER NOT NULL);
@@ -23,6 +23,10 @@ CREATE TABLE category_summaries (role_id TEXT NOT NULL REFERENCES overview(role_
 CREATE TABLE topics (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, category TEXT NOT NULL CHECK(category IN ('flows','definitions','events','interfaces','data')), title TEXT NOT NULL, summary TEXT NOT NULL, details TEXT NOT NULL, revision INTEGER NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, PRIMARY KEY(role_id,topic_id));
 CREATE TABLE topic_refs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE topic_links (role_id TEXT NOT NULL, source_topic_id TEXT NOT NULL, position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,source_topic_id,position), FOREIGN KEY(role_id,source_topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
+CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
 '''
 
 
@@ -74,16 +78,53 @@ def overview_input(value):
             'summary': optional_text(value.get('summary'), 'summary'), 'steps': cleaned}
 
 
+FLOW_RELATIONS = {'triggeredBy': ('triggered_by', 'events'), 'emits': ('emits', 'events'),
+                  'inputs': ('input', 'data'), 'outputs': ('output', 'data'), 'interfaces': ('interface', 'interfaces')}
+
+
+def flow_input(value):
+    if not isinstance(value, dict):
+        raise ValueError('Flow topics require a flow object')
+    steps = value.get('steps')
+    if not isinstance(steps, list) or not steps:
+        raise ValueError('Flow steps must be a nonempty array')
+    cleaned = []
+    for step in steps:
+        if not isinstance(step, dict):
+            raise ValueError('Flow step must be an object')
+        cleaned.append({'title': required_text(step.get('title'), 'flow step title'),
+                        'description': optional_text(step.get('description', ''), 'flow step description'),
+                        'ref': optional_text(step.get('ref', ''), 'flow step ref')})
+    result = {'steps': cleaned}
+    for name in FLOW_RELATIONS:
+        result[name] = links(value.get(name, []))
+    return result
+
+
 def topic_input(value):
     if not isinstance(value, dict):
         raise ValueError('Topic input must be an object')
     category = value.get('category')
     if category not in CATEGORIES:
         raise ValueError('category must be one of '+', '.join(CATEGORIES))
+    trigger = value.get('trigger')
+    if category == 'events':
+        if not isinstance(trigger, dict):
+            raise ValueError('Event topics require trigger details')
+        trigger = {'when': required_text(trigger.get('when'), 'trigger.when'),
+                   'action': required_text(trigger.get('action'), 'trigger.action'),
+                   'consumers': refs(trigger.get('consumers', []))}
+    elif trigger is not None:
+        raise ValueError('Only event topics may define a trigger')
+    flow = value.get('flow')
+    if category == 'flows':
+        flow = flow_input(flow)
+    elif flow is not None:
+        raise ValueError('Only flow topics may define a flow')
     return {'category': category, 'title': required_text(value.get('title'), 'title'),
             'summary': optional_text(value.get('summary'), 'summary'),
             'details': optional_text(value.get('details', ''), 'details'),
-            'refs': refs(value.get('refs', [])), 'links': links(value.get('links', []))}
+            'refs': refs(value.get('refs', [])), 'links': links(value.get('links', [])), 'trigger': trigger, 'flow': flow}
 
 
 def category_input(value):
@@ -124,13 +165,43 @@ class ContextStore:
             connection.execute('PRAGMA busy_timeout=5000')
             meta = connection.execute('SELECT schema_version FROM meta').fetchall()
             if len(meta) != 1 or meta[0]['schema_version'] != SCHEMA_VERSION:
-                raise ValueError('Context database schema mismatch')
+                raise ValueError('Context database schema mismatch; run the authorized migrate command')
             yield connection
             if not readonly:
                 connection.commit()
         except Exception:
             if not readonly:
                 connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def migrate(self):
+        if not self.db.is_file() or self.db.is_symlink():
+            raise FileNotFoundError('Project context database is not initialized')
+        connection = sqlite3.connect(self.db, timeout=5)
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute('PRAGMA foreign_keys=ON')
+            connection.execute('BEGIN IMMEDIATE')
+            meta = connection.execute('SELECT schema_version FROM meta').fetchall()
+            if len(meta) != 1:
+                raise ValueError('Invalid context database metadata')
+            version = meta[0]['schema_version']
+            if version == SCHEMA_VERSION:
+                connection.commit()
+                return {'schemaVersion': version, 'changed': False}
+            if version != 1:
+                raise ValueError('Unsupported context database schema')
+            connection.execute('CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+            connection.execute('CREATE TABLE event_trigger_consumers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, consumer TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES event_triggers(role_id,topic_id) ON DELETE CASCADE)')
+            connection.execute('CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+            connection.execute("CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id))")
+            connection.execute('UPDATE meta SET schema_version=?', (SCHEMA_VERSION,))
+            connection.commit()
+            return {'schemaVersion': SCHEMA_VERSION, 'changed': True}
+        except Exception:
+            connection.rollback()
             raise
         finally:
             connection.close()
@@ -248,7 +319,18 @@ class ContextStore:
                 raise ValueError('Topic not found for this role')
             references = [ref['ref'] for ref in connection.execute('SELECT ref FROM topic_refs WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
             linked = [item['target_topic_id'] for item in connection.execute('SELECT target_topic_id FROM topic_links WHERE role_id=? AND source_topic_id=? ORDER BY position', (self.role, topic_id))]
-            return {**dict(row), 'refs': references, 'links': linked}
+            trigger_row = connection.execute('SELECT when_text,action_text FROM event_triggers WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
+            trigger = None
+            if trigger_row is not None:
+                consumers = [item['consumer'] for item in connection.execute('SELECT consumer FROM event_trigger_consumers WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
+                trigger = {'when': trigger_row['when_text'], 'action': trigger_row['action_text'], 'consumers': consumers}
+            flow = None
+            if row['category'] == 'flows':
+                steps = [dict(step) for step in connection.execute('SELECT title,description,ref FROM flow_steps WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
+                flow = {'steps': steps}
+                for name, (kind, _) in FLOW_RELATIONS.items():
+                    flow[name] = [item['target_topic_id'] for item in connection.execute('SELECT target_topic_id FROM flow_relations WHERE role_id=? AND topic_id=? AND kind=? ORDER BY position', (self.role, topic_id, kind))]
+            return {**dict(row), 'refs': references, 'links': linked, 'trigger': trigger, 'flow': flow}
 
     def upsert(self, topic_id, value, expected):
         if not TOPIC_ID.fullmatch(topic_id):
@@ -271,10 +353,27 @@ class ContextStore:
                                    (topic['category'], topic['title'], topic['summary'], topic['details'], expected+1, now(), self.role, topic_id))
                 connection.execute('DELETE FROM topic_refs WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM topic_links WHERE role_id=? AND source_topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM event_triggers WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM flow_steps WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                connection.execute('DELETE FROM flow_relations WHERE role_id=? AND topic_id=?', (self.role, topic_id))
             for position, ref in enumerate(topic['refs']):
                 connection.execute('INSERT INTO topic_refs VALUES (?,?,?,?)', (self.role, topic_id, position, ref))
             for position, target in enumerate(topic['links']):
                 connection.execute('INSERT INTO topic_links VALUES (?,?,?,?)', (self.role, topic_id, position, target))
+            if topic['trigger'] is not None:
+                connection.execute('INSERT INTO event_triggers VALUES (?,?,?,?)',
+                                   (self.role, topic_id, topic['trigger']['when'], topic['trigger']['action']))
+                for position, consumer in enumerate(topic['trigger']['consumers']):
+                    connection.execute('INSERT INTO event_trigger_consumers VALUES (?,?,?,?)', (self.role, topic_id, position, consumer))
+            if topic['flow'] is not None:
+                for position, step in enumerate(topic['flow']['steps']):
+                    connection.execute('INSERT INTO flow_steps VALUES (?,?,?,?,?,?)', (self.role, topic_id, position, step['title'], step['description'], step['ref']))
+                for name, (kind, category) in FLOW_RELATIONS.items():
+                    for position, target in enumerate(topic['flow'][name]):
+                        target_row = connection.execute('SELECT category,deleted_at FROM topics WHERE role_id=? AND topic_id=?', (self.role, target)).fetchone()
+                        if target_row is None or target_row['category'] != category or target_row['deleted_at'] is not None:
+                            raise ValueError(name+' must reference an active '+category+' topic of this role: '+target)
+                        connection.execute('INSERT INTO flow_relations VALUES (?,?,?,?,?)', (self.role, topic_id, kind, position, target))
         return self.get_topic(topic_id)
 
     def delete(self, topic_id, expected, restore=False):
@@ -317,6 +416,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest='command', required=True)
     for name in ('outline', 'overview'):
         commands.add_parser(name)
+    commands.add_parser('migrate')
     for name in ('init', 'set-overview'):
         command = commands.add_parser(name)
         command.add_argument('--input', required=True, help='JSON input file, or - for stdin')
@@ -344,11 +444,12 @@ def main(argv=None):
         command.add_argument('--expect-revision', type=int, required=True)
     args = parser.parse_args(argv)
     try:
-        writes = {'init', 'set-overview', 'set-category', 'upsert', 'delete', 'restore'}
+        writes = {'init', 'migrate', 'set-overview', 'set-category', 'upsert', 'delete', 'restore'}
         if args.command in writes and args.actor_role != args.role:
             raise ValueError('Writes require --actor-role matching --role and an accepted role boundary')
         store = ContextStore(args.root, args.role, args.roles)
         if args.command == 'init': result = store.init(input_json(args.input))
+        elif args.command == 'migrate': result = store.migrate()
         elif args.command == 'set-overview': result = store.set_overview(input_json(args.input), args.expect_revision)
         elif args.command == 'overview': result = store.overview()
         elif args.command == 'outline': result = store.outline()
