@@ -10,6 +10,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .cloud_store import PROJECT_ID
 from .context_store import ContextStore
+from .paths import normalize_base_path
 from .server import Dashboard
 
 
@@ -36,12 +37,14 @@ def send(server_url, project_id, token, value):
     parsed = urlparse(server_url)
     if not PROJECT_ID.fullmatch(project_id):
         raise ValueError('Project id must be a lowercase hyphenated slug')
-    if not parsed.netloc or parsed.path not in ('', '/') or parsed.query or parsed.fragment or parsed.username or parsed.password:
-        raise ValueError('Server URL must be an origin without path, credentials, query, or fragment')
+    if not parsed.netloc or parsed.params or parsed.query or parsed.fragment or parsed.username or parsed.password:
+        raise ValueError('Server URL must not contain credentials, parameters, query, or fragment')
+    base_path = normalize_base_path(parsed.path)
     local = parsed.hostname in ('127.0.0.1', 'localhost')
     if parsed.scheme != 'https' and not (parsed.scheme == 'http' and local):
         raise ValueError('Cloud sync requires HTTPS; HTTP is allowed only on loopback for testing')
-    url = server_url.rstrip('/') + '/p/' + project_id + '/api/sync'
+    url = parsed._replace(path=base_path+'/p/'+project_id+'/api/sync', params='',
+                          query='', fragment='').geturl()
     data = json.dumps(value, ensure_ascii=False).encode('utf-8')
     request = Request(url, data=data, headers={'Content-Type': 'application/json',
                                                'Authorization': 'Bearer ' + token}, method='POST')

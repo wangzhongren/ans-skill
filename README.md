@@ -102,6 +102,8 @@ Dashboard 包含 **项目概览、项目理解、阶段任务、协作事件** �
 
 把独立的 [`dashboard/`](dashboard/README.md) 目录部署在服务器，可直接运行 Python，也可使用其中的 `Dockerfile` 和 `compose.yaml`。Compose 持久化状态卷，并只在宿主机回环地址发布端口；对外仍需 HTTPS 反向代理。创建第一个管理员后，在 `/manage` 添加项目、内置账号、项目授权和**每个项目自己的同步 Key**。用户通过 `/p/<project-id>/` 查看获授权项目。
 
+如果挂在已有域名的 `/path/`，配置 `ANS_DASHBOARD_BASE_PATH=/path`（直接运行时用 `--base-path /path`），反向代理保留该前缀；本地同步的 `--server-url` 也带 `/path`。示例见 [路径前缀部署](dashboard/README.md#挂到现有域名的-path)。
+
 业务项目本地运行 `python3 -m dashboard.sync`，读取角色卡摘要、边界路径、项目理解 SQLite 和任务记录，将**展示快照**同步到对应项目。服务器不用访问业务仓库，也不接收源码或角色文档全文。完整启动、Key 配置和部署示例见 [独立 Dashboard README](dashboard/README.md)。本地单项目模式无需登录，仍使用上面的启动命令。
 
 **服务器按项目分库。**每个业务项目本地各有一份 `project-context/context.sqlite3`；共享服务器为每个项目保存一份 `projects/<project-id>.sqlite3`，存该项目的展示快照。服务器另有一份 `dashboard.sqlite3`，只管用户、授权、Key 和项目元数据。同步的是页面需要的 JSON，不是本地 SQLite 文件。Docker 部署时这些数据库都位于 `/data` 持久卷中。

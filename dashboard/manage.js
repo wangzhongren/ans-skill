@@ -1,10 +1,11 @@
 'use strict';
+const basePath=document.querySelector('meta[name="ans-base-path"]').content;
 const $=id=>document.getElementById(id);
 let csrfToken='';
 function message(value){$('message').textContent=value}
 function row(...parts){const item=document.createElement('div');item.className='row';for(const part of parts){const span=document.createElement('span');span.textContent=String(part);item.append(span)}return item}
 async function api(path,options={}){
-  const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
+  const response=await fetch(basePath+path,{credentials:'same-origin',cache:'no-store',...options});
   const result=await response.json();
   if(!response.ok)throw Error(result.error||'请求失败');
   return result;
@@ -19,13 +20,13 @@ async function refresh(){
 function attach(formId,path,values,done){$(formId).addEventListener('submit',async event=>{event.preventDefault();message('');try{const result=await post(path,values());event.target.reset();if(done)done(result);await refresh();if(!done)message('已保存')}catch(error){message(error.message)}})}
 async function init(){
   try{
-    const me=await api('/api/me');if(me.role!=='admin'){location.assign('/');return}csrfToken=me.csrfToken;
+    const me=await api('/api/me');if(me.role!=='admin'){location.assign(basePath+'/');return}csrfToken=me.csrfToken;
     attach('projectForm','/api/admin/projects',()=>({id:$('projectId').value,title:$('projectTitle').value}));
     attach('userForm','/api/admin/users',()=>({username:$('newUsername').value,password:$('newPassword').value,role:$('userRole').value}));
     attach('grantForm','/api/admin/grants',()=>({username:$('grantUsername').value,projectId:$('grantProject').value}));
     attach('keyForm','/api/admin/keys',()=>({projectId:$('keyProject').value,label:$('keyLabel').value}),result=>{$('issuedKey').textContent=result.key;$('keyResult').hidden=false;message('Key 已创建，仅显示这一次')});
-    $('logout').onclick=async()=>{try{await post('/api/logout',{});location.assign('/login')}catch(error){message(error.message)}};
+    $('logout').onclick=async()=>{try{await post('/api/logout',{});location.assign(basePath+'/login')}catch(error){message(error.message)}};
     await refresh();
-  }catch(error){message(error.message);if(error.message==='Login required')location.assign('/login')}
+  }catch(error){message(error.message);if(error.message==='Login required')location.assign(basePath+'/login')}
 }
 init();

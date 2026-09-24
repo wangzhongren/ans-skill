@@ -21,6 +21,20 @@ docker compose ps
 
 Docker 镜像只包含 Dashboard 的 Python/HTML/CSS/JS；业务项目文件仍在各自本地，通过下方同步命令发送展示快照。容器内服务监听 `0.0.0.0`，这是为了接收 Docker 端口映射；宿主机映射依然只监听回环地址。首次启动前必须创建管理员，否则服务会拒绝启动。
 
+### 挂到现有域名的 `/path/`
+
+若访问地址希望是 `https://dashboard.example.com/path/`，在 `dashboard/.env` 设置 `ANS_DASHBOARD_BASE_PATH=/path` 后重建容器。直接运行 Python 时加 `--base-path /path`。支持 `/tools/dashboard` 这样的多段前缀；留空则仍部署在域名根路径。反向代理应保留 `/path`，不要剥掉它：
+
+```nginx
+location = /path { return 308 /path/; }
+location /path/ {
+    proxy_set_header Host $host;
+    proxy_pass http://127.0.0.1:8765;
+}
+```
+
+这里的 `proxy_pass` **没有尾部 `/`**，会把 `/path/...` 原样转给后端；写成 `proxy_pass http://127.0.0.1:8765/;` 会改写请求路径。完整配置仍需放在下方示例的 HTTPS `server` 块内。管理页为 `/path/manage`，项目页为 `/path/p/<project-id>/`。本地同步命令的 `--server-url` 也填 `https://dashboard.example.com/path`，同步器会向该前缀下的项目 API 发送快照。
+
 ## 直接运行 Python
 
 从 `dashboard/` 的**父目录**执行，或将该父目录加入 `PYTHONPATH`：
@@ -71,7 +85,7 @@ python3 -m dashboard.sync \
   --interval 10
 ```
 
-在 `read` 提示时粘贴项目 Key 并回车。也可以由本地机密管理器将 `ANS_DASHBOARD_KEY` 注入进程；不要把 Key 写进仓库、命令行参数或 URL。省略 `--interval` 即只同步一次。该同步器读取 `角色卡/` 或 `role-cards/`、共享 `project-context/context.sqlite3` 及 `docs/scheduling/` 或 `doc/scheduling/`，整理后发送到 `/p/orders/api/sync`。目录不标准时加 `--roles`、`--scheduling`（必须位于项目根目录内）。同步内容上限 4 MiB；不会递归上传业务源码或角色文档全文。同步请求不跟随重定向，避免项目 Key 被转发。
+在 `read` 提示时粘贴项目 Key 并回车。也可以由本地机密管理器将 `ANS_DASHBOARD_KEY` 注入进程；不要把 Key 写进仓库、命令行参数或 URL。省略 `--interval` 即只同步一次。该同步器读取 `角色卡/` 或 `role-cards/`、共享 `project-context/context.sqlite3` 及 `docs/scheduling/` 或 `doc/scheduling/`，整理后发送到 `/p/orders/api/sync`；若 `--server-url` 带 `/path`，则发送到 `/path/p/orders/api/sync`。目录不标准时加 `--roles`、`--scheduling`（必须位于项目根目录内）。同步内容上限 4 MiB；不会递归上传业务源码或角色文档全文。同步请求不跟随重定向，避免项目 Key 被转发。
 
 默认本地单项目模式仍可使用：
 

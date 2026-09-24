@@ -23,6 +23,8 @@ services:
       - "8765"
       - --trusted-host
       - "${ANS_DASHBOARD_HOST:?Set ANS_DASHBOARD_HOST in .env}"
+      - --base-path
+      - "${ANS_DASHBOARD_BASE_PATH:-}"
     ports:
       - "127.0.0.1:${ANS_DASHBOARD_PORT:-8765}:8765"
     volumes:

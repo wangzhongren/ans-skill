@@ -1,7 +1,8 @@
 'use strict';
-const projectMatch=location.pathname.match(/^\/p\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/);
+const basePath=document.querySelector('meta[name="ans-base-path"]').content;
+const projectMatch=location.pathname.slice(basePath.length).match(/^\/p\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/);
 const currentProjectId=projectMatch?.[1]||null;
-const apiPath=path=>currentProjectId?'/p/'+currentProjectId+path:path;
+const apiPath=path=>basePath+(currentProjectId?'/p/'+currentProjectId+path:path);
 const $=id=>document.getElementById(id);let data=null,view='overview',loading=false,lastSuccess=null,refreshTimer=null,lastDataSignature=null,contextRoleId=null,contextPage={category:'flows',topicId:null},contextDetail=null;const contextRelatedCache=new Map(),contextCategoryCache=new Map();
 const statuses={pending:'待执行',ready:'已就绪',running:'执行中','awaiting-verification':'待验收',verified:'已完成（已验收）',blocked:'阻塞',failed:'失败',cancelled:'已取消',unreported:'未上报',inconsistent:'记录待核对'};
 const eventNames={initialized:'任务初始化','check-passed':'检查通过','report-rejected':'反馈已拒绝',stopped:'旧批次已停止',assigned:'任务派发',started:'开始执行',progress:'进度反馈','issue-reported':'发现问题','implementation-reported':'实现反馈','verification-passed':'验收通过','verification-failed':'验收失败','requirement-change-proposed':'需求变更提议','requirement-change-accepted':'需求变更接受','design-revised':'设计修订','revision-acknowledged':'新版本已确认','evidence-invalidated':'证据失效',resumed:'恢复执行',cancelled:'任务取消'};
@@ -154,15 +155,15 @@ async function loadProjects(){
   if(!currentProjectId)return;
   try{
     $('workspaceMode').textContent='SHARED DASHBOARD';$('workspaceHint').textContent='只同步展示快照';$('footerHint').textContent='展示最近同步的项目快照 · 不代表代理进程在线 · 不自动验收';
-    const response=await fetch('/api/projects',{cache:'no-store'});
-    if(response.status===401){location.assign('/login?next='+encodeURIComponent(location.pathname));return}
+    const response=await fetch(basePath+'/api/projects',{cache:'no-store'});
+    if(response.status===401){location.assign(basePath+'/login?next='+encodeURIComponent('/p/'+currentProjectId+'/'));return}
     if(!response.ok)return;
     const result=await response.json(),selector=$('projectSelect');selector.replaceChildren();
     for(const project of result.projects){const option=el('option',project.name);option.value=project.id;selector.append(option)}
     selector.value=currentProjectId;selector.hidden=result.projects.length<2;
-    selector.onchange=()=>location.assign('/p/'+encodeURIComponent(selector.value)+'/');
-    const me=await fetch('/api/me',{cache:'no-store'}).then(result=>result.json());$('manageLink').hidden=me.role!=='admin';$('logout').hidden=false;
-    $('logout').onclick=async()=>{await fetch('/api/logout',{method:'POST',headers:{'X-CSRF-Token':me.csrfToken},credentials:'same-origin'});location.assign('/login')};
+    selector.onchange=()=>location.assign(basePath+'/p/'+encodeURIComponent(selector.value)+'/');
+    const me=await fetch(basePath+'/api/me',{cache:'no-store'}).then(result=>result.json());$('manageLink').hidden=me.role!=='admin';$('logout').hidden=false;
+    $('logout').onclick=async()=>{await fetch(basePath+'/api/logout',{method:'POST',headers:{'X-CSRF-Token':me.csrfToken},credentials:'same-origin'});location.assign(basePath+'/login')};
   }catch(_error){/* The current project remains usable if the project list is temporarily unavailable. */}
 }
 async function refresh(){
@@ -170,7 +171,7 @@ async function refresh(){
   clearTimeout(refreshTimer);loading=true;$('refresh').disabled=true;
   try{
     const response=await fetch(apiPath('/api/snapshot'),{cache:'no-store',signal:AbortSignal.timeout(8000)});
-    if(response.status===401){location.assign('/login?next='+encodeURIComponent(location.pathname));return}
+    if(response.status===401){location.assign(basePath+'/login?next='+encodeURIComponent('/p/'+currentProjectId+'/'));return}
     if(!response.ok)throw Error('HTTP '+response.status);
     const next=await response.json(),signature=JSON.stringify({...next,sampledAt:null});
     data=next;lastSuccess=next.sampledAt;

@@ -13,6 +13,7 @@ import threading
 from urllib.parse import urlparse, parse_qs
 from .cloud_store import CloudStore, MAX_PROJECTION_BYTES
 from .context_store import ContextStore
+from .paths import normalize_base_path
 
 STATUSES = {'pending', 'ready', 'running', 'awaiting-verification', 'verified', 'failed', 'blocked', 'cancelled'}
 MAX_BYTES = 2 * 1024 * 1024
@@ -306,9 +307,10 @@ class Dashboard:
         return result
 
 
-def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_local=False):
+def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_local=False, base_path=''):
     if (dashboard is None) == (cloud_store is None):
         raise ValueError('Choose one local Dashboard or one cloud store')
+    base_path = normalize_base_path(base_path)
     for host in trusted_hosts:
         if not HOST_NAME.fullmatch(host):
             raise ValueError('Trusted Host must be a hostname with optional port')
@@ -322,6 +324,21 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
     cookie_name = 'anssid' if insecure_local else '__Host-anssid'
 
     class Handler(BaseHTTPRequestHandler):
+        def page(self, name):
+            return (assets/name).read_bytes().replace(b'__BASE_PATH__', base_path.encode('ascii'))
+
+        def routed(self):
+            parsed = urlparse(self.path)
+            if base_path and parsed.path == base_path:
+                return 'redirect', parsed
+            if base_path and not parsed.path.startswith(base_path+'/'):
+                return None, parsed
+            return 'ok', parsed._replace(path=parsed.path[len(base_path):] if base_path else parsed.path)
+
+        def project_links(self, user):
+            return [dict(project, url=base_path+project['url'])
+                    for project in cloud_store.projects_for(user)]
+
         def respond(self, status, data, mime='application/json; charset=utf-8', headers=()):
             self.send_response(status)
             self.send_header('Content-Type', mime)
@@ -329,7 +346,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            legacy_atlas = cloud_store is None and urlparse(self.path).path == '/role-atlas'
+            legacy_atlas = cloud_store is None and getattr(self, 'route_path', urlparse(self.path).path) == '/role-atlas'
             ancestor = "'self'" if legacy_atlas else "'none'"
             inline = " 'unsafe-inline'" if legacy_atlas else ''
             self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'" + inline + "; style-src 'self'" + inline + "; img-src 'self' data:; connect-src 'self'; frame-ancestors " + ancestor + "; base-uri 'none'; form-action 'self'")
@@ -343,7 +360,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
 
         def redirect(self, path):
             self.send_response(303)
-            self.send_header('Location', path)
+            self.send_header('Location', base_path+path)
             self.send_header('Content-Length', '0')
             self.send_header('Cache-Control', 'no-store')
             self.end_headers()
@@ -404,7 +421,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
 
         def local_get(self, parsed):
             if parsed.path == '/':
-                self.respond(200, (assets/'index.html').read_bytes(), 'text/html; charset=utf-8')
+                self.respond(200, self.page('index.html'), 'text/html; charset=utf-8')
             elif parsed.path == '/role-atlas':
                 page = assets.parent/'assets/role-atlas/index.html'
                 self.respond(200, page.read_bytes(), 'text/html; charset=utf-8')
@@ -442,7 +459,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
         def cloud_get(self, parsed):
             path = parsed.path
             if path == '/login':
-                self.respond(200, (assets/'login.html').read_bytes(), 'text/html; charset=utf-8')
+                self.respond(200, self.page('login.html'), 'text/html; charset=utf-8')
                 return
             if path == '/api/me':
                 user = self.session_user()
@@ -457,18 +474,18 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 if user is None:
                     self.json_response(401, {'error': 'Login required'})
                 else:
-                    self.json_response(200, {'projects': cloud_store.projects_for(user)})
+                    self.json_response(200, {'projects': self.project_links(user)})
                 return
             if path == '/manage' or path.startswith('/api/admin/'):
                 user = self.require_admin()
                 if user is None:
                     return
                 if path == '/manage':
-                    self.respond(200, (assets/'manage.html').read_bytes(), 'text/html; charset=utf-8')
+                    self.respond(200, self.page('manage.html'), 'text/html; charset=utf-8')
                 elif path == '/api/admin/users':
                     self.json_response(200, {'users': cloud_store.users()})
                 elif path == '/api/admin/projects':
-                    self.json_response(200, {'projects': cloud_store.projects_for(user)})
+                    self.json_response(200, {'projects': self.project_links(user)})
                 elif path == '/api/admin/keys':
                     self.json_response(200, {'keys': cloud_store.keys()})
                 else:
@@ -497,7 +514,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 elif not cloud_store.can_view(user, project_id):
                     self.json_response(403, {'error': 'Project access denied'})
                 else:
-                    self.respond(200, (assets/'index.html').read_bytes(), 'text/html; charset=utf-8')
+                    self.respond(200, self.page('index.html'), 'text/html; charset=utf-8')
                 return
             if not self.project_allowed(project_id):
                 self.json_response(403, {'error': 'Project access denied'})
@@ -535,7 +552,14 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             if not self.host_allowed():
                 self.json_response(403, {'error': 'Host not allowed'})
                 return
-            parsed = urlparse(self.path)
+            route, parsed = self.routed()
+            if route == 'redirect':
+                self.redirect('/')
+                return
+            if route is None:
+                self.json_response(404, {'error': 'not found'})
+                return
+            self.route_path = parsed.path
             if parsed.path in static:
                 file_name, mime = static[parsed.path]
                 self.respond(200, (assets/file_name).read_bytes(), mime)
@@ -594,6 +618,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 result = cloud_store.create_user(value.get('username'), value.get('password'), value.get('role', 'viewer'))
             elif path == '/api/admin/projects':
                 result = cloud_store.add_project(value.get('id'), value.get('title'))
+                result['url'] = base_path + result['url']
             elif path == '/api/admin/grants':
                 result = cloud_store.grant(value.get('username'), value.get('projectId'))
             elif path == '/api/admin/keys':
@@ -616,8 +641,12 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             if cloud_store is None:
                 self.json_response(405, {'error': 'read-only dashboard'})
                 return
+            route, parsed = self.routed()
+            if route != 'ok':
+                self.json_response(404, {'error': 'not found'})
+                return
             try:
-                self.cloud_post(urlparse(self.path))
+                self.cloud_post(parsed)
             except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
                 self.json_response(400, {'error': str(exc)})
             except sqlite3.IntegrityError:
@@ -643,6 +672,7 @@ def main(argv=None):
     parser.add_argument('--roles', help='Local role directory override')
     parser.add_argument('--scheduling', help='Local scheduling directory override')
     parser.add_argument('--trusted-host', action='append', default=[], help='Proxy Host header to accept')
+    parser.add_argument('--base-path', default='', help='URL prefix such as /path or /tools/dashboard')
     parser.add_argument('--insecure-local-preview', action='store_true', help='Allow session cookies over loopback HTTP for testing')
     parser.add_argument('--listen-host', choices=('127.0.0.1', '0.0.0.0'), default='127.0.0.1',
                         help='Bind address; 0.0.0.0 is for cloud mode inside a container')
@@ -657,7 +687,8 @@ def main(argv=None):
             if args.listen_host != '127.0.0.1':
                 parser.error('Local project mode only listens on 127.0.0.1')
             dashboard = Dashboard(args.root, args.roles, args.scheduling)
-            handler = make_handler(dashboard=dashboard, trusted_hosts=args.trusted_host)
+            handler = make_handler(dashboard=dashboard, trusted_hosts=args.trusted_host,
+                                   base_path=args.base_path)
             mode = 'local-read-only'
         else:
             if args.roles or args.scheduling:
@@ -670,13 +701,15 @@ def main(argv=None):
             if not store.has_users():
                 parser.error('Create the initial admin with: python3 -m dashboard.admin --state-dir ... --username ...')
             handler = make_handler(cloud_store=store, trusted_hosts=args.trusted_host,
-                                   insecure_local=args.insecure_local_preview)
+                                   insecure_local=args.insecure_local_preview, base_path=args.base_path)
             mode = 'cloud-projection'
         server = ThreadingHTTPServer((args.listen_host, args.port), handler)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     result = {'url': 'http://127.0.0.1:' + str(server.server_port),
               'listenHost': args.listen_host, 'mode': mode}
+    if args.base_path:
+        result['url'] += normalize_base_path(args.base_path) + '/'
     if args.root is not None:
         result['project'] = dashboard.root.name
         result['projectRootUri'] = dashboard.root.as_uri()

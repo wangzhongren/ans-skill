@@ -1,6 +1,6 @@
 # Local Role Dashboard
 
-The [dashboard server](../dashboard/server.py) serves the [HTML viewer](../dashboard/index.html) using Python 3 standard-library HTTP tools. The old `scripts/serve_dashboard.py` path remains a compatibility entry point. It reads the [coordination records](coordination.md); it neither dispatches workers nor authorizes actions. Python is the tool implementation language, not a business-project requirement. For a shared server, follow the [standalone Dashboard deployment guide](../dashboard/README.md), including its Docker Compose option: a local collector synchronizes only the project display projection, not the source tree.
+The [dashboard server](../dashboard/server.py) serves the [HTML viewer](../dashboard/index.html) using Python 3 standard-library HTTP tools. The old `scripts/serve_dashboard.py` path remains a compatibility entry point. It reads the [coordination records](coordination.md); it neither dispatches workers nor authorizes actions. Python is the tool implementation language, not a business-project requirement. For a shared server, follow the [standalone Dashboard deployment guide](../dashboard/README.md), including its Docker Compose and optional `--base-path` settings: a local collector synchronizes only the project display projection, not the source tree. When a prefix is configured, include it in the sync client's `--server-url`.
 
 ## Default Per-Project Workflow
 

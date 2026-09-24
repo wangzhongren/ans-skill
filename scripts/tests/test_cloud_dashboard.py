@@ -13,8 +13,9 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dashboard.cloud_store import CloudStore, digest, password_digest
+from dashboard.paths import normalize_base_path
 from dashboard.server import ThreadingHTTPServer, main, make_handler
-from dashboard.sync import projection
+from dashboard.sync import projection, send
 
 
 PASSWORD = 'correct-horse-battery-staple-2026'
@@ -234,6 +235,63 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/p/alpha/api/snapshot', cookie=cookie)[0], 200)
         self.assertEqual(self.request('/p/beta/api/snapshot', cookie=cookie)[0], 403)
         self.assertEqual(self.request('/api/admin/users', cookie=cookie)[0], 403)
+
+
+class SubpathHTTPTests(unittest.TestCase):
+    def setUp(self):
+        CloudStoreTests.setUp(self)
+        self.store.add_project('alpha', 'Alpha')
+        self.key = self.store.create_key('alpha', 'collector')['key']
+        self.prefix = '/tools/dashboard'
+        self.server = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(
+            cloud_store=self.store, insecure_local=True, base_path=self.prefix))
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(lambda: (self.server.shutdown(), self.server.server_close(), self.thread.join(timeout=2)))
+        self.origin = 'http://127.0.0.1:' + str(self.server.server_port)
+
+    def test_all_routes_and_sync_stay_under_base_path(self):
+        self.assertEqual(normalize_base_path('/tools/dashboard/'), self.prefix)
+        with self.assertRaises(ValueError):
+            normalize_base_path('/tools/../dashboard')
+        for outside in ['/login', '/api/projects', '/p/alpha/api/snapshot']:
+            with self.assertRaises(HTTPError) as caught:
+                urlopen(self.origin+outside, timeout=5)
+            self.assertEqual(caught.exception.code, 404)
+            caught.exception.close()
+        with urlopen(self.origin+self.prefix+'/login', timeout=5) as response:
+            page = response.read().decode()
+            self.assertIn('src="'+self.prefix+'/static/login.js"', page)
+            self.assertIn('content="'+self.prefix+'"', page)
+        with urlopen(self.origin+self.prefix, timeout=5) as response:
+            self.assertEqual(response.geturl(), self.origin+self.prefix+'/login')
+        with urlopen(self.origin+self.prefix+'/static/login.js', timeout=5) as response:
+            self.assertIn('basePath', response.read().decode())
+        login = Request(self.origin+self.prefix+'/api/login',
+                        data=json.dumps({'username': 'owner', 'password': PASSWORD}).encode(),
+                        headers={'Content-Type': 'application/json'}, method='POST')
+        with urlopen(login, timeout=5) as response:
+            cookie = response.headers['Set-Cookie'].split(';', 1)[0]
+        with urlopen(Request(self.origin+self.prefix+'/api/projects', headers={'Cookie': cookie}), timeout=5) as response:
+            self.assertEqual(json.load(response)['projects'][0]['url'], self.prefix+'/p/alpha/')
+        with urlopen(Request(self.origin+self.prefix+'/api/me', headers={'Cookie': cookie}), timeout=5) as response:
+            csrf = json.load(response)['csrfToken']
+        create = Request(self.origin+self.prefix+'/api/admin/projects',
+                         data=json.dumps({'id': 'beta', 'title': 'Beta'}).encode(),
+                         headers={'Cookie': cookie, 'X-CSRF-Token': csrf,
+                                  'Content-Type': 'application/json'}, method='POST')
+        with urlopen(create, timeout=5) as response:
+            self.assertEqual(json.load(response)['url'], self.prefix+'/p/beta/')
+        with urlopen(Request(self.origin+self.prefix+'/p/alpha/', headers={'Cookie': cookie}), timeout=5) as response:
+            page = response.read().decode()
+            self.assertIn('src="'+self.prefix+'/static/dashboard.js"', page)
+            self.assertIn('href="'+self.prefix+'/manage"', page)
+        with urlopen(Request(self.origin+self.prefix+'/manage', headers={'Cookie': cookie}), timeout=5) as response:
+            self.assertIn('href="'+self.prefix+'/"', response.read().decode())
+        send(self.origin+self.prefix+'/', 'alpha', self.key, sample('alpha', 'orders'))
+        with urlopen(Request(self.origin+self.prefix+'/p/alpha/api/snapshot',
+                             headers={'Authorization': 'Bearer '+self.key}), timeout=5) as response:
+            self.assertEqual(json.load(response)['roles'][0]['id'], 'orders')
 
 
 class ContainerBindingTests(unittest.TestCase):
