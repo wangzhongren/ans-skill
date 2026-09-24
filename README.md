@@ -96,9 +96,9 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 打开终端打印的 URL。`--port 0` 自动选空闲端口，避免不同项目冲突。项目角色应在验收后启动或复用一次，并在任务中交付地址；子角色不各自启动一份。
 
-Dashboard 包含 **项目概览、阶段任务、事件记录、角色功能图谱** 四个视图。角色详情可直接进入该角色的功能图谱。没有执行记录就显示“未上报”，不会用示例数据填充。
+Dashboard 包含 **项目概览、项目理解、阶段任务、事件记录、角色功能图谱** 五个视图。点击角色卡可进入该角色的项目理解，总览里也可打开角色记录或功能图谱。没有执行记录就显示“未上报”，不会用示例数据填充。
 
-每个角色可以在自己的 `project-context/` 下维护项目理解：`README.md` 提供流程纵览，按需在 `flows/`、`definitions/`、`events/`、`interfaces/`、`data/` 写主题文件。Dashboard 的角色详情按分类显示这些文件并支持只读查看；变更由对应角色在授权范围内更新，正式定义仍以契约和源码为准。规则见 [角色项目理解](references/project-context.md)。
+项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 先显示角色总览，在流程中直接展开关联的事件、数据和接口；五类内容也各有独立汇总页，可继续进入主题和详情。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。正式定义仍以契约和源码为准。
 
 - `--root` 是项目根目录，不是默认的 `src/`。
 - 自动识别 `角色卡/` 或 `role-cards/`，以及 `docs/scheduling/` 或 `doc/scheduling/`。
@@ -158,6 +158,7 @@ assets/
 scripts/
   serve_dashboard.py        # 本机只读服务
   role_atlas.py             # 角色图谱生成器
+  context_store.py          # 项目理解 SQLite 的角色筛选与增删改查
   task_ops.py               # 统一任务入口
   coordination_store.py     # 事件、快照与恢复
   tests/                    # 通用工具测试与回归夹具
@@ -166,7 +167,7 @@ test/game-engine/           # 验证样例，不是通用能力的实现位置
 doc/                        # 本技能的变更、修复与验证记录
 ```
 
-项目生成的快照、验证副本、凭证和本机运行输出不随技能发布。角色图谱的示例输入定义会保留，方便重新生成。
+项目生成的快照、验证副本、凭证、项目理解数据库和本机运行输出不随技能发布。角色图谱的示例输入定义会保留，方便重新生成。
 
 ## 验证
 
@@ -176,7 +177,7 @@ doc/                        # 本技能的变更、修复与验证记录
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-当前 62 项测试通过，覆盖图谱、查询、Dashboard、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
+当前 66 项测试通过，覆盖图谱、查询、Dashboard、项目理解增删改查、任务授权、版本一致性、证据和恢复。真实跨角色案例在隔离副本中复现并修复了暂停恢复计时清零，未修改原始示例源码。可用一个尚不存在的输出目录回放：
 
 ```sh
 python3 scripts/validate_task_flow.py --source test/game-engine --output output/new-validation-run --node /absolute/path/to/node

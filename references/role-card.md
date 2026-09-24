@@ -27,7 +27,7 @@ The template below is in English for readability. Follow explicit user requireme
 5. `references/testing.md` — Per-layer test rules, static and dynamic verification gates.
 6. `references/documentation.md` — Document format, metadata, and timeline rules.
 7. The canonical inter-role integration designs assigned to this stage, with contract IDs/revisions; implementation reports must reference them.
-8. This role's `project-context/README.md`, when present, and only the topic files relevant to the assignment. Verify their claims against current code and contracts; follow [project-context.md](project-context.md).
+8. This role's overview from the shared project-understanding store, when present, and only the topics relevant to the assignment. Query with this role's ID; verify claims against current code and contracts. Follow [project-context.md](project-context.md).
 
 For the assembly role, additionally read:
 - `references/entrypoint.md` — Application entry and lifecycle rules
@@ -66,7 +66,7 @@ For the assembly role, additionally read:
     - **Error handling:** Every `try/catch` must output the error — log it, rethrow, or return an error result. Silent empty catches are forbidden.
     - **Readability:** Ternary operators (`condition ? a : b`) are forbidden — they reduce review readability. Use `if/else` instead.
     - **Test structure:** `test/` mirrors the role structure under `角色卡/`, using the project's language-native test files grouped by owning role where the runner permits. Tests are grouped by role, not by layer.
-4. **Create documentation.** Write dated design/feature/change/fix records with actual test evidence and timeline events. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Create or refresh the relevant `project-context/` index and topic files when verified project understanding changes, within this role's accepted documentation scope. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Governance handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
+4. **Create documentation.** Write dated design/feature/change/fix records with actual test evidence and timeline events. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Create or refresh relevant rows in the shared project-understanding store through its CRUD CLI when verified understanding changes, within this role's accepted logical row scope. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Governance handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
 5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. The default project role feeds the shared Dashboard; do not create a separate viewer for this worker. Do not write the shared project table; wait for the project role to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Scheduler validates the release conditions; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
 6. **Verify acceptance.** Apply evidence invalidation and acceptance rules before the final report. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
 
@@ -101,8 +101,6 @@ appointment-booking/
 ├── changelog.md              # 变更日志 ← 角色实现阶段创建（角色根目录）
 ├── functional-description.md # 功能描述: 图 + 代码位置 + 详解 ← 角色实现阶段创建（角色根目录）
 ├── api-spec.md               # API 规范: 导出 + 依赖 + 装配说明 ← 角色实现阶段创建（角色根目录）
-├── project-context/          # 项目理解：流程、定义、事件、接口、数据；按需创建主题文件
-│   └── README.md             # 角色视角的短索引
 └── docs/
     ├── design/               # 详细设计记录
     ├── feature/              # 功能记录
@@ -110,7 +108,7 @@ appointment-booking/
     └── fix/                  # 修复记录
 ```
 
-Bootstrap creates only the role definition: `role-card.md` and `boundary.md`. All other documents (`changelog.md`, `functional-description.md`, `api-spec.md`, and `project-context/` topic files) are created by the owning role when grounded in actual project evidence. Its accepted Section 1 must include the conditional `project-context/` scope before the role writes there.
+Bootstrap creates only the role definition: `role-card.md` and `boundary.md`. Other role documents are created by the owning role when grounded in actual project evidence. The project-understanding database is created on first authorized use, and a role needs an accepted logical row-scope entry in Section 1 before writing its rows.
 
 `changelog.md` records every creation, scope update, split, or merge of this role in reverse chronological order. Each entry must index the actual completion document:
 

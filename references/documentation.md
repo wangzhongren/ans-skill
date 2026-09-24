@@ -11,7 +11,7 @@ There are two levels of documentation:
 
 Both use the same subdirectory structure: `design/`, `feature/`, `change/`, `fix/`.
 
-Each role also has a separate, living [`project-context/` navigation directory](project-context.md) for its view of workflows, definitions, events, interfaces and data. Its topic files are not dated change records and do not replace canonical contracts or the records under `docs/`.
+The project also has one [SQLite project-understanding store](project-context.md) at `project-context/context.sqlite3`. Its role-filtered rows provide living workflow, definition, event, interface and data navigation; they are not dated change records and do not replace canonical contracts or the Markdown records under `docs/`.
 
 Name records `YYYY-MM-DD_<type>_<topic>.md`, where type is `design`, `feature`, `change`, or `fix`. Use the actual creation date in the user's/project's timezone. The reference defines topic naming, collisions, required content, and how to maintain records across task iterations.
 
@@ -33,6 +33,8 @@ project/
   utils/
   resource/
   test/
+  project-context/
+    context.sqlite3               # Shared project understanding, filtered by role_id
   docs/                          # Cross-cutting / ANS Governance records
     design/
     feature/
@@ -43,13 +45,6 @@ project/
       role-card.md
       boundary.md
       changelog.md
-      project-context/         # Living role view; create only when grounded in project evidence
-        README.md
-        flows/
-        definitions/
-        events/
-        interfaces/
-        data/
       docs/                     # Role-specific records
         design/
         feature/

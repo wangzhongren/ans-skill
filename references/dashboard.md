@@ -26,7 +26,7 @@ Open the printed loopback URL, for example `http://127.0.0.1:<printed-port>`. St
 
 Do not modify business records merely to make the dashboard look populated. Role cards without task states display as unreported; missing stage records are not evidence that a role is idle or complete.
 
-Role details also list the owning role's [`project-context/`](project-context.md) index and topic files under `flows/`, `definitions/`, `events/`, `interfaces/`, and `data/`. The list refreshes from disk with the role snapshot; selecting a file reads its current Markdown as plain text. Missing context is shown as missing, not synthesized from another role or from the sample project.
+The dedicated **项目理解** view first shows the selected role's overview from the shared [SQLite project-understanding store](project-context.md). Its workflow steps appear as a visual sequence; linked events, data, and interfaces are displayed directly inside the flow. All five categories have separate summary cards and pages, with topics listed beneath them. Readers can click through category, topic, and detail with a breadcrumb back to the overview. Clicking a role card opens this view for that role. The index refreshes from the database with the dashboard snapshot; linked details and selected topic detail are read only when needed. Missing context is shown as missing, not synthesized from another role or from the sample project.
 
 ## Data Adapter
 
@@ -65,7 +65,7 @@ A green connection means the local record reader responded, not that worker proc
 
 ## Local Read-Only Boundary
 
-The server binds only to 127.0.0.1, serves no remote assets, and does not expose a write API. It checks loopback Host values and restricts document reads to direct role folders, the named role-card, boundary, API, functional-description and changelog Markdown files, and the role's context README/direct Markdown topics in the five named categories. Outside-root paths, nested or unrelated files, and symlink escapes are rejected. Dynamic text is rendered with textContent, not interpreted as HTML.
+The server binds only to 127.0.0.1, serves no remote assets, and does not expose a write API. It checks loopback Host values, restricts Markdown document reads to named files in direct role folders, and reads project understanding through a role-filtered, read-only SQLite connection. Outside-root paths and symlink escapes are rejected. Dynamic text is rendered with textContent, not interpreted as HTML.
 
 This is a local observation tool, not an authenticated multi-user deployment. Do not expose it through a public proxy without a separate authorization and security design. Records larger than 2 MiB are reported instead of loaded; it is intended for bounded task records, not unbounded production logs.
 

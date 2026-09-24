@@ -5,13 +5,14 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import sqlite3
 import threading
 from urllib.parse import urlparse, parse_qs
+from context_store import ContextStore
 
 STATUSES = {'pending', 'ready', 'running', 'awaiting-verification', 'verified', 'failed', 'blocked', 'cancelled'}
 MAX_BYTES = 2 * 1024 * 1024
 DOC_NAMES = {'role-card.md', 'boundary.md', 'api-spec.md', 'functional-description.md', 'changelog.md'}
-CONTEXT_CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 
 
 def utcnow():
@@ -59,28 +60,20 @@ class Dashboard:
             raise ValueError('Only role documentation is exposed')
         parts = path.relative_to(self.roles.resolve()).parts
         direct = len(parts) == 2 and parts[1] in DOC_NAMES
-        overview = len(parts) == 3 and parts[1:] == ('project-context', 'README.md')
-        topic = len(parts) == 4 and parts[1] == 'project-context' and parts[2] in CONTEXT_CATEGORIES and path.suffix == '.md'
-        if not (direct or overview or topic):
+        if not direct:
             raise ValueError('Document must be an allowed file in a direct role folder')
         return self.text(path)
 
-    def context_documents(self, folder):
-        base = folder/'project-context'
-        if base.is_symlink() or not base.is_dir():
-            return []
-        found = []
-        overview = base/'README.md'
-        if overview.is_file() and not overview.is_symlink():
-            found.append({'category': 'overview', 'name': 'README.md', 'path': self.relative(overview)})
-        for category in CONTEXT_CATEGORIES:
-            directory = base/category
-            if directory.is_symlink() or not directory.is_dir():
-                continue
-            for path in sorted(directory.iterdir()):
-                if path.is_file() and not path.is_symlink() and path.suffix == '.md':
-                    found.append({'category': category, 'name': path.name, 'path': self.relative(path)})
-        return found
+    def context_outline(self, role_id):
+        try:
+            return ContextStore(self.root, role_id, self.roles).outline()
+        except ValueError as exc:
+            if str(exc) == 'This role has no project overview':
+                return None
+            raise
+
+    def context_topic(self, role_id, topic_id):
+        return ContextStore(self.root, role_id, self.roles).get_topic(topic_id)
 
     def role_atlas(self, role_id=None):
         import role_atlas as graphs
@@ -166,9 +159,16 @@ class Dashboard:
                         title = next((line.lstrip('# ').strip() for line in lines if line.startswith('# ')), folder.name)
                         description = next((line for line in lines if not line.startswith(('#', '-', '|', '```'))), '')
                         docs = {name: self.relative(folder/name) for name in sorted(DOC_NAMES) if (folder/name).is_file() and not (folder/name).is_symlink()}
+                        context = None
+                        db_path = self.root/'project-context/context.sqlite3'
+                        if db_path.exists():
+                            try:
+                                context = self.context_outline(folder.name)
+                            except (OSError, ValueError, sqlite3.Error) as exc:
+                                issue(db_path, exc)
                         result['roles'].append({'id': folder.name, 'name': title, 'description': description,
                                                 'path': self.relative(folder), 'documents': docs,
-                                                'projectContext': self.context_documents(folder)})
+                                                'projectContext': context})
                     except (OSError, UnicodeError, ValueError) as exc:
                         issue(card, exc)
         except OSError as exc:
@@ -321,9 +321,17 @@ def make_handler(dashboard):
                 elif parsed.path == '/api/document':
                     path = parse_qs(parsed.query).get('path', [''])[0]
                     self.respond(200, json.dumps({'path': path, 'text': dashboard.document(path)}, ensure_ascii=False).encode())
+                elif parsed.path == '/api/context':
+                    query = parse_qs(parsed.query)
+                    role = query.get('role', [''])[0]
+                    topic = query.get('topic', [None])[0]
+                    content = dashboard.context_topic(role, topic) if topic else dashboard.context_outline(role)
+                    if content is None:
+                        raise ValueError('This role has no project overview')
+                    self.respond(200, json.dumps(content, ensure_ascii=False).encode())
                 else:
                     self.respond(404, b'{"error":"not found"}')
-            except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            except (OSError, UnicodeError, ValueError, TypeError, sqlite3.Error) as exc:
                 self.respond(400, json.dumps({'error': str(exc)}, ensure_ascii=False).encode())
         def do_POST(self):
             self.respond(405, b'{"error":"read-only dashboard"}')

@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 sys.path.insert(0,str(Path(__file__).parents[1]))
 from serve_dashboard import Dashboard, make_handler, ThreadingHTTPServer
+from context_store import ContextStore
 
 class DashboardTests(unittest.TestCase):
  def setUp(self):
@@ -26,21 +27,22 @@ class DashboardTests(unittest.TestCase):
  def test_real_roles_without_fake_execution(self):
   d=self.app.snapshot();self.assertEqual(d['roles'][0]['name'],'订单');self.assertEqual(d['projectRootUri'],self.root.as_uri());self.assertEqual(d['tasks'],[]);self.assertEqual(d['events'],[])
  def test_role_context_live_listing_and_read_boundary(self):
-  context=self.role/'project-context';(context/'flows').mkdir(parents=True);(context/'interfaces').mkdir()
-  (context/'README.md').write_text('# 订单项目纵览\n')
-  (context/'flows/order-export.md').write_text('# 导出流程\n')
-  (context/'interfaces/order-api.md').write_text('# 对外接口\n')
-  (context/'private.json').write_text('secret')
-  documents=self.app.snapshot()['roles'][0]['projectContext']
-  self.assertEqual([(d['category'],d['name']) for d in documents],[('overview','README.md'),('flows','order-export.md'),('interfaces','order-api.md')])
-  self.assertEqual(self.app.document(documents[1]['path']),'# 导出流程\n')
-  (context/'events').mkdir();(context/'events/created.md').write_text('# 创建事件\n')
-  self.assertIn('events',[d['category'] for d in self.app.snapshot()['roles'][0]['projectContext']])
-  for path in ['角色卡/订单/project-context/private.json','角色卡/订单/project-context/docs/hidden.md','角色卡/订单/project-context/flows/nested/hidden.md']:
-   with self.assertRaises(ValueError):self.app.document(path)
-  (context/'data').symlink_to(context/'flows',target_is_directory=True)
-  self.assertNotIn('data',[d['category'] for d in self.app.snapshot()['roles'][0]['projectContext']])
-  with self.assertRaises(ValueError):self.app.document('角色卡/订单/project-context/data/order-export.md')
+  store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
+  store.set_category('events','导出后发送完成事件',0)
+  store.upsert('export-done',{'category':'events','title':'完成事件','summary':'导出成功后产生','details':'供通知消费'},0)
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py']},0)
+  store.set_overview({'title':'订单总览','summary':'订单处理','steps':[{'title':'导出','links':['export-done']}]},1)
+  context=self.app.snapshot()['roles'][0]['projectContext']
+  self.assertEqual(context['overview']['title'],'订单总览')
+  self.assertEqual(context['categorySummaries']['events']['summary'],'导出后发送完成事件')
+  self.assertEqual(context['overview']['steps'][0]['links'],['export-done'])
+  self.assertEqual([(row['category'],row['topic_id']) for row in context['topics']],[('events','export-done'),('flows','order-export')])
+  self.assertEqual(self.app.context_topic('订单','order-export')['details'],'读取订单')
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'新版导出','details':'生成文件'},1)
+  updated={row['topic_id']:row for row in self.app.snapshot()['roles'][0]['projectContext']['topics']}
+  self.assertEqual(updated['order-export']['summary'],'新版导出')
+  with self.assertRaises(ValueError):self.app.document('project-context/context.sqlite3')
+  with self.assertRaises(ValueError):self.app.context_topic('不存在','order-export')
  def test_live_re_read_and_no_mutation(self):
   _,s,_=self.records();before=(self.folder/'plan.json').read_bytes()
   self.assertEqual(self.app.snapshot()['tasks'][0]['status'],'running')
@@ -83,17 +85,18 @@ class DashboardTests(unittest.TestCase):
 class HTTPTests(unittest.TestCase):
  setUp=DashboardTests.setUp
  def test_http_read_only_and_loopback_host(self):
-  context=self.role/'project-context';context.mkdir();(context/'README.md').write_text('# 项目纵览\n')
+  store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单'},0)
   server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(self.app));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
    url='http://127.0.0.1:'+str(server.server_port)
    with urlopen(url+'/api/snapshot',timeout=5) as response:
     role=json.load(response)['roles'][0]
     self.assertEqual(role['id'],'订单')
-    self.assertEqual(role['projectContext'][0]['name'],'README.md')
-   from urllib.parse import quote
-   with urlopen(url+'/api/document?path='+quote(role['projectContext'][0]['path']),timeout=5) as response:
-    self.assertEqual(json.load(response)['text'],'# 项目纵览\n')
+    self.assertEqual(role['projectContext']['overview']['title'],'订单总览')
+   from urllib.parse import urlencode
+   with urlopen(url+'/api/context?'+urlencode({'role':'订单','topic':'order-export'}),timeout=5) as response:
+    self.assertEqual(json.load(response)['details'],'读取订单')
    with urlopen(url+'/role-atlas?embedded=1',timeout=5) as response:
     self.assertIn("frame-ancestors 'self'",response.headers['Content-Security-Policy'])
     self.assertIn('ROLE FLOW EXPLORER',response.read().decode())

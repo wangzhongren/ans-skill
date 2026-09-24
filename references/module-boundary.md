@@ -16,8 +16,11 @@ The mutation whitelist. A table listing every file or directory the AI may creat
 | --- | --- | --- |
 | Single file | `src/module/service.py` | Business transformation |
 | Conditional directory | `docs/` | Task-specific documentation only |
+| Logical row scope | `project-context/context.sqlite3`, `role_id=<role>` | This role's understanding rows, only through `context_store.py` |
 
 **Files not listed in Section 1 are read-only by default.** To mutate an unlisted file, the AI must first propose updating Section 1 — a change subject to the same evidence and acceptance gates as code changes.
+
+The shared project-understanding SQLite file is a narrow supporting-artifact exception to file-exclusive ownership: each accepted role can own only its `role_id` rows. This row scope does not cover schema changes, other roles' rows, raw SQL, or direct file edits. The CRUD tool checks role filters and revisions, but cannot authenticate the human or active AI role; the accepted boundary and dispatch authorization remain necessary.
 
 ### Private abstractions
 

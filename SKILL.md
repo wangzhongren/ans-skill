@@ -44,7 +44,7 @@ Role cards (角色卡) and module boundary documents (模块边界文档) togeth
 
 **Files not listed in Section 1 are read-only by default.** To mutate an unlisted file, the AI must first propose updating the boundary document's Section 1 (Governing Invariant #1).
 
-Each project role maintains a concise, role-owned [`project-context/` index](references/project-context.md) with on-demand `flows/`, `definitions/`, `events/`, `interfaces/`, and `data/` topics. Read relevant topics for task context; the owning role updates affected topics within its accepted Section 1. This navigation view does not replace canonical contracts or authorize changes.
+The project keeps one [SQLite project-understanding store](references/project-context.md) at `project-context/context.sqlite3`. Each role reads its overview first, then queries task-relevant topics by `role_id`. Content writes use the role-scoped CRUD tool and its accepted logical row scope; the store does not replace canonical contracts or authorize changes.
 
 ### Bootstrap
 

@@ -6,7 +6,7 @@ ANS Governance creates this project-local role and its boundary during bootstrap
 
 1. Investigate across the project by reading code, logs, role definitions, tests, and integration contracts. Reading another role's files or card does not activate that role or grant write access.
 2. Write architecture, abstraction, and inter-role integration design documents within the accepted design-document scope. Define responsibilities, proposed contracts, dependencies, and verification requirements.
-   Maintain this role's own [project-context.md](project-context.md) view of project workflows and shared contracts within its accepted Section 1. Other roles maintain their own views.
+   Maintain this role's [project-understanding rows](project-context.md) for workflows and shared contracts within its accepted Section 1. Other roles maintain their own rows.
 3. Maintain its accepted execution plans and records and dispatch authorized execution roles. Check deliverables and evidence without substituting its own implementation for the assigned owner's work.
 4. Do not create or modify application source, abstract/interface source files, Model type definitions, tests, build configuration, or permission configuration. A diagram or signature example in a design document is a proposal; the actual source file belongs to its execution role. Role cards and mutation boundaries remain Governance-owned.
 
