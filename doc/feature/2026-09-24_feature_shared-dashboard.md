@@ -5,7 +5,7 @@ title: 独立多项目 Dashboard 与本地展示快照同步
 created: "2026-09-24"
 updated: "2026-09-24"
 timezone: Asia/Shanghai
-status: implemented
+status: verified
 related:
   - role-dashboard-feature
 events:
@@ -15,6 +15,9 @@ events:
   - date: "2026-09-24"
     kind: implemented
     summary: 增加内置账号、项目授权、项目 Key、管理页与按项目同步的展示快照
+  - date: "2026-09-24"
+    kind: verified
+    summary: 本地及云端测试与双项目浏览器检查通过
 ---
 
 # 独立多项目 Dashboard

@@ -127,6 +127,22 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/api/admin/projects', cookie=cookie)[0], 200)
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie)[0], 403)
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie, csrf=me['csrfToken'])[0], 200)
+        status, created, _ = self.request('/api/admin/users', 'POST',
+                                          {'username': 'new-reader', 'password': PASSWORD}, cookie=cookie,
+                                          csrf=me['csrfToken'])
+        self.assertEqual((status, created['role']), (200, 'viewer'))
+        self.assertEqual(self.request('/api/admin/grants', 'POST',
+                                      {'username': 'new-reader', 'projectId': 'gamma'},
+                                      cookie=cookie, csrf=me['csrfToken'])[0], 200)
+        status, issued, _ = self.request('/api/admin/keys', 'POST',
+                                         {'projectId': 'gamma', 'label': 'collector'},
+                                         cookie=cookie, csrf=me['csrfToken'])
+        self.assertEqual(status, 200)
+        self.assertTrue(issued['key'].startswith('ansp_'))
+        self.assertNotIn('key', self.request('/api/admin/keys', cookie=cookie)[1]['keys'][0])
+        self.assertEqual(self.request('/api/admin/keys/revoke', 'POST', {'id': issued['id']},
+                                      cookie=cookie, csrf=me['csrfToken'])[0], 200)
+        self.assertFalse(self.store.key_allows('gamma', issued['key']))
         self.assertEqual(self.request('/api/login', 'POST', [1, 2])[0], 400)
         self.assertEqual(self.request('/p/alpha/api/snapshot', key=self.alpha_key)[1]['roles'][0]['id'], 'orders')
         self.assertEqual(self.request('/p/beta/api/snapshot', key=self.alpha_key)[0], 403)
