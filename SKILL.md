@@ -82,6 +82,8 @@ Governance creates the [default project role](references/project-role.md), which
 
 Every project using this skill gets the reusable Dashboard workflow in [dashboard.md](references/dashboard.md). After the project role is accepted, it starts or reuses one local read-only dashboard for the actual project, opens it when possible, and provides its URL. The shared UI and server remain in the Skill installation; role cards, boundaries, project understanding and coordination records come from that project. A separately deployed shared Dashboard is optional: when the user requests it, the local sync tool sends only a bounded display projection using that project's Key, while the server holds users and project-specific snapshots. See [dashboard/README.md](dashboard/README.md). Never point a real task at `test/game-engine` or copy its example data as if it described the new project. If the user opts out or the environment cannot host a viewer, report that limitation without blocking otherwise authorized development.
 
+The shared Dashboard may also host an opt-in [role channel](dashboard/README.md#role-channel): role-scoped credentials can send task messages and exact permission requests; an administrator records decisions in the project's audit history. The project Key cannot approve or send role messages. A Dashboard decision is not dispatch or mutation authority: continue to enforce customer consent or approved configuration through `task_ops` before any worker activation.
+
 ## Role Switching
 
 Each agent context has exactly one active role at a time; concurrent agents may hold different roles. Switching roles changes mutation authority, required reading, and execution context.

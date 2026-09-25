@@ -12,6 +12,7 @@ import sqlite3
 import threading
 from urllib.parse import urlparse, parse_qs
 from .cloud_store import CloudStore, MAX_PROJECTION_BYTES
+from .channel_store import ChannelStore
 from .context_store import ContextStore
 from .paths import normalize_base_path
 
@@ -281,6 +282,8 @@ class Dashboard:
                     rows.append({'key': task_id+'/'+node_id, 'taskId': task_id, 'nodeId': node_id,
                                  'title': planned.get('title') or planned.get('objective') or node_id,
                                  'stage': planned.get('stage', ''), 'roleId': role_id,
+                                 'operation': planned.get('operation'), 'writeSet': planned.get('writeSet', []),
+                                 'attemptNumber': reported.get('attemptNumber', 0),
                                  'reportedStatus': status, 'status': status if good else 'unreported' if not reported else 'inconsistent',
                                  'reason': reported.get('reason', ''), 'attemptId': reported.get('attemptId'),
                                  'assignedRevisions': reported.get('assignedRevisions', {}),
@@ -316,12 +319,14 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             raise ValueError('Trusted Host must be a hostname with optional port')
     static = {'/static/dashboard.css': ('style.css', 'text/css; charset=utf-8'),
               '/static/dashboard.js': ('app.js', 'text/javascript; charset=utf-8'),
+              '/static/channel.js': ('channel.js', 'text/javascript; charset=utf-8'),
               '/static/auth.css': ('auth.css', 'text/css; charset=utf-8'),
               '/static/login.js': ('login.js', 'text/javascript; charset=utf-8'),
               '/static/manage.js': ('manage.js', 'text/javascript; charset=utf-8')}
     assets = Path(__file__).resolve().parent
     trusted = set(trusted_hosts)
     cookie_name = 'anssid' if insecure_local else '__Host-anssid'
+    channel_store = ChannelStore(cloud_store) if cloud_store is not None else None
 
     class Handler(BaseHTTPRequestHandler):
         def page(self, name):
@@ -488,6 +493,8 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                     self.json_response(200, {'projects': self.project_links(user)})
                 elif path == '/api/admin/keys':
                     self.json_response(200, {'keys': cloud_store.keys()})
+                elif path == '/api/admin/role-tokens':
+                    self.json_response(200, {'roleTokens': cloud_store.role_tokens()})
                 else:
                     self.json_response(404, {'error': 'not found'})
                 return
@@ -515,6 +522,17 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                     self.json_response(403, {'error': 'Project access denied'})
                 else:
                     self.respond(200, self.page('index.html'), 'text/html; charset=utf-8')
+                return
+            if subpath == '/api/channel':
+                user = self.session_user()
+                if user is not None and cloud_store.can_view(user, project_id):
+                    self.json_response(200, channel_store.view(project_id))
+                    return
+                principal = cloud_store.role_principal(project_id, self.bearer_token())
+                if principal is not None:
+                    self.json_response(200, channel_store.view(project_id, principal['roleId']))
+                    return
+                self.json_response(403, {'error': 'Project user or role credential required'})
                 return
             if not self.project_allowed(project_id):
                 self.json_response(403, {'error': 'Project access denied'})
@@ -607,6 +625,38 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 result = cloud_store.ingest(project_id, self.request_json(MAX_PROJECTION_BYTES))
                 self.json_response(200, result)
                 return
+            if match is not None:
+                project_id, action = match.group(1), match.group(2)
+                if action in ('api/messages', 'api/permission-requests'):
+                    principal = cloud_store.role_principal(project_id, self.bearer_token())
+                    if action == 'api/permission-requests':
+                        if principal is None:
+                            self.json_response(403, {'error': 'Role credential required'})
+                            return
+                        result = channel_store.request_permission(project_id, principal['roleId'], self.request_json())
+                    else:
+                        if principal is not None:
+                            actor = {'kind': 'role', 'id': principal['roleId']}
+                        else:
+                            user = self.session_user()
+                            if user is None or user['role'] != 'admin' or not cloud_store.can_view(user, project_id):
+                                self.json_response(403, {'error': 'Role credential or administrator required'})
+                                return
+                            if not self.require_csrf(user):
+                                return
+                            actor = {'kind': 'user', 'id': user['username']}
+                        result = channel_store.send_message(project_id, actor, self.request_json())
+                    self.json_response(200, result)
+                    return
+                decision_match = re.fullmatch(r'api/permission-requests/([0-9]+)/decision', action)
+                if decision_match:
+                    user = self.require_admin()
+                    if user is None or not self.require_csrf(user):
+                        return
+                    result = channel_store.decide(project_id, int(decision_match.group(1)),
+                                                  user['username'], self.request_json())
+                    self.json_response(200, result)
+                    return
             if not path.startswith('/api/admin/'):
                 self.json_response(404, {'error': 'not found'})
                 return
@@ -625,6 +675,10 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 result = cloud_store.create_key(value.get('projectId'), value.get('label'))
             elif path == '/api/admin/keys/revoke':
                 result = cloud_store.revoke_key(value.get('id'))
+            elif path == '/api/admin/role-tokens':
+                result = cloud_store.create_role_token(value.get('projectId'), value.get('roleId'), value.get('label'))
+            elif path == '/api/admin/role-tokens/revoke':
+                result = cloud_store.revoke_role_token(value.get('id'))
             elif path == '/api/admin/users/disable':
                 if value.get('username') == user['username']:
                     raise ValueError('Cannot disable the current administrator')

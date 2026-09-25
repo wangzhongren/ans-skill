@@ -86,7 +86,7 @@ For partial revisions, unaffectedReason documents the semantic judgment. The too
 
 Mutations reject projection mismatch until recover succeeds. Recovery validates the full sequence/hash chain; it does not silently truncate partial logs or fabricate missing evidence. Hash chaining detects accidental/inconsistent edits, not a malicious operator who rewrites the entire history. Checks execute while holding the writer lock in v1; concurrent operations fail fast and can retry after the current operation finishes.
 
-The dashboard consumes the generated schema directly. Its live view remains read-only and displays stored outcomes, not an independent permission verdict. Task logs contain complete snapshot events and can grow; use bounded tasks and retain/archive finished runs under project policy rather than treating this as a high-throughput distributed scheduler.
+The dashboard consumes the generated schema directly. Its task view remains read-only and displays stored outcomes, not an independent permission verdict. The optional shared role channel may record messages and administrator decisions in its separate project database tables; these do not change task authorization, state or evidence. Task logs contain complete snapshot events and can grow; use bounded tasks and retain/archive finished runs under project policy rather than treating this as a high-throughput distributed scheduler.
 
 ## Verified Case and Limits
 

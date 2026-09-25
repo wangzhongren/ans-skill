@@ -146,15 +146,17 @@ function render(){const unreported=data.roles.filter(r=>!data.tasks.some(t=>t.ro
 function renderTasks(){const q=$('taskSearch').value.toLowerCase();$('taskTable').replaceChildren(table(data.tasks.filter(t=>JSON.stringify([t.title,t.nodeId,t.roleId,t.latestReport]).toLowerCase().includes(q))))}
 function setView(v){
   view=v;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  $('overview').hidden=v!=='overview';$('contextView').hidden=v!=='context';$('tasksView').hidden=v!=='tasks';$('eventsView').hidden=v!=='events';$('metrics').hidden=v==='context';
-  $('pageTitle').textContent={overview:'每个角色，进展清晰。',context:'按角色查看项目理解。',tasks:'从阶段任务，看到交付。',events:'每一次变化，都有记录。'}[v];
+  $('overview').hidden=v!=='overview';$('contextView').hidden=v!=='context';$('tasksView').hidden=v!=='tasks';$('eventsView').hidden=v!=='events';$('channelView').hidden=v!=='channel';$('metrics').hidden=v==='context'||v==='channel';
+  $('pageTitle').textContent={overview:'每个角色，进展清晰。',context:'按角色查看项目理解。',tasks:'从阶段任务，看到交付。',events:'每一次变化，都有记录。',channel:'角色沟通与权限申请。'}[v];
   $('pageSubtitle').textContent=v==='context'?'角色职责、边界和流程、数据、接口一页可查。':'角色、阶段与设计版本，在一个视图中保持同步。';
   if(v==='context')renderContext();
+  if(v==='channel')window.refreshChannel?.();
 }
 async function loadProjects(){
   if(!currentProjectId)return;
   try{
-    $('workspaceMode').textContent='SHARED DASHBOARD';$('workspaceHint').textContent='只同步展示快照';$('footerHint').textContent='展示最近同步的项目快照 · 不代表代理进程在线 · 不自动验收';
+    $('workspaceMode').textContent='SHARED DASHBOARD';$('workspaceHint').textContent='快照与角色沟通';$('boundaryLabel').textContent='不执行代码 · 不派发任务';$('modeBadge').textContent='NO CODE EXEC';$('footerHint').textContent='展示最近同步的项目快照 · 不代表代理进程在线 · 不自动验收';
+    $('navChannel').hidden=false;
     const response=await fetch(basePath+'/api/projects',{cache:'no-store'});
     if(response.status===401){location.assign(basePath+'/login?next='+encodeURIComponent('/p/'+currentProjectId+'/'));return}
     if(!response.ok)return;
@@ -181,6 +183,7 @@ async function refresh(){
     if(next.issues.length)$('noticeText').textContent=next.issues.length+' 项记录需要核对，受影响状态不会显示为已验收。';
     $('connection').classList.remove('failed');
     $('connectionText').textContent=currentProjectId?(next.receivedAt?'上次同步 '+when(next.receivedAt):'项目尚未同步'):'记录已连接 · 2s 刷新';
+    if(view==='channel')window.refreshChannel?.();
   }catch(error){
     $('connection').classList.add('failed');$('connectionText').textContent='连接中断';$('notice').hidden=false;
     $('noticeText').textContent='无法刷新：'+error.message+(lastSuccess?'。当前展示 '+when(lastSuccess)+' 的旧快照。':'。请检查服务是否启动。');

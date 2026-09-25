@@ -65,6 +65,8 @@ The server binds only to 127.0.0.1, serves no remote assets, and does not expose
 
 Local mode is an observation tool, not an authenticated multi-user deployment. Do not expose that mode through a public proxy. The separate cloud mode has built-in login, per-project membership and project Keys; it receives the bounded projection from a local collector. See [deployment and data boundary](../dashboard/README.md). Local records larger than 2 MiB are reported instead of loaded; the viewer is intended for bounded task records, not unbounded production logs.
 
+In shared cloud mode only, the optional [role channel](../dashboard/README.md#role-channel) adds messages, exact permission requests, one administrator decision per request, and per-project audit events. Give each active role its own revocable credential after its snapshot is synchronized. A role can read its own inbox and requests; project members can view the project channel, while only an administrator may record a decision. This is communication, not agent execution. Even an approved request does not satisfy `task_ops` consent/configuration checks or activate a role by itself.
+
 ## Verification
 
 ```sh

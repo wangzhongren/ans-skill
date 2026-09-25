@@ -66,6 +66,10 @@ class CloudStore:
                     id INTEGER PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
                     label TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
                     created_at TEXT NOT NULL, revoked_at TEXT);
+                CREATE TABLE IF NOT EXISTS role_tokens (
+                    id INTEGER PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    role_id TEXT NOT NULL, label TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL, revoked_at TEXT);
             ''')
             columns = {row['name'] for row in connection.execute('PRAGMA table_info(projects)')}
             if 'last_received_at' not in columns:
@@ -302,6 +306,50 @@ class CloudStore:
         with self.connection() as connection:
             return connection.execute('''SELECT 1 FROM project_keys WHERE project_id=? AND token_hash=?
                 AND revoked_at IS NULL''', (project_id, digest(token))).fetchone() is not None
+
+    def role_exists(self, project_id, role_id):
+        if not isinstance(role_id, str) or not role_id or len(role_id) > 120:
+            return False
+        return any(role.get('id') == role_id for role in self.projection(project_id)['snapshot']['roles'])
+
+    def create_role_token(self, project_id, role_id, label):
+        if not isinstance(label, str) or not label.strip() or len(label) > 120:
+            raise ValueError('Role token label must be 1–120 characters')
+        if not self.role_exists(project_id, role_id):
+            raise ValueError('Sync this role before creating its credential')
+        token = 'ansr_' + secrets.token_urlsafe(32)
+        with self.connection() as connection:
+            cursor = connection.execute('''INSERT INTO role_tokens
+                (project_id,role_id,label,token_hash,created_at) VALUES (?,?,?,?,?)''',
+                (project_id, role_id, label.strip(), digest(token), utcnow()))
+        return {'id': cursor.lastrowid, 'projectId': project_id, 'roleId': role_id,
+                'label': label.strip(), 'token': token}
+
+    def role_tokens(self):
+        with self.connection() as connection:
+            return [{'id': row['id'], 'projectId': row['project_id'], 'roleId': row['role_id'],
+                     'label': row['label'], 'createdAt': row['created_at'], 'revokedAt': row['revoked_at']}
+                    for row in connection.execute('''SELECT id,project_id,role_id,label,created_at,revoked_at
+                        FROM role_tokens ORDER BY id DESC''')]
+
+    def revoke_role_token(self, token_id):
+        with self.connection() as connection:
+            cursor = connection.execute('''UPDATE role_tokens SET revoked_at=?
+                WHERE id=? AND revoked_at IS NULL''', (utcnow(), token_id))
+            if cursor.rowcount != 1:
+                raise ValueError('Active role token not found')
+        return {'id': token_id, 'revoked': True}
+
+    def role_principal(self, project_id, token):
+        if not isinstance(token, str) or not token.startswith('ansr_') or len(token) > 256:
+            return None
+        with self.connection() as connection:
+            row = connection.execute('''SELECT id,role_id FROM role_tokens
+                WHERE project_id=? AND token_hash=? AND revoked_at IS NULL''',
+                (project_id, digest(token))).fetchone()
+        if row is None or not self.role_exists(project_id, row['role_id']):
+            return None
+        return {'tokenId': row['id'], 'roleId': row['role_id']}
 
     def ingest(self, project_id, value):
         if not isinstance(value, dict) or value.get('schemaVersion') != 1:
