@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .cloud_store import PROJECT_ID
+from .local_config import load_project_config
 from .paths import normalize_base_path
 
 
@@ -48,7 +49,7 @@ def call(server_url, project_id, token, action, value=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--server-url', required=True)
+    parser.add_argument('--server-url')
     parser.add_argument('--project-id', required=True)
     parser.add_argument('--token-env', default='ANS_DASHBOARD_KEY')
     parser.add_argument('--role', help='Sending role ID; also filters list output when provided')
@@ -57,9 +58,19 @@ def main(argv=None):
     for command in ('send', 'request'):
         sub.add_parser(command).add_argument('--input', type=Path, required=True)
     args = parser.parse_args(argv)
-    token = os.environ.get(args.token_env)
+    environment_key = os.environ.get(args.token_env)
+    config = None
+    if args.server_url is None or not environment_key:
+        try:
+            config = load_project_config(args.project_id)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+    server_url = args.server_url or (config['serverUrl'] if config else None)
+    token = environment_key or (config['projectKey'] if config else None)
+    if not server_url:
+        parser.error('Set up a local project configuration or pass --server-url')
     if not token:
-        parser.error('Project Key environment variable is not set')
+        parser.error('Project Key is missing from local configuration and environment')
     try:
         value = None if args.command == 'list' else json.loads(args.input.read_text(encoding='utf-8'))
         if args.command in ('send', 'request'):
@@ -72,7 +83,7 @@ def main(argv=None):
                 raise ValueError('Input role does not match --role')
             value[field] = args.role
         action = {'list': 'channel', 'send': 'messages', 'request': 'permission-requests'}[args.command]
-        result = call(args.server_url, args.project_id, token, action, value)
+        result = call(server_url, args.project_id, token, action, value)
         if args.command == 'list' and args.role:
             result['messages'] = [item for item in result['messages']
                                   if item['to_role_id'] == args.role or

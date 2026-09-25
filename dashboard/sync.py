@@ -10,6 +10,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .cloud_store import PROJECT_ID
 from .context_store import ContextStore
+from .local_config import load_project_config
 from .paths import normalize_base_path
 from .server import Dashboard
 
@@ -57,25 +58,36 @@ def send(server_url, project_id, token, value):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--root', type=Path)
     parser.add_argument('--roles', help='Role directory override within project root')
     parser.add_argument('--scheduling', help='Scheduling directory override within project root')
     parser.add_argument('--project-id', required=True)
-    parser.add_argument('--server-url', required=True)
+    parser.add_argument('--server-url')
     parser.add_argument('--key-env', default='ANS_DASHBOARD_KEY', help='Environment variable holding the project Key')
     parser.add_argument('--interval', type=float, help='Seconds between syncs; omit for one sync')
     args = parser.parse_args(argv)
-    token = os.environ.get(args.key_env)
+    environment_key = os.environ.get(args.key_env)
+    config = None
+    if args.root is None or args.server_url is None or not environment_key:
+        try:
+            config = load_project_config(args.project_id)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+    root = args.root or (Path(config['root']) if config else None)
+    server_url = args.server_url or (config['serverUrl'] if config else None)
+    token = environment_key or (config['projectKey'] if config else None)
+    if root is None or server_url is None:
+        parser.error('Set up a local project configuration or pass --root and --server-url')
     if not token:
-        parser.error('Project Key environment variable is not set')
+        parser.error('Project Key is missing from local configuration and environment')
     if args.interval is not None and args.interval < 2:
         parser.error('--interval must be at least 2 seconds')
-    if not args.root.is_dir():
+    if not root.is_dir():
         parser.error('Project root does not exist')
     try:
         while True:
-            result = send(args.server_url, args.project_id, token,
-                          projection(args.root, args.project_id, args.roles, args.scheduling))
+            result = send(server_url, args.project_id, token,
+                          projection(root, args.project_id, args.roles, args.scheduling))
             print(json.dumps(result, ensure_ascii=False), flush=True)
             if args.interval is None:
                 return 0
