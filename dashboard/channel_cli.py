@@ -1,4 +1,4 @@
-"""Role-scoped client for Dashboard messages and permission requests."""
+"""Role agent client using one shared project Key for Dashboard communication."""
 import argparse
 import json
 import os
@@ -25,7 +25,7 @@ def call(server_url, project_id, token, action, value=None):
         raise ValueError('Server URL must not contain credentials, parameters, query, or fragment')
     base_path = normalize_base_path(parsed.path)
     if parsed.scheme != 'https' and not (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost')):
-        raise ValueError('Role channel requires HTTPS; HTTP is only allowed on loopback')
+        raise ValueError('Project channel requires HTTPS; HTTP is only allowed on loopback')
     if action not in ('channel', 'messages', 'permission-requests'):
         raise ValueError('Unknown channel action')
     url = parsed._replace(path=base_path+'/p/'+project_id+'/api/'+action,
@@ -50,7 +50,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--server-url', required=True)
     parser.add_argument('--project-id', required=True)
-    parser.add_argument('--token-env', default='ANS_ROLE_TOKEN')
+    parser.add_argument('--token-env', default='ANS_DASHBOARD_KEY')
+    parser.add_argument('--role', help='Sending role ID; also filters list output when provided')
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('list')
     for command in ('send', 'request'):
@@ -58,11 +59,26 @@ def main(argv=None):
     args = parser.parse_args(argv)
     token = os.environ.get(args.token_env)
     if not token:
-        parser.error('Role token environment variable is not set')
+        parser.error('Project Key environment variable is not set')
     try:
         value = None if args.command == 'list' else json.loads(args.input.read_text(encoding='utf-8'))
+        if args.command in ('send', 'request'):
+            if not args.role:
+                raise ValueError('--role is required when sending as a role')
+            if not isinstance(value, dict):
+                raise ValueError('Input JSON must be an object')
+            field = 'fromRoleId' if args.command == 'send' else 'requesterRoleId'
+            if field in value and value[field] != args.role:
+                raise ValueError('Input role does not match --role')
+            value[field] = args.role
         action = {'list': 'channel', 'send': 'messages', 'request': 'permission-requests'}[args.command]
         result = call(args.server_url, args.project_id, token, action, value)
+        if args.command == 'list' and args.role:
+            result['messages'] = [item for item in result['messages']
+                                  if item['to_role_id'] == args.role or
+                                  (item['sender_kind'] == 'role' and item['sender_id'] == args.role)]
+            result['requests'] = [item for item in result['requests']
+                                  if item['requester_role_id'] == args.role]
     except (OSError, ValueError, URLError) as error:
         print(str(error), file=sys.stderr)
         return 2

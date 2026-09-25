@@ -321,6 +321,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
               '/static/dashboard.js': ('app.js', 'text/javascript; charset=utf-8'),
               '/static/channel.js': ('channel.js', 'text/javascript; charset=utf-8'),
               '/static/auth.css': ('auth.css', 'text/css; charset=utf-8'),
+              '/static/manage.css': ('manage.css', 'text/css; charset=utf-8'),
               '/static/login.js': ('login.js', 'text/javascript; charset=utf-8'),
               '/static/manage.js': ('manage.js', 'text/javascript; charset=utf-8')}
     assets = Path(__file__).resolve().parent
@@ -493,8 +494,6 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                     self.json_response(200, {'projects': self.project_links(user)})
                 elif path == '/api/admin/keys':
                     self.json_response(200, {'keys': cloud_store.keys()})
-                elif path == '/api/admin/role-tokens':
-                    self.json_response(200, {'roleTokens': cloud_store.role_tokens()})
                 else:
                     self.json_response(404, {'error': 'not found'})
                 return
@@ -524,15 +523,13 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                     self.respond(200, self.page('index.html'), 'text/html; charset=utf-8')
                 return
             if subpath == '/api/channel':
-                user = self.session_user()
-                if user is not None and cloud_store.can_view(user, project_id):
-                    self.json_response(200, channel_store.view(project_id))
+                if not self.project_allowed(project_id):
+                    self.json_response(403, {'error': 'Project access required'})
                     return
-                principal = cloud_store.role_principal(project_id, self.bearer_token())
-                if principal is not None:
-                    self.json_response(200, channel_store.view(project_id, principal['roleId']))
-                    return
-                self.json_response(403, {'error': 'Project user or role credential required'})
+                role_id = parse_qs(parsed.query).get('role', [None])[0]
+                if role_id and not cloud_store.role_exists(project_id, role_id):
+                    raise ValueError('Role is not in the current project snapshot')
+                self.json_response(200, channel_store.view(project_id, role_id))
                 return
             if not self.project_allowed(project_id):
                 self.json_response(403, {'error': 'Project access denied'})
@@ -628,24 +625,27 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             if match is not None:
                 project_id, action = match.group(1), match.group(2)
                 if action in ('api/messages', 'api/permission-requests'):
-                    principal = cloud_store.role_principal(project_id, self.bearer_token())
+                    project_key = cloud_store.key_allows(project_id, self.bearer_token())
                     if action == 'api/permission-requests':
-                        if principal is None:
-                            self.json_response(403, {'error': 'Role credential required'})
+                        if not project_key:
+                            self.json_response(403, {'error': 'Project Key required'})
                             return
-                        result = channel_store.request_permission(project_id, principal['roleId'], self.request_json())
+                        value = self.request_json()
+                        result = channel_store.request_permission(project_id, value.get('requesterRoleId'), value)
                     else:
-                        if principal is not None:
-                            actor = {'kind': 'role', 'id': principal['roleId']}
+                        if project_key:
+                            value = self.request_json()
+                            actor = {'kind': 'role', 'id': value.get('fromRoleId')}
                         else:
                             user = self.session_user()
                             if user is None or user['role'] != 'admin' or not cloud_store.can_view(user, project_id):
-                                self.json_response(403, {'error': 'Role credential or administrator required'})
+                                self.json_response(403, {'error': 'Project Key or administrator required'})
                                 return
                             if not self.require_csrf(user):
                                 return
                             actor = {'kind': 'user', 'id': user['username']}
-                        result = channel_store.send_message(project_id, actor, self.request_json())
+                            value = self.request_json()
+                        result = channel_store.send_message(project_id, actor, value)
                     self.json_response(200, result)
                     return
                 decision_match = re.fullmatch(r'api/permission-requests/([0-9]+)/decision', action)
@@ -669,16 +669,10 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             elif path == '/api/admin/projects':
                 result = cloud_store.add_project(value.get('id'), value.get('title'))
                 result['url'] = base_path + result['url']
-            elif path == '/api/admin/grants':
-                result = cloud_store.grant(value.get('username'), value.get('projectId'))
             elif path == '/api/admin/keys':
                 result = cloud_store.create_key(value.get('projectId'), value.get('label'))
             elif path == '/api/admin/keys/revoke':
                 result = cloud_store.revoke_key(value.get('id'))
-            elif path == '/api/admin/role-tokens':
-                result = cloud_store.create_role_token(value.get('projectId'), value.get('roleId'), value.get('label'))
-            elif path == '/api/admin/role-tokens/revoke':
-                result = cloud_store.revoke_role_token(value.get('id'))
             elif path == '/api/admin/users/disable':
                 if value.get('username') == user['username']:
                     raise ValueError('Cannot disable the current administrator')

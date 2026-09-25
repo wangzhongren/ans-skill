@@ -119,12 +119,10 @@ class CloudStoreTests(unittest.TestCase):
                 self.assertEqual(record, (None, None, None, '2026-09-24T00:00:00Z'))
             self.assertEqual(CloudStore(root).projection('alpha')['snapshot']['roles'][0]['id'], 'orders')
 
-    def test_membership_and_last_admin(self):
+    def test_viewers_see_all_projects_and_last_admin_is_protected(self):
         self.store.add_project('alpha', 'Alpha')
         self.store.create_user('reader', PASSWORD)
         user = self.store.authenticate('reader', PASSWORD)
-        self.assertFalse(self.store.can_view(user, 'alpha'))
-        self.store.grant('reader', 'alpha')
         self.assertTrue(self.store.can_view(user, 'alpha'))
         with self.assertRaisesRegex(ValueError, 'last active administrator'):
             self.store.disable_user('owner')
@@ -194,6 +192,12 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(me['role'], 'admin')
         self.assertEqual(self.request('/api/admin/projects', cookie=cookie)[0], 200)
+        manage = self.request('/manage', cookie=cookie)
+        self.assertEqual(manage[0], 200)
+        self.assertIn('href="/static/manage.css"', manage[1])
+        self.assertNotIn('grantForm', manage[1])
+        self.assertNotIn('roleTokenForm', manage[1])
+        self.assertEqual(self.request('/static/manage.css')[0], 200)
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie)[0], 403)
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie, csrf=me['csrfToken'])[0], 200)
         status, created, _ = self.request('/api/admin/users', 'POST',
@@ -202,7 +206,7 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertEqual((status, created['role']), (200, 'viewer'))
         self.assertEqual(self.request('/api/admin/grants', 'POST',
                                       {'username': 'new-reader', 'projectId': 'gamma'},
-                                      cookie=cookie, csrf=me['csrfToken'])[0], 200)
+                                      cookie=cookie, csrf=me['csrfToken'])[0], 404)
         status, issued, _ = self.request('/api/admin/keys', 'POST',
                                          {'projectId': 'gamma', 'label': 'collector'},
                                          cookie=cookie, csrf=me['csrfToken'])
@@ -227,13 +231,12 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/p/alpha/api/sync', 'POST', sample('alpha', 'new'), key=self.alpha_key)[0], 200)
         self.assertEqual(self.request('/p/alpha/api/snapshot', key=self.alpha_key)[1]['roles'][0]['id'], 'new')
 
-    def test_viewer_sees_only_granted_project(self):
+    def test_viewer_sees_all_projects_without_grants(self):
         self.store.create_user('reader', PASSWORD)
-        self.store.grant('reader', 'alpha')
         cookie = self.login('reader')
-        self.assertEqual([item['id'] for item in self.request('/api/projects', cookie=cookie)[1]['projects']], ['alpha'])
+        self.assertEqual([item['id'] for item in self.request('/api/projects', cookie=cookie)[1]['projects']], ['alpha','beta'])
         self.assertEqual(self.request('/p/alpha/api/snapshot', cookie=cookie)[0], 200)
-        self.assertEqual(self.request('/p/beta/api/snapshot', cookie=cookie)[0], 403)
+        self.assertEqual(self.request('/p/beta/api/snapshot', cookie=cookie)[0], 200)
         self.assertEqual(self.request('/api/admin/users', cookie=cookie)[0], 403)
 
 

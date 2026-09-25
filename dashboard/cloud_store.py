@@ -58,17 +58,9 @@ class CloudStore:
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY, title TEXT NOT NULL,
                     last_received_at TEXT, created_at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS memberships (
-                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                    PRIMARY KEY(user_id,project_id));
                 CREATE TABLE IF NOT EXISTS project_keys (
                     id INTEGER PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
                     label TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
-                    created_at TEXT NOT NULL, revoked_at TEXT);
-                CREATE TABLE IF NOT EXISTS role_tokens (
-                    id INTEGER PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                    role_id TEXT NOT NULL, label TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
                     created_at TEXT NOT NULL, revoked_at TEXT);
             ''')
             columns = {row['name'] for row in connection.execute('PRAGMA table_info(projects)')}
@@ -216,22 +208,13 @@ class CloudStore:
 
     def projects_for(self, user):
         with self.connection() as connection:
-            if user['role'] == 'admin':
-                rows = connection.execute('SELECT id,title,last_received_at FROM projects ORDER BY title,id')
-            else:
-                rows = connection.execute('''SELECT projects.id,projects.title,projects.last_received_at
-                    FROM projects JOIN memberships ON memberships.project_id=projects.id
-                    WHERE memberships.user_id=? ORDER BY projects.title,projects.id''', (user['id'],))
+            rows = connection.execute('SELECT id,title,last_received_at FROM projects ORDER BY title,id')
             return [{'id': row['id'], 'name': row['title'], 'url': '/p/'+row['id']+'/',
                      'receivedAt': row['last_received_at']} for row in rows]
 
     def can_view(self, user, project_id):
-        if user['role'] == 'admin':
-            with self.connection() as connection:
-                return connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is not None
         with self.connection() as connection:
-            return connection.execute('SELECT 1 FROM memberships WHERE user_id=? AND project_id=?',
-                                      (user['id'], project_id)).fetchone() is not None
+            return connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is not None
 
     def add_project(self, project_id, title):
         if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
@@ -248,18 +231,8 @@ class CloudStore:
         with self.connection() as connection:
             rows = connection.execute('SELECT id,username,role,active,created_at FROM users ORDER BY username').fetchall()
             return [{'id': row['id'], 'username': row['username'], 'role': row['role'],
-                     'active': bool(row['active']), 'createdAt': row['created_at'],
-                     'projects': [item['project_id'] for item in connection.execute(
-                         'SELECT project_id FROM memberships WHERE user_id=? ORDER BY project_id', (row['id'],))]}
+                     'active': bool(row['active']), 'createdAt': row['created_at']}
                     for row in rows]
-
-    def grant(self, username, project_id):
-        with self.connection() as connection:
-            user = connection.execute('SELECT id FROM users WHERE username=? AND active=1', (username,)).fetchone()
-            if user is None or connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
-                raise ValueError('User or project not found')
-            connection.execute('INSERT OR IGNORE INTO memberships VALUES (?,?)', (user['id'], project_id))
-        return {'username': username, 'projectId': project_id}
 
     def disable_user(self, username):
         with self.connection() as connection:
@@ -312,44 +285,6 @@ class CloudStore:
             return False
         return any(role.get('id') == role_id for role in self.projection(project_id)['snapshot']['roles'])
 
-    def create_role_token(self, project_id, role_id, label):
-        if not isinstance(label, str) or not label.strip() or len(label) > 120:
-            raise ValueError('Role token label must be 1–120 characters')
-        if not self.role_exists(project_id, role_id):
-            raise ValueError('Sync this role before creating its credential')
-        token = 'ansr_' + secrets.token_urlsafe(32)
-        with self.connection() as connection:
-            cursor = connection.execute('''INSERT INTO role_tokens
-                (project_id,role_id,label,token_hash,created_at) VALUES (?,?,?,?,?)''',
-                (project_id, role_id, label.strip(), digest(token), utcnow()))
-        return {'id': cursor.lastrowid, 'projectId': project_id, 'roleId': role_id,
-                'label': label.strip(), 'token': token}
-
-    def role_tokens(self):
-        with self.connection() as connection:
-            return [{'id': row['id'], 'projectId': row['project_id'], 'roleId': row['role_id'],
-                     'label': row['label'], 'createdAt': row['created_at'], 'revokedAt': row['revoked_at']}
-                    for row in connection.execute('''SELECT id,project_id,role_id,label,created_at,revoked_at
-                        FROM role_tokens ORDER BY id DESC''')]
-
-    def revoke_role_token(self, token_id):
-        with self.connection() as connection:
-            cursor = connection.execute('''UPDATE role_tokens SET revoked_at=?
-                WHERE id=? AND revoked_at IS NULL''', (utcnow(), token_id))
-            if cursor.rowcount != 1:
-                raise ValueError('Active role token not found')
-        return {'id': token_id, 'revoked': True}
-
-    def role_principal(self, project_id, token):
-        if not isinstance(token, str) or not token.startswith('ansr_') or len(token) > 256:
-            return None
-        with self.connection() as connection:
-            row = connection.execute('''SELECT id,role_id FROM role_tokens
-                WHERE project_id=? AND token_hash=? AND revoked_at IS NULL''',
-                (project_id, digest(token))).fetchone()
-        if row is None or not self.role_exists(project_id, row['role_id']):
-            return None
-        return {'tokenId': row['id'], 'roleId': row['role_id']}
 
     def ingest(self, project_id, value):
         if not isinstance(value, dict) or value.get('schemaVersion') != 1:

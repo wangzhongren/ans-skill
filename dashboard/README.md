@@ -1,6 +1,6 @@
 # ANS Dashboard（独立后端）
 
-Dashboard 可以部署一份服务，供多个项目共用。服务端保存用户、项目权限、项目 Key、角色凭证、**展示快照**与协作记录；不需要上传业务仓库、角色文档全文或项目 SQLite 文件。每个项目通过 `/p/<project-id>/` 访问，网页按登录用户权限筛选；本地同步器通过该项目的 Key 上传角色摘要、职责、边界路径、项目理解和任务状态。
+Dashboard 可以部署一份服务，供多个项目共用。服务端保存用户、供同一项目角色共用的 Key、**展示快照**与协作记录；不需要上传业务仓库、角色文档全文或项目 SQLite 文件。每个项目通过 `/p/<project-id>/` 访问；所有启用的用户登录后默认可查看全部项目。本地同步器通过该项目的 Key 上传角色摘要、职责、边界路径、项目理解和任务状态。
 
 仅部署云端时，复制整个 `dashboard/` 目录到服务器即可。它只使用 Python 3.10+ 标准库。可用下面的 Docker Compose 部署，也可直接运行 Python。项目业务语言不受 Python 限制。
 
@@ -74,7 +74,7 @@ python3 -m dashboard.admin --state-dir /srv/ans-dashboard/state --username admin
 python3 -m dashboard.server --cloud-state /srv/ans-dashboard/state --port 8765 --trusted-host dashboard.example.com
 ```
 
-第一条命令交互输入管理员密码，至少 15 个字符。只可用它创建第一个管理员；以后在网页 `/manage` 添加用户、项目和项目 Key。Key **仅创建时显示一次**，请交给对应项目的同步端。用户权限与 Key 分开：用户登录看获授权项目；Key 只允许同步和读取它所属项目的投影。
+第一条命令交互输入管理员密码，至少 15 个字符。只可用它创建第一个管理员；以后在网页 `/manage` 添加用户、项目和项目 Key。Key **仅创建时显示一次**，请交给对应项目的角色及同步端。所有启用的用户可查看全部项目；Key 只对所属项目有效，可同步快照、读取该项目数据、以声明的角色 ID 发消息和申请，但不能审批。
 
 直接运行时服务默认监听 `127.0.0.1`。线上用 HTTPS 反向代理把域名转发到该端口，并把原始 `Host` 传给服务。`--trusted-host` 写公开域名（如使用非默认端口则包含端口）；生产会话 Cookie 设置 `Secure`，所以网页必须经 HTTPS 访问。确保状态目录只允许服务账号读写，并备份整个状态目录（元数据库与 `projects/`）。建议用服务器的进程管理器托管上述命令。不要将本地预览参数 `--insecure-local-preview` 用在线上。
 
@@ -97,7 +97,7 @@ server {
 
 ## 管理项目与用户
 
-登录 `https://dashboard.example.com/manage`，依次添加项目 ID、用户，授权该用户访问项目，再为项目创建同步 Key。管理员可查看全部项目；普通用户只看获授权项目。管理页可停用用户、撤销 Key。停用用户会使其现有会话失效；撤销 Key 后需重新创建并更新同步端。
+登录 `https://dashboard.example.com/manage`，添加项目、用户及该项目的 Key。所有启用的用户默认查看全部项目；管理员额外可以管理和审批。管理页可停用用户、撤销 Key。停用用户会使其现有会话失效；撤销 Key 后需重新创建并更新同步端与角色。
 
 ## 在项目本地同步
 
@@ -126,7 +126,7 @@ python3 -m dashboard.server --root /path/to/business-project --port 0
 ## 数据库存储
 
 1. **业务项目本地**：每个项目各有自己的 `project-context/context.sqlite3`，按 `role_id` 保存角色理解。同步器只读取它并生成展示 JSON；原数据库文件不会上传。
-2. **共享服务器**：每个项目的展示快照、角色消息、权限申请、决定和审计记录存于 `<cloud-state>/projects/<project-id>.sqlite3`。共享的 `<cloud-state>/dashboard.sqlite3` 保存用户、会话、项目登记、授权、项目 Key 与角色凭证的哈希及最近同步时间，不保存新写入的项目快照。Docker 中 `<cloud-state>` 是 `/data`，这些文件都在同一个持久卷里。
+2. **共享服务器**：每个项目的展示快照、角色消息、权限申请、决定和审计记录存于 `<cloud-state>/projects/<project-id>.sqlite3`。共享的 `<cloud-state>/dashboard.sqlite3` 保存用户、会话、项目登记、项目 Key 的哈希及最近同步时间，不保存新写入的项目快照。Docker 中 `<cloud-state>` 是 `/data`，这些文件都在同一个持久卷里。
 3. **隔离与备份**：项目展示数据是物理分库，查看与同步权限仍由共享元数据库校验。备份时应停止服务并备份整个状态目录或卷，包含 `dashboard.sqlite3` 和 `projects/`；只备份一个项目文件不能恢复该项目的账号和授权。
 
 ### 从旧版共享库升级
@@ -139,16 +139,16 @@ python3 -m dashboard.server --root /path/to/business-project --port 0
 
 ## Role channel
 
-共享云端 Dashboard 的“协作收件箱”提供角色消息、权限申请、管理员决定和审计记录；本地单项目只读模式不启用此功能。先让本地同步器上传真实角色与任务快照，再由管理员在 `/manage` 为每个角色创建独立凭证。角色凭证只显示一次，可撤销；项目同步 Key 不能发角色消息或审批。网页管理员可给角色发消息、查看完整申请并记录批准或拒绝。普通获授权用户可查看该项目收件箱，角色凭证只能读取本角色发出或收到的消息及本角色申请。
+共享云端 Dashboard 的“协作收件箱”提供角色消息、权限申请、管理员决定和审计记录；本地单项目只读模式不启用此功能。先让本地同步器上传真实角色与任务快照，再由管理员在 `/manage` 为项目创建 Key。各角色自己用**同一个项目 Key** 发送消息和申请，并在请求里声明自己的角色 ID；项目 Key 可读取该项目的全部收件箱，但不能审批。网页管理员可给角色发消息、查看完整申请并记录批准或拒绝。所有启用的用户可查看全部项目的收件箱。
 
-角色在项目本地使用凭证，不能把凭证写入仓库或命令行参数：
+角色在项目本地使用与快照同步相同的 `ANS_DASHBOARD_KEY`，不能把 Key 写入仓库或命令行参数。每个角色用自己的 `--role` 参数声明身份：
 
 ```sh
-read -r -s ANS_ROLE_TOKEN
-export ANS_ROLE_TOKEN
-python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-dashboard --project-id orders list
-python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-dashboard --project-id orders send --input message.json
-python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-dashboard --project-id orders request --input permission.json
+read -r -s ANS_DASHBOARD_KEY
+export ANS_DASHBOARD_KEY
+python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-dashboard --project-id orders --role orders list
+python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-dashboard --project-id orders --role orders send --input message.json
+python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-dashboard --project-id orders --role orders request --input permission.json
 ```
 
 `message.json` 示例：
@@ -165,7 +165,9 @@ python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-
 
 相同 `clientMessageId` 或 `clientRequestId` 重试只返回原记录；同 ID 的不同内容会被拒绝。申请提交和批准时均检查当前快照版本，旧设计/边界版本不能批准。管理员批准记录一小时有效，拒绝和过期状态保留在审计中。**Dashboard 的批准只是一条协作决定，不是源码写入、角色激活或任务验收授权。**执行前仍需按 [task_ops 协议](../references/task-operations.md) 由可信宿主核对客户同意文件及其已审核哈希，或匹配已审核的项目预授权配置；不能由 AI 自行把 Dashboard 决定转换成批准哈希。
 
-消息正文、申请理由、写入路径与版本会保存在服务器的项目数据库中，并对该项目获授权的网页用户可见；不要把密码、访问令牌或不应共享的源码片段写进去。任务或角色版本变化后，未处理或已批准的旧申请在页面显示“版本失效”，需提交新申请。
+共用项目 Key 表示服务器只能确认“来自这个项目”，不能单独证明请求中的角色 ID 是谁。角色应在自己的执行上下文里使用 `--role` 自行发送；对角色切换、任务范围和实际代码写入的严格检查仍由本地角色/任务门禁承担。
+
+消息正文、申请理由、写入路径与版本会保存在服务器的项目数据库中，并对所有启用的网页用户及持有该项目 Key 的角色可见；不要把密码、访问令牌或不应共享的源码片段写进去。任务或角色版本变化后，未处理或已批准的旧申请在页面显示“版本失效”，需提交新申请。
 
 服务端升级时保留同一状态卷，运行 `docker compose up -d --build`。新增协作表会在首次使用项目收件箱时创建；原项目快照和账号不需要重建。Dashboard 不启动代理进程；角色由本地 CLI 发送和查询，网页继续约每 2 秒刷新当前收件箱。
 

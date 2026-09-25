@@ -10,7 +10,7 @@
 2. **统一任务操作**：派发前检查授权、依赖和写入范围，反馈校验批次及版本，验收核对实际测试证据。
 3. **一个 Dashboard 看协作**：每约 2 秒读取角色和调度记录，展示执行、阻塞、待验收、设计变更及事件历史。
 4. **按角色理解项目**：直接查看角色职责与修改边界，以及流程、数据和接口的汇总与详情。
-5. **跨角色沟通**：共享 Dashboard 的角色收件箱支持消息、版本绑定的权限申请与管理员决定；执行仍经过本地任务门禁。
+5. **跨角色沟通**：共享 Dashboard 中，各角色使用同一个项目 Key 自行发消息和申请权限；管理员决定仍不绕过本地任务门禁。
 
 ## 安装
 
@@ -101,7 +101,7 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 ### 多项目共用一份 Dashboard
 
-把独立的 [`dashboard/`](dashboard/README.md) 目录部署在服务器，可直接运行 Python，也可使用其中的 `Dockerfile` 和 `compose.yaml`。Compose 持久化状态卷，并只在宿主机回环地址发布端口；对外仍需 HTTPS 反向代理。创建第一个管理员后，在 `/manage` 添加项目、内置账号、项目授权和**每个项目自己的同步 Key**。用户通过 `/p/<project-id>/` 查看获授权项目。
+把独立的 [`dashboard/`](dashboard/README.md) 目录部署在服务器，可直接运行 Python，也可使用其中的 `Dockerfile` 和 `compose.yaml`。Compose 持久化状态卷，并只在宿主机回环地址发布端口；对外仍需 HTTPS 反向代理。创建第一个管理员后，在 `/manage` 添加项目、用户，以及供该项目角色共用的 Key。所有启用的用户默认可查看全部项目；管理员负责配置与审批。
 
 服务器若要跟随 GitLab `main` 自动更新 Dashboard，可从手工复制目录切换为 Git 克隆，并安装 [systemd 定时更新器](dashboard/README.md#自动跟随-gitlab-的-main)。更新器只接受快进提交，重建后等待健康检查；服务器只需要 GitLab 仓库的只读 Deploy Key。
 
@@ -109,9 +109,9 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 业务项目本地运行 `python3 -m dashboard.sync`，读取角色卡摘要、边界路径、项目理解 SQLite 和任务记录，将**展示快照**同步到对应项目。服务器不用访问业务仓库，也不接收源码或角色文档全文。完整启动、Key 配置和部署示例见 [独立 Dashboard README](dashboard/README.md)。本地单项目模式无需登录，仍使用上面的启动命令。
 
-**服务器按项目分库。**每个业务项目本地各有一份 `project-context/context.sqlite3`；共享服务器为每个项目保存一份 `projects/<project-id>.sqlite3`，存该项目的展示快照和协作记录。服务器另有一份 `dashboard.sqlite3`，保存用户、授权、同步 Key、角色凭证哈希和项目元数据。同步的是页面需要的 JSON，不是本地 SQLite 文件。Docker 部署时这些数据库都位于 `/data` 持久卷中。
+**服务器按项目分库。**每个业务项目本地各有一份 `project-context/context.sqlite3`；共享服务器为每个项目保存一份 `projects/<project-id>.sqlite3`，存该项目的展示快照和协作记录。服务器另有一份 `dashboard.sqlite3`，保存用户、项目 Key 哈希和项目元数据。同步的是页面需要的 JSON，不是本地 SQLite 文件。Docker 部署时这些数据库都位于 `/data` 持久卷中。
 
-共享 Dashboard 的 **协作收件箱** 允许角色用单独的角色凭证发消息、提交精确到任务/节点/版本/文件范围的权限申请；管理员在网页记录批准或拒绝，每次变化进入该项目的审计记录。角色凭证与同步 Key 分开。网页批准只表示协作决定，不替代 `task_ops` 的客户同意或已审核配置。接入方式与请求格式见 [角色沟通说明](dashboard/README.md#role-channel)。
+共享 Dashboard 的 **协作收件箱** 允许每个角色用该项目共同的 Key 自行发消息、提交精确到任务/节点/版本/文件范围的权限申请，并在请求中声明自己的角色 ID；管理员在网页记录批准或拒绝，每次变化进入该项目的审计记录。网页批准只表示协作决定，不替代 `task_ops` 的客户同意或已审核配置。接入方式与请求格式见 [角色沟通说明](dashboard/README.md#role-channel)。
 
 项目理解保存在一份 `project-context/context.sqlite3` 中，以 `role_id` 区分角色。Dashboard 直接提供流程、数据、接口和定义总览；接口总览分为**网络接口**与**内部接口**，网络接口展示协议、请求方法与 URL，两类都展示具体字段。点条目进入详情，流程详情展示触发条件、步骤、输入/输出数据和接口。角色职责与边界直接取自角色卡和边界文档。AI 使用 [统一 CRUD 工具](references/project-context.md) 按角色查询或更新。
 
@@ -154,7 +154,7 @@ assets/
   code-atlas/               # 可选的旧全项目图谱
 dashboard/                  # 可独立部署的页面、后端、用户/项目管理与同步器
   channel_store.py           # 每项目消息、申请、决定及审计
-  channel_cli.py             # 角色凭证调用的本地消息/申请客户端
+  channel_cli.py             # 角色共用项目 Key 的消息/申请客户端
 scripts/
   serve_dashboard.py        # 兼容的本机启动入口
   role_atlas.py             # 可选的旧角色图谱生成器

@@ -39,28 +39,35 @@ def permission(client_id='request-1'):
             'boundaryRevision': 'B1', 'reason': 'Need the approved write scope'}
 
 
-class RoleChannelTests(unittest.TestCase):
+class ChannelTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.store = CloudStore(self.temp.name)
         self.store.create_user('admin', PASSWORD, 'admin', bootstrap=True)
         self.store.add_project('alpha', 'Alpha')
+        self.key = self.store.create_key('alpha', 'local project')['key']
         self.channel = ChannelStore(self.store)
 
     def ready(self):
         self.store.ingest('alpha', projection())
-        return self.store.create_role_token('alpha', 'orders', 'agent')['token']
 
-    def test_role_credentials_and_project_scope(self):
-        with self.assertRaisesRegex(ValueError, 'Sync this role'):
-            self.store.create_role_token('alpha', 'orders', 'agent')
-        token = self.ready()
-        self.assertEqual(self.store.role_principal('alpha', token)['roleId'], 'orders')
-        self.assertIsNone(self.store.role_principal('beta', token))
-        self.assertNotIn('token', self.store.role_tokens()[0])
-        self.store.revoke_role_token(self.store.role_tokens()[0]['id'])
-        self.assertIsNone(self.store.role_principal('alpha', token))
+    def test_one_project_key_scopes_messages_and_requests(self):
+        self.ready()
+        self.assertTrue(self.store.key_allows('alpha', self.key))
+        self.assertFalse(self.store.key_allows('beta', self.key))
+        self.channel.send_message('alpha', {'kind': 'role', 'id': 'orders'},
+            {'clientMessageId': 'orders-1', 'toRoleId': 'reviewer', 'taskId': 'task-1',
+             'kind': 'question', 'body': 'Review this', 'revision': 'D1'})
+        self.channel.send_message('alpha', {'kind': 'role', 'id': 'reviewer'},
+            {'clientMessageId': 'reviewer-1', 'toRoleId': 'orders', 'taskId': 'task-1',
+             'kind': 'feedback', 'body': 'Reviewed', 'revision': 'D1'})
+        self.assertEqual({row['sender_id'] for row in self.channel.view('alpha')['messages']},
+                         {'orders', 'reviewer'})
+        with self.assertRaisesRegex(ValueError, 'Sender role'):
+            self.channel.send_message('alpha', {'kind': 'role', 'id': 'unknown'},
+                {'clientMessageId': 'bad', 'toRoleId': 'orders', 'taskId': 'task-1',
+                 'kind': 'question', 'body': 'Bad', 'revision': 'D1'})
 
     def test_messages_requests_decisions_and_audit(self):
         self.ready()
@@ -72,8 +79,6 @@ class RoleChannelTests(unittest.TestCase):
         self.assertTrue(self.channel.send_message('alpha', actor, message)['duplicate'])
         with self.assertRaisesRegex(ValueError, 'reused'):
             self.channel.send_message('alpha', actor, {**message, 'body': 'Different'})
-        self.assertEqual(len(self.channel.view('alpha', 'reviewer')['messages']), 1)
-        self.assertEqual(self.channel.view('alpha', 'assembly')['messages'], [])
         request = self.channel.request_permission('alpha', 'orders', permission())
         self.assertTrue(self.channel.request_permission('alpha', 'orders', permission())['duplicate'])
         result = self.channel.decide('alpha', request['id'], 'admin',
@@ -86,7 +91,6 @@ class RoleChannelTests(unittest.TestCase):
         self.assertEqual(view['requests'][0]['status'], 'approved')
         self.assertEqual([event['seq'] for event in view['events']], [3, 2, 1])
         self.assertEqual(self.channel.view('alpha', 'reviewer')['requests'], [])
-        self.assertEqual(self.channel.view('alpha', 'orders')['requests'][0]['status'], 'approved')
 
     def test_old_revision_cannot_be_approved(self):
         self.ready()
@@ -121,12 +125,10 @@ class RoleChannelTests(unittest.TestCase):
                 {'decision': 'approved', 'reason': 'Too late'})
 
 
-class RoleChannelHTTPTests(unittest.TestCase):
+class ChannelHTTPTests(unittest.TestCase):
     def setUp(self):
-        RoleChannelTests.setUp(self)
+        ChannelTests.setUp(self)
         self.store.ingest('alpha', projection())
-        self.role_token = self.store.create_role_token('alpha', 'orders', 'agent')['token']
-        self.project_key = self.store.create_key('alpha', 'sync')['key']
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(
             cloud_store=self.store, insecure_local=True, base_path='/ans-dashboard'))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -149,27 +151,30 @@ class RoleChannelHTTPTests(unittest.TestCase):
             with error:
                 return error.code, json.load(error), error.headers
 
-    def test_agent_and_admin_permissions(self):
+    def test_project_key_routes_and_admin_decision(self):
         channel_path = '/p/alpha/api/channel'
-        self.assertEqual(self.request(channel_path, token=self.project_key)[0], 403)
-        self.assertEqual(self.request(channel_path, token=self.role_token)[0], 200)
-        message = {'clientMessageId': 'http-message', 'toRoleId': 'reviewer',
+        self.assertEqual(self.request(channel_path)[0], 403)
+        self.assertEqual(self.request(channel_path, token=self.key)[0], 200)
+        message = {'clientMessageId': 'http-message', 'fromRoleId': 'orders', 'toRoleId': 'reviewer',
                    'taskId': 'task-1', 'kind': 'question', 'body': 'Please review', 'revision': 'D1'}
-        self.assertEqual(self.request('/p/alpha/api/messages', 'POST', message, token=self.project_key)[0], 403)
-        self.assertEqual(self.request('/p/alpha/api/messages', 'POST', message, token=self.role_token)[0], 200)
-        self.assertEqual(call(self.base, 'alpha', self.role_token, 'channel')['messages'][0]['body'], 'Please review')
-        requested = self.request('/p/alpha/api/permission-requests', 'POST', permission(), token=self.role_token)[1]
+        self.assertEqual(self.request('/p/alpha/api/messages', 'POST', message)[0], 403)
+        self.assertEqual(self.request('/p/alpha/api/messages', 'POST', message, token=self.key)[0], 200)
+        self.assertEqual(call(self.base, 'alpha', self.key, 'channel')['messages'][0]['sender_id'], 'orders')
+        requested = self.request('/p/alpha/api/permission-requests', 'POST',
+            {**permission(), 'requesterRoleId': 'orders'}, token=self.key)[1]
         login = self.request('/api/login', 'POST', {'username': 'admin', 'password': PASSWORD})
         cookie = login[2]['Set-Cookie'].split(';', 1)[0]
         me = self.request('/api/me', cookie=cookie)[1]
         url = '/p/alpha/api/permission-requests/'+str(requested['id'])+'/decision'
         choice = {'decision': 'approved', 'reason': 'Reviewed exact task'}
-        self.assertEqual(self.request(url, 'POST', choice, token=self.role_token)[0], 403)
+        self.assertEqual(self.request(url, 'POST', choice, token=self.key)[0], 403)
         self.assertEqual(self.request(url, 'POST', choice, cookie=cookie)[0], 403)
         self.assertEqual(self.request(url, 'POST', choice, cookie=cookie, csrf=me['csrfToken'])[0], 200)
         self.assertFalse(self.request(channel_path, cookie=cookie)[1]['requests'][0]['executionAuthorized'])
+        self.assertEqual(self.request('/p/alpha/api/messages', 'POST',
+            {**message, 'clientMessageId': 'bad-role', 'fromRoleId': 'unknown'}, token=self.key)[0], 400)
 
-    def test_role_cli_send_request_and_list(self):
+    def test_shared_key_cli_per_role(self):
         with tempfile.TemporaryDirectory() as folder:
             message_file = Path(folder)/'message.json'
             message_file.write_text(json.dumps({'clientMessageId': 'cli-message',
@@ -177,13 +182,13 @@ class RoleChannelHTTPTests(unittest.TestCase):
                 'body': 'Ready for review', 'revision': 'D1'}), encoding='utf-8')
             request_file = Path(folder)/'permission.json'
             request_file.write_text(json.dumps(permission('cli-request')), encoding='utf-8')
-            prefix = ['--server-url', self.base, '--project-id', 'alpha']
-            with patch.dict(os.environ, {'ANS_ROLE_TOKEN': self.role_token}), redirect_stdout(io.StringIO()) as output:
+            prefix = ['--server-url', self.base, '--project-id', 'alpha', '--role', 'orders']
+            with patch.dict(os.environ, {'ANS_DASHBOARD_KEY': self.key}), redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(channel_main(prefix+['send', '--input', str(message_file)]), 0)
                 self.assertEqual(channel_main(prefix+['request', '--input', str(request_file)]), 0)
                 self.assertEqual(channel_main(prefix+['list']), 0)
             self.assertIn('Ready for review', output.getvalue())
-            self.assertNotIn(self.role_token, output.getvalue())
+            self.assertNotIn(self.key, output.getvalue())
 
 
 if __name__ == '__main__':

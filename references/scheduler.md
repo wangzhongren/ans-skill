@@ -18,7 +18,7 @@ Use the project's default role card for investigation, design, and coordination;
 
 The project scheduler reads accepted capability/assembly cards without activating their write permissions. Its own card remains active while dispatching; each worker explicitly activates its assigned role. A standalone single-role repair may omit graph records, but activating its execution role still needs the customer-consent/configuration check in project-role.md.
 
-If a shared Dashboard role channel is enabled, workers may send scoped messages and exact permission requests using their own role credentials. The default project role may route questions to other roles, but neither that channel nor an administrator's recorded decision dispatches a worker. Recheck the current task, role boundary, write set and customer consent or approved configuration in `task_ops` before activation.
+If a shared Dashboard role channel is enabled, each worker may send its own scoped messages and exact permission requests using the project's shared Key while declaring its active role ID. The default project role may route questions to other roles, but neither that channel nor an administrator's recorded decision dispatches a worker. Recheck the current task, role boundary, write set and customer consent or approved configuration in `task_ops` before activation.
 
 ## Suggested Boundary Section 1
 

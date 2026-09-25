@@ -100,6 +100,8 @@ class ChannelStore:
             raise ValueError('Task role or version changed; sync and submit a new request')
 
     def send_message(self, project_id, actor, value):
+        if actor['kind'] == 'role' and not self.cloud.role_exists(project_id, actor['id']):
+            raise ValueError('Sender role is not in the current project snapshot')
         to_role = required(value.get('toRoleId'), 'toRoleId', 120)
         if not self.cloud.role_exists(project_id, to_role):
             raise ValueError('Recipient role is not in the current project snapshot')
@@ -130,6 +132,8 @@ class ChannelStore:
             return {'id': cursor.lastrowid, 'duplicate': False}
 
     def request_permission(self, project_id, role_id, value):
+        if not self.cloud.role_exists(project_id, role_id):
+            raise ValueError('Requester role is not in the current project snapshot')
         write_set = value.get('writeSet')
         if not isinstance(write_set, list) or not write_set or len(write_set) > 100:
             raise ValueError('writeSet must contain 1–100 paths')
