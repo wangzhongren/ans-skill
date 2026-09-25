@@ -21,6 +21,34 @@ docker compose ps
 
 Docker 镜像只包含 Dashboard 的 Python/HTML/CSS/JS；业务项目文件仍在各自本地，通过下方同步命令发送展示快照。容器内服务监听 `0.0.0.0`，这是为了接收 Docker 端口映射；宿主机映射依然只监听回环地址。首次启动前必须创建管理员，否则服务会拒绝启动。
 
+### 自动跟随 GitLab 的 `main`
+
+服务器可以每约五分钟检查 GitLab，有可快进的新提交时自动重建 Dashboard，并等待容器健康。这只更新 **ans-skill 的 Dashboard 程序**，不会从业务项目仓库采集数据；业务项目仍使用下文的本地快照同步器。当前若是**手工复制**的目录，先一次性切换成 Git 克隆；自动更新器不会对普通复制目录执行 `git pull`：
+
+1. 在 GitLab 的 `ans-skill` 项目设置中添加服务器的**只读 Deploy Key**，确认服务器可以无交互访问仓库。[GitLab Deploy Key 说明](https://docs.gitlab.com/user/project/deploy_keys/)。若服务器还没有专用密钥，可先运行 `install -d -m 700 /root/.ssh` 和 `ssh-keygen -t ed25519 -f /root/.ssh/ans-skill-deploy -N ''`，把 `/root/.ssh/ans-skill-deploy.pub` 的内容添加到 GitLab；私钥留在服务器，不要发给他人。首次连接应核对 GitLab 的 SSH 主机指纹，不要关闭主机校验。
+2. 在服务器克隆一个新目录，复制旧目录中现有的 `.env`：
+
+   ```sh
+   GIT_SSH_COMMAND='ssh -i /root/.ssh/ans-skill-deploy -o IdentitiesOnly=yes' git clone git@gitlab.chinatinghai.com:ai-bigdata/wzr/ans-skill.git /opt/ans-skill-git
+   git -C /opt/ans-skill-git config core.sshCommand 'ssh -i /root/.ssh/ans-skill-deploy -o IdentitiesOnly=yes -o BatchMode=yes'
+   cp -p /原先手工复制的/dashboard/.env /opt/ans-skill-git/dashboard/.env
+   cd /opt/ans-skill-git/dashboard
+   docker compose up -d --build --wait --wait-timeout 120
+   ```
+
+   Compose 项目名固定为 `ans-dashboard`，因此会沿用原有数据库卷；不要重新创建管理员，也不要运行 `docker compose down -v`。确认页面正常后再处理旧目录。
+3. 从新克隆的目录安装定时器：
+
+   ```sh
+   cd /opt/ans-skill-git
+   bash dashboard/install_auto_update.sh
+   systemctl start ans-dashboard-auto-update.service
+   systemctl list-timers ans-dashboard-auto-update.timer
+   journalctl -u ans-dashboard-auto-update.service -n 50 --no-pager
+   ```
+
+定时器只接受 `main` 的快进提交、拒绝有本地改动的仓库。新容器健康检查失败时，会尝试恢复旧代码和镜像，并在 systemd 日志中报告失败。**数据库内容不随代码自动回滚**；启用自动更新前先备份完整状态卷，涉及数据库结构变更时应额外检查备份和迁移。更新脚本本身如有改动，重新运行 `install_auto_update.sh` 才会更新 systemd 中的安装副本。若 GitLab 的 `main` 不是受控发布分支，应先限制可合入人员和完成测试，再启用自动部署。Docker Compose 重建容器时保留命名卷。[Compose 更新行为](https://docs.docker.com/reference/cli/docker/compose/up/)。
+
 ### 挂到现有域名的 `/ans-dashboard/`
 
 若访问地址希望是 `https://dashboard.example.com/ans-dashboard/`，在 `dashboard/.env` 设置 `ANS_DASHBOARD_BASE_PATH=/ans-dashboard` 后重建容器。直接运行 Python 时加 `--base-path /ans-dashboard`。也支持其他前缀和多段路径；留空则部署在域名根路径。反向代理应保留 `/ans-dashboard`，不要剥掉它：
