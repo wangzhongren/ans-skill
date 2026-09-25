@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dashboard.local_config import save_project_config
@@ -92,6 +93,36 @@ class SyncRuntimeTests(unittest.TestCase):
             self.assertTrue(state['running'])
             self.assertFalse(state['configured'])
             self.assertNotIn('projectKey', result.stdout)
+
+    def test_continuous_sync_recovers_from_temporary_network_failure(self):
+        with patch.dict(os.environ, {'ANS_DASHBOARD_KEY': 'ansp_example-key'}), \
+             patch('dashboard.sync.projection', return_value={'schemaVersion': 1}), \
+             patch('dashboard.sync.send', side_effect=[URLError('temporary'), {'received': True}]) as send, \
+             patch('dashboard.sync.time.sleep', side_effect=[None, KeyboardInterrupt]), \
+             redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as errors:
+            result = sync_main(['--root', str(self.root), '--project-id', 'alpha',
+                                '--server-url', 'https://example.com', '--interval', '10'])
+        self.assertEqual(result, 0)
+        self.assertEqual(send.call_count, 2)
+        self.assertIn('retrying', errors.getvalue())
+        status = sync_status(self.root)
+        self.assertFalse(status['running'])
+        self.assertIsNone(status['lastError'])
+        self.assertIsNotNone(status['lastSuccessAt'])
+
+    def test_continuous_sync_stops_on_auth_failure(self):
+        forbidden = HTTPError('https://example.com', 403, 'Forbidden', None, None)
+        with patch.dict(os.environ, {'ANS_DASHBOARD_KEY': 'ansp_example-key'}), \
+             patch('dashboard.sync.projection', return_value={'schemaVersion': 1}), \
+             patch('dashboard.sync.send', side_effect=forbidden), \
+             redirect_stderr(io.StringIO()):
+            result = sync_main(['--root', str(self.root), '--project-id', 'alpha',
+                                '--server-url', 'https://example.com', '--interval', '10'])
+        forbidden.close()
+        self.assertEqual(result, 2)
+        status = sync_status(self.root)
+        self.assertFalse(status['running'])
+        self.assertEqual(status['lastError'], 'HTTP 403')
 
 
 if __name__ == '__main__':

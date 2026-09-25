@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import time
 from urllib.parse import urlparse
+from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .cloud_store import PROJECT_ID
@@ -101,13 +102,26 @@ def main(argv=None):
                 try:
                     result = send(server_url, project_id, token,
                                   projection(root, project_id, args.roles, args.scheduling))
-                except (OSError, ValueError) as error:
+                except HTTPError as error:
+                    if lease is not None:
+                        lease.failure(error)
+                    if lease is None or (400 <= error.code < 500 and error.code not in (408, 429)):
+                        raise
+                    print('Cloud sync HTTP '+str(error.code)+'; retrying', file=sys.stderr, flush=True)
+                except OSError as error:
+                    if lease is not None:
+                        lease.failure(error)
+                    if lease is None:
+                        raise
+                    print('Cloud sync network error; retrying', file=sys.stderr, flush=True)
+                except Exception as error:
                     if lease is not None:
                         lease.failure(error)
                     raise
-                if lease is not None:
-                    lease.success()
-                print(json.dumps(result, ensure_ascii=False), flush=True)
+                else:
+                    if lease is not None:
+                        lease.success()
+                    print(json.dumps(result, ensure_ascii=False), flush=True)
                 if args.interval is None:
                     return 0
                 time.sleep(args.interval)

@@ -110,7 +110,11 @@ class SyncLease:
         _write(self.status_path, self.state)
 
     def failure(self, error):
-        self.state['lastError'] = type(error).__name__
+        code = getattr(error, 'code', None)
+        if isinstance(code, int):
+            self.state['lastError'] = 'HTTP '+str(code)
+        else:
+            self.state['lastError'] = type(error).__name__
         _write(self.status_path, self.state)
 
     def __exit__(self, *_):
