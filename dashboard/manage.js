@@ -13,6 +13,12 @@ function notice(value,tone='ok'){
   $('message').textContent=value;
   $('message').className='message '+(value?(tone==='error'?'error':'ok'):'');
 }
+function formNotice(formId,value,tone='ok'){
+  const target=$(formId.replace('Form','Feedback'));
+  target.textContent=value;
+  target.className='form-feedback '+(value?(tone==='error'?'error':'ok'):'');
+  if(value&&tone==='error')target.scrollIntoView({block:'nearest'});
+}
 function badge(label,tone){return element('span',label,'tag '+tone)}
 function record(initial,title,subtitle,badges,action){
   const card=element('article',undefined,'record');
@@ -49,6 +55,13 @@ async function refresh(){
     api('/api/admin/projects'),api('/api/admin/users'),api('/api/admin/keys')
   ]);
   const projectRows=projects.projects,userRows=users.users,keyRows=keys.keys;
+  const projectSelect=$('keyProject'),selectedProject=projectSelect.value;
+  const placeholder=element('option','选择已创建项目');placeholder.value='';
+  projectSelect.replaceChildren(placeholder,...projectRows.map(project=>{
+    const option=element('option',project.name+' · '+project.id);option.value=project.id;return option;
+  }));
+  if(projectRows.some(project=>project.id===selectedProject))projectSelect.value=selectedProject;
+  else if(projectRows.length===1)projectSelect.value=projectRows[0].id;
   $('projectCount').textContent=projectRows.length;
   $('userCount').textContent=userRows.filter(user=>user.active).length;
   $('keyCount').textContent=keyRows.filter(key=>!key.revokedAt).length;
@@ -83,8 +96,13 @@ async function refresh(){
   }),'尚未创建项目 Key。');
 }
 function attach(formId,path,values,afterSave){
-  $(formId).addEventListener('submit',async event=>{
-    event.preventDefault();notice('');
+  const form=$(formId);
+  form.addEventListener('invalid',event=>{
+    const label=event.target.labels?.[0]?.textContent||'必填项';
+    formNotice(formId,'请检查'+label+'。','error');
+  },true);
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();notice('');formNotice(formId,'');
     const button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     try{
       const result=await post(path,values());
@@ -92,7 +110,12 @@ function attach(formId,path,values,afterSave){
       if(afterSave)afterSave(result);
       await refresh();
       if(!afterSave)notice('已保存');
-    }catch(error){notice(error.message,'error')}
+      formNotice(formId,afterSave?'创建成功，请立即保存下方的 Key。':'已保存');
+    }catch(error){
+      const detail=formId==='keyForm'&&error.message==='Project not found'
+        ?'项目不存在。请先在上方创建项目，再从“所属项目”列表选择。':error.message;
+      formNotice(formId,detail,'error');notice(detail,'error');
+    }
     finally{button.disabled=false}
   });
 }
@@ -106,6 +129,7 @@ async function init(){
     attach('userForm','/api/admin/users',()=>({username:$('newUsername').value,password:$('newPassword').value,role:$('userRole').value}));
     attach('keyForm','/api/admin/keys',()=>({projectId:$('keyProject').value,label:$('keyLabel').value}),result=>{
       $('issuedKey').textContent=result.key;$('keyResult').hidden=false;
+      $('keyResult').scrollIntoView({block:'nearest'});
       notice('项目 Key 已创建，仅显示这一次');
     });
     $('logout').onclick=async()=>{

@@ -197,7 +197,13 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertIn('href="/static/manage.css"', manage[1])
         self.assertNotIn('grantForm', manage[1])
         self.assertNotIn('roleTokenForm', manage[1])
+        self.assertIn('id="keyFeedback"', manage[1])
+        self.assertIn('<select id="keyProject"', manage[1])
         self.assertEqual(self.request('/static/manage.css')[0], 200)
+        invalid_key = self.request('/api/admin/keys', 'POST',
+                                   {'projectId': 'missing', 'label': 'collector'},
+                                   cookie=cookie, csrf=me['csrfToken'])
+        self.assertEqual((invalid_key[0], invalid_key[1]['error']), (400, 'Project not found'))
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie)[0], 403)
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie, csrf=me['csrfToken'])[0], 200)
         status, created, _ = self.request('/api/admin/users', 'POST',
