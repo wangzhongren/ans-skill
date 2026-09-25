@@ -61,23 +61,24 @@ def main(argv=None):
     parser.add_argument('--root', type=Path)
     parser.add_argument('--roles', help='Role directory override within project root')
     parser.add_argument('--scheduling', help='Scheduling directory override within project root')
-    parser.add_argument('--project-id', required=True)
+    parser.add_argument('--project-id')
     parser.add_argument('--server-url')
     parser.add_argument('--key-env', default='ANS_DASHBOARD_KEY', help='Environment variable holding the project Key')
     parser.add_argument('--interval', type=float, help='Seconds between syncs; omit for one sync')
     args = parser.parse_args(argv)
     environment_key = os.environ.get(args.key_env)
+    root = args.root or Path.cwd()
     config = None
-    if args.root is None or args.server_url is None or not environment_key:
+    if args.project_id is None or args.server_url is None or not environment_key:
         try:
-            config = load_project_config(args.project_id)
+            config = load_project_config(root, args.project_id)
         except (OSError, ValueError) as error:
             parser.error(str(error))
-    root = args.root or (Path(config['root']) if config else None)
+    project_id = args.project_id or (config['projectId'] if config else None)
     server_url = args.server_url or (config['serverUrl'] if config else None)
     token = environment_key or (config['projectKey'] if config else None)
-    if root is None or server_url is None:
-        parser.error('Set up a local project configuration or pass --root and --server-url')
+    if project_id is None or server_url is None:
+        parser.error('Set up the project configuration or pass --project-id and --server-url')
     if not token:
         parser.error('Project Key is missing from local configuration and environment')
     if args.interval is not None and args.interval < 2:
@@ -86,8 +87,8 @@ def main(argv=None):
         parser.error('Project root does not exist')
     try:
         while True:
-            result = send(server_url, args.project_id, token,
-                          projection(root, args.project_id, args.roles, args.scheduling))
+            result = send(server_url, project_id, token,
+                          projection(root, project_id, args.roles, args.scheduling))
             print(json.dumps(result, ensure_ascii=False), flush=True)
             if args.interval is None:
                 return 0

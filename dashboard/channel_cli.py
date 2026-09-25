@@ -49,8 +49,9 @@ def call(server_url, project_id, token, action, value=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, default=Path.cwd(), help='Project root containing the local configuration')
     parser.add_argument('--server-url')
-    parser.add_argument('--project-id', required=True)
+    parser.add_argument('--project-id')
     parser.add_argument('--token-env', default='ANS_DASHBOARD_KEY')
     parser.add_argument('--role', help='Sending role ID; also filters list output when provided')
     sub = parser.add_subparsers(dest='command', required=True)
@@ -60,15 +61,16 @@ def main(argv=None):
     args = parser.parse_args(argv)
     environment_key = os.environ.get(args.token_env)
     config = None
-    if args.server_url is None or not environment_key:
+    if args.project_id is None or args.server_url is None or not environment_key:
         try:
-            config = load_project_config(args.project_id)
+            config = load_project_config(args.root, args.project_id)
         except (OSError, ValueError) as error:
             parser.error(str(error))
+    project_id = args.project_id or (config['projectId'] if config else None)
     server_url = args.server_url or (config['serverUrl'] if config else None)
     token = environment_key or (config['projectKey'] if config else None)
-    if not server_url:
-        parser.error('Set up a local project configuration or pass --server-url')
+    if not project_id or not server_url:
+        parser.error('Set up the project configuration or pass --project-id and --server-url')
     if not token:
         parser.error('Project Key is missing from local configuration and environment')
     try:
@@ -83,7 +85,7 @@ def main(argv=None):
                 raise ValueError('Input role does not match --role')
             value[field] = args.role
         action = {'list': 'channel', 'send': 'messages', 'request': 'permission-requests'}[args.command]
-        result = call(server_url, args.project_id, token, action, value)
+        result = call(server_url, project_id, token, action, value)
         if args.command == 'list' and args.role:
             result['messages'] = [item for item in result['messages']
                                   if item['to_role_id'] == args.role or

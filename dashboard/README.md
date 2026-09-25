@@ -108,10 +108,10 @@ python3 -m dashboard.local_config init \
   --project-id orders \
   --root /path/to/business-project \
   --server-url https://dashboard.example.com/ans-dashboard
-python3 -m dashboard.sync --project-id orders --interval 10
+python3 -m dashboard.sync --root /path/to/business-project --interval 10
 ```
 
-初始化时交互输入管理页生成的项目 Key，不会在命令行参数中出现。配置保存于 `~/.config/ans-dashboard/projects/orders.json`（设置了 `XDG_CONFIG_HOME` 时使用其目录），文件权限为 `0600`，目录为 `0700`；它不在技能或业务仓库里。`python3 -m dashboard.local_config show --project-id orders` 只显示非密钥字段。更换 Key 时重新运行 `init` 并加 `--replace`。省略 `--interval` 即只同步一次。同一配置也供 `dashboard.channel_cli` 使用；角色仍在命令中用 `--role` 声明身份。
+初始化时交互输入管理页生成的项目 Key，不会在命令行参数中出现。配置保存在**业务项目根目录**的 `.ans-dashboard.local.json`，权限为 `0600`；若项目使用 Git，初始化工具会把这个文件加入本地 `.git/info/exclude`，不会修改仓库的 `.gitignore`。不要强制添加或提交这个含 Key 的文件，也不要在 AI 对话、文档或项目理解中复制其内容。`python3 -m dashboard.local_config show --root /path/to/business-project` 只显示非密钥字段。更换 Key 时重新运行 `init` 并加 `--replace`。省略 `--interval` 即只同步一次。同步器和角色通信默认以当前目录为项目根目录；从技能目录运行时使用 `--root` 指向业务项目。若曾使用旧版用户目录配置，请重新初始化到项目目录；旧文件不会被自动删除。
 
 原来的环境变量方式继续可用，且环境变量中的 Key 优先于本机配置。需要临时使用时，在同一终端执行：
 
@@ -125,7 +125,7 @@ python3 -m dashboard.sync \
   --interval 10
 ```
 
-在 `read` 提示时粘贴项目 Key 并回车。也可以由本地机密管理器将 `ANS_DASHBOARD_KEY` 注入进程；不要把 Key 写进仓库、命令行参数或 URL。显式 `--root` 和 `--server-url` 可覆盖本机配置中的对应值。该同步器读取 `角色卡/` 或 `role-cards/`、共享 `project-context/context.sqlite3` 及 `docs/scheduling/` 或 `doc/scheduling/`，整理后发送到 `/p/orders/api/sync`；若 `--server-url` 带 `/ans-dashboard`，则发送到 `/ans-dashboard/p/orders/api/sync`。目录不标准时加 `--roles`、`--scheduling`（必须位于项目根目录内）。同步内容上限 4 MiB；不会递归上传业务源码或角色文档全文。同步请求不跟随重定向，避免项目 Key 被转发。
+在 `read` 提示时粘贴项目 Key 并回车。也可以由本地机密管理器将 `ANS_DASHBOARD_KEY` 注入进程；不要把 Key 写进命令行参数或 URL。显式 `--project-id` 和 `--server-url` 可覆盖项目配置中的对应值，ID 不一致时会报错。该同步器读取 `角色卡/` 或 `role-cards/`、共享 `project-context/context.sqlite3` 及 `docs/scheduling/` 或 `doc/scheduling/`，整理后发送到 `/p/orders/api/sync`；若 `--server-url` 带 `/ans-dashboard`，则发送到 `/ans-dashboard/p/orders/api/sync`。目录不标准时加 `--roles`、`--scheduling`（必须位于项目根目录内）。同步内容上限 4 MiB；不会递归上传业务源码或角色文档全文。同步请求不跟随重定向，避免项目 Key 被转发。
 
 默认本地单项目模式仍可使用：
 
@@ -153,10 +153,10 @@ python3 -m dashboard.server --root /path/to/business-project --port 0
 
 共享云端 Dashboard 的“协作收件箱”提供角色消息、权限申请、管理员决定和审计记录；本地单项目只读模式不启用此功能。管理员先在 `/manage` 按本地项目 ID 创建 Key，本地同步器再用它上传真实角色与任务快照。各角色自己用**同一个项目 Key** 发送消息和申请，并在请求里声明自己的角色 ID；项目 Key 可读取该项目的全部收件箱，但不能审批。网页管理员可给角色发消息、查看完整申请并记录批准或拒绝。所有启用的用户可查看全部项目的收件箱。
 
-角色在项目本地使用与快照同步相同的项目 Key，不能把 Key 写入仓库或命令行参数。已初始化本机配置时，可省略 `--server-url`；每个角色仍用自己的 `--role` 参数声明身份：
+角色在项目本地使用与快照同步相同的项目 Key，不能把 Key 写入仓库或命令行参数。已初始化项目配置时，从技能目录运行要加 `--root`；每个角色仍用自己的 `--role` 参数声明身份：
 
 ```sh
-python3 -m dashboard.channel_cli --project-id orders --role orders list
+python3 -m dashboard.channel_cli --root /path/to/business-project --role orders list
 ```
 
 环境变量方式仍支持以下完整命令：
