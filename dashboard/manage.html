@@ -35,10 +35,8 @@
       </div>
 
       <section class="module" id="projectsSection">
-        <div class="module-heading"><div><span class="section-index">01 / PROJECTS</span><h2>项目空间</h2><p>每个项目有独立的展示数据与协作记录。</p></div><span id="projectsTotal" class="section-total"></span></div>
-        <div class="module-grid"><div class="surface"><div class="surface-heading"><h3>已有项目</h3><span>点击项目进入看板</span></div><div id="projects" class="record-list"></div></div>
-          <form class="surface form-card" id="projectForm"><div class="form-kicker">NEW PROJECT</div><h3>添加项目</h3><p>项目 ID 会成为访问链接的一部分。</p><label for="projectId">项目 ID</label><input id="projectId" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="例如 orders" required><label for="projectTitle">显示名称</label><input id="projectTitle" placeholder="例如订单服务" required><button type="submit" class="primary-button">创建项目</button><p class="form-feedback" id="projectFeedback" role="status" aria-live="polite"></p></form>
-        </div>
+        <div class="module-heading"><div><span class="section-index">01 / PROJECTS</span><h2>项目空间</h2><p>项目 ID 由本地确定；创建该 ID 的 Key 后会在此登记，首次同步再填充内容。</p></div><span id="projectsTotal" class="section-total"></span></div>
+        <div class="surface"><div class="surface-heading"><h3>已有项目</h3><span>点击项目进入看板</span></div><div id="projects" class="record-list"></div></div>
       </section>
 
       <section class="module" id="usersSection">
@@ -51,7 +49,7 @@
       <section class="module" id="credentialsSection">
         <div class="module-heading"><div><span class="section-index">03 / CREDENTIALS</span><h2>项目 Key</h2><p>同一项目 Key 可供该项目各角色同步快照、发送消息和提交申请；只有网页管理员能审批。</p></div></div>
         <div class="module-grid"><div class="surface"><div class="surface-heading"><h3>已创建的 Key</h3><span>原文只在创建时展示一次</span></div><div id="keys" class="record-list"></div></div>
-          <form class="surface form-card" id="keyForm"><div class="form-kicker">PROJECT KEY</div><h3>创建项目 Key</h3><p>角色共用项目 Key，消息中分别声明自己的角色 ID。</p><label for="keyProject">所属项目</label><select id="keyProject" required><option value="">选择已创建项目</option></select><label for="keyLabel">用途标签</label><input id="keyLabel" maxlength="120" placeholder="例如项目通信" required><button type="submit" class="primary-button">创建 Key</button><p class="form-feedback" id="keyFeedback" role="status" aria-live="polite"></p><div class="secret" id="keyResult" hidden><strong>只显示这一次，请安全保存</strong><code id="issuedKey"></code></div></form>
+          <form class="surface form-card" id="keyForm"><div class="form-kicker">PROJECT KEY</div><h3>创建项目 Key</h3><p>输入本地项目 ID；若云端尚无此项目，创建 Key 时自动登记。角色共用这个 Key。</p><label for="keyProject">本地项目 ID</label><input id="keyProject" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="例如 orders" autocomplete="off" required><label for="keyLabel">用途标签</label><input id="keyLabel" maxlength="120" placeholder="例如项目通信" required><button type="submit" class="primary-button">创建 Key</button><p class="form-feedback" id="keyFeedback" role="status" aria-live="polite"></p><div class="secret" id="keyResult" hidden><strong>只显示这一次，请安全保存</strong><code id="issuedKey"></code></div></form>
         </div>
       </section>
       <footer class="admin-footer">ANS Dashboard · 权限变更会立即生效；任务执行仍由本地授权门禁控制。</footer>

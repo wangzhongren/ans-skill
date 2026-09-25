@@ -55,13 +55,6 @@ async function refresh(){
     api('/api/admin/projects'),api('/api/admin/users'),api('/api/admin/keys')
   ]);
   const projectRows=projects.projects,userRows=users.users,keyRows=keys.keys;
-  const projectSelect=$('keyProject'),selectedProject=projectSelect.value;
-  const placeholder=element('option','选择已创建项目');placeholder.value='';
-  projectSelect.replaceChildren(placeholder,...projectRows.map(project=>{
-    const option=element('option',project.name+' · '+project.id);option.value=project.id;return option;
-  }));
-  if(projectRows.some(project=>project.id===selectedProject))projectSelect.value=selectedProject;
-  else if(projectRows.length===1)projectSelect.value=projectRows[0].id;
   $('projectCount').textContent=projectRows.length;
   $('userCount').textContent=userRows.filter(user=>user.active).length;
   $('keyCount').textContent=keyRows.filter(key=>!key.revokedAt).length;
@@ -73,7 +66,7 @@ async function refresh(){
     return record((project.name||project.id).slice(0,1).toUpperCase(),project.name,
       '/p/'+project.id+'/ · '+(project.receivedAt?'最近同步 '+date(project.receivedAt):'等待首次同步'),
       [badge(project.receivedAt?'已同步':'待同步',project.receivedAt?'good':'warn')],link);
-  }),'尚未创建项目。');
+  }),'暂无项目。在“项目 Key”中输入本地项目 ID 创建 Key，即可登记。');
 
   fill('users',userRows.map(user=>{
     const labels=[badge(user.role==='admin'?'管理员':'查看者',user.role==='admin'?'good':'')];
@@ -110,11 +103,11 @@ function attach(formId,path,values,afterSave){
       if(afterSave)afterSave(result);
       await refresh();
       if(!afterSave)notice('已保存');
-      formNotice(formId,afterSave?'创建成功，请立即保存下方的 Key。':'已保存');
+      formNotice(formId,afterSave
+        ?(result.projectCreated?'项目已登记，Key 已创建；首次同步后会显示项目内容。请立即保存下方的 Key。':'Key 已创建，请立即保存下方的 Key。')
+        :'已保存');
     }catch(error){
-      const detail=formId==='keyForm'&&error.message==='Project not found'
-        ?'项目不存在。请先在上方创建项目，再从“所属项目”列表选择。':error.message;
-      formNotice(formId,detail,'error');notice(detail,'error');
+      formNotice(formId,error.message,'error');notice(error.message,'error');
     }
     finally{button.disabled=false}
   });
@@ -125,7 +118,6 @@ async function init(){
     if(me.role!=='admin'){location.assign(basePath+'/');return}
     currentAdmin=me.username;csrfToken=me.csrfToken;
     $('adminName').textContent=me.username;
-    attach('projectForm','/api/admin/projects',()=>({id:$('projectId').value,title:$('projectTitle').value}));
     attach('userForm','/api/admin/users',()=>({username:$('newUsername').value,password:$('newPassword').value,role:$('userRole').value}));
     attach('keyForm','/api/admin/keys',()=>({projectId:$('keyProject').value,label:$('keyLabel').value}),result=>{
       $('issuedKey').textContent=result.key;$('keyResult').hidden=false;

@@ -95,7 +95,8 @@ class CloudStore:
             os.chmod(path, 0o600)
         return path
 
-    def write_project_data(self, project_id, snapshot_json, contexts_json, received_at, migrate=False):
+    def write_project_data(self, project_id, snapshot_json, contexts_json, received_at,
+                           migrate=False, project_title=None):
         with self.connection() as connection:
             if connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
                 raise ValueError('Project not found')
@@ -115,8 +116,9 @@ class CloudStore:
                     snapshot_json=NULL,contexts_json=NULL,received_at=NULL WHERE id=?''',
                                    (received_at, project_id))
             else:
-                connection.execute('UPDATE projects SET last_received_at=? WHERE id=?',
-                                   (received_at, project_id))
+                connection.execute('''UPDATE projects SET last_received_at=?,
+                    title=CASE WHEN title=id AND ? IS NOT NULL THEN ? ELSE title END WHERE id=?''',
+                                   (received_at, project_title, project_title, project_id))
 
     def migrate_project_data(self):
         with self.connection() as connection:
@@ -248,16 +250,24 @@ class CloudStore:
         return {'username': username, 'active': False}
 
     def create_key(self, project_id, label):
+        if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
+            raise ValueError('Project id must be a lowercase hyphenated slug')
         if not isinstance(label, str) or not label.strip() or len(label) > 120:
             raise ValueError('Key label must be 1–120 characters')
         token = 'ansp_' + secrets.token_urlsafe(32)
         with self.connection() as connection:
-            if connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
-                raise ValueError('Project not found')
+            connection.execute('BEGIN IMMEDIATE')
+            project_created = connection.execute(
+                'SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None
+            if project_created:
+                connection.execute('INSERT INTO projects(id,title,created_at) VALUES (?,?,?)',
+                                   (project_id, project_id, utcnow()))
+            self.ensure_project_db(project_id)
             cursor = connection.execute('INSERT INTO project_keys(project_id,label,token_hash,created_at) VALUES (?,?,?,?)',
                                         (project_id, label.strip(), digest(token), utcnow()))
             key_id = cursor.lastrowid
-        return {'id': key_id, 'projectId': project_id, 'label': label.strip(), 'key': token}
+        return {'id': key_id, 'projectId': project_id, 'label': label.strip(),
+                'projectCreated': project_created, 'key': token}
 
     def keys(self):
         with self.connection() as connection:
@@ -308,8 +318,14 @@ class CloudStore:
         serialized = json.dumps({'snapshot': clean_snapshot, 'contexts': contexts}, ensure_ascii=False)
         if len(serialized.encode('utf-8')) > MAX_PROJECTION_BYTES:
             raise ValueError('Projection exceeds 4 MiB')
+        project_title = clean_snapshot.get('project')
+        if not isinstance(project_title, str) or not project_title.strip() or len(project_title) > 120:
+            project_title = None
+        else:
+            project_title = project_title.strip()
         self.write_project_data(project_id, json.dumps(clean_snapshot, ensure_ascii=False),
-                                json.dumps(contexts, ensure_ascii=False), utcnow())
+                                json.dumps(contexts, ensure_ascii=False), utcnow(),
+                                project_title=project_title)
         return {'projectId': project_id, 'received': True}
 
     def projection(self, project_id):

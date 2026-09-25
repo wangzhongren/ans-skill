@@ -101,7 +101,7 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 ### 多项目共用一份 Dashboard
 
-把独立的 [`dashboard/`](dashboard/README.md) 目录部署在服务器，可直接运行 Python，也可使用其中的 `Dockerfile` 和 `compose.yaml`。Compose 持久化状态卷，并只在宿主机回环地址发布端口；对外仍需 HTTPS 反向代理。创建第一个管理员后，在 `/manage` 添加项目、用户，以及供该项目角色共用的 Key。所有启用的用户默认可查看全部项目；管理员负责配置与审批。
+把独立的 [`dashboard/`](dashboard/README.md) 目录部署在服务器，可直接运行 Python，也可使用其中的 `Dockerfile` 和 `compose.yaml`。Compose 持久化状态卷，并只在宿主机回环地址发布端口；对外仍需 HTTPS 反向代理。先在业务项目本地确定项目 ID；创建第一个管理员后，在 `/manage` 用这个 ID 创建项目 Key，服务器随即登记项目，首次同步再填充项目内容。管理员也可添加用户。所有启用的用户默认可查看全部项目；管理员负责配置与审批。
 
 服务器若要跟随 GitLab `main` 自动更新 Dashboard，可从手工复制目录切换为 Git 克隆，并安装 [systemd 定时更新器](dashboard/README.md#自动跟随-gitlab-的-main)。更新器只接受快进提交，重建后等待健康检查；服务器只需要 GitLab 仓库的只读 Deploy Key。
 

@@ -58,6 +58,30 @@ class CloudStoreTests(unittest.TestCase):
             self.store.ingest('ghost', sample('ghost', 'unknown'))
         self.assertFalse((Path(self.tmp.name)/'projects/ghost.sqlite3').exists())
 
+    def test_key_registers_local_project_id_before_first_sync(self):
+        issued = self.store.create_key('dkds', 'collector')
+        self.assertTrue(issued['projectCreated'])
+        self.assertTrue(self.store.key_allows('dkds', issued['key']))
+        self.assertTrue((Path(self.tmp.name)/'projects/dkds.sqlite3').is_file())
+        self.assertEqual(self.store.projection('dkds')['snapshot']['roles'], [])
+        self.assertEqual(self.store.projects_for(None)[0]['name'], 'dkds')
+        value = sample('dkds', 'orders')
+        value['snapshot']['project'] = '订单服务'
+        self.store.ingest('dkds', value)
+        self.assertEqual(self.store.projects_for(None)[0]['name'], '订单服务')
+        self.assertEqual(self.store.projection('dkds')['snapshot']['roles'][0]['id'], 'orders')
+        self.assertFalse(self.store.create_key('dkds', 'replacement')['projectCreated'])
+        with self.assertRaisesRegex(ValueError, 'Project id'):
+            self.store.create_key('../other', 'collector')
+        self.assertFalse((Path(self.tmp.name)/'projects/other.sqlite3').exists())
+
+    def test_first_sync_keeps_an_explicit_project_title(self):
+        self.store.add_project('alpha', 'Existing title')
+        value = sample('alpha', 'orders')
+        value['snapshot']['project'] = 'Local directory name'
+        self.store.ingest('alpha', value)
+        self.assertEqual(self.store.projects_for(None)[0]['name'], 'Existing title')
+
     def test_each_project_owns_a_separate_sqlite_file(self):
         self.store.add_project('alpha', 'Alpha')
         self.store.add_project('beta', 'Beta')
@@ -198,12 +222,22 @@ class CloudHTTPTests(unittest.TestCase):
         self.assertNotIn('grantForm', manage[1])
         self.assertNotIn('roleTokenForm', manage[1])
         self.assertIn('id="keyFeedback"', manage[1])
-        self.assertIn('<select id="keyProject"', manage[1])
+        self.assertIn('<input id="keyProject"', manage[1])
+        self.assertNotIn('id="projectForm"', manage[1])
         self.assertEqual(self.request('/static/manage.css')[0], 200)
+        new_key = self.request('/api/admin/keys', 'POST',
+                               {'projectId': 'missing', 'label': 'collector'},
+                               cookie=cookie, csrf=me['csrfToken'])
+        self.assertEqual(new_key[0], 200)
+        self.assertTrue(new_key[1]['projectCreated'])
+        self.assertIn('missing', [item['id'] for item in
+                                 self.request('/api/admin/projects', cookie=cookie)[1]['projects']])
+        self.assertEqual(self.request('/p/missing/api/snapshot', key=new_key[1]['key'])[1]['roles'], [])
         invalid_key = self.request('/api/admin/keys', 'POST',
-                                   {'projectId': 'missing', 'label': 'collector'},
+                                   {'projectId': '../wrong', 'label': 'collector'},
                                    cookie=cookie, csrf=me['csrfToken'])
-        self.assertEqual((invalid_key[0], invalid_key[1]['error']), (400, 'Project not found'))
+        self.assertEqual((invalid_key[0], invalid_key[1]['error']),
+                         (400, 'Project id must be a lowercase hyphenated slug'))
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie)[0], 403)
         self.assertEqual(self.request('/api/admin/projects', 'POST', {'id': 'gamma', 'title': 'Gamma'}, cookie=cookie, csrf=me['csrfToken'])[0], 200)
         status, created, _ = self.request('/api/admin/users', 'POST',
