@@ -24,10 +24,16 @@ def _paths(root):
         user_id = str(os.getuid())
     else:
         user_id = hashlib.sha256(getpass.getuser().encode('utf-8')).hexdigest()[:12]
-    folder = Path(tempfile.gettempdir())/('ans-dashboard-sync-'+user_id)
-    if folder.is_symlink():
+    if os.name == 'nt':
+        runtime_root = Path.home()/'.ans-dashboard'/'runtime'
+    else:
+        runtime_root = Path('/tmp')
+    folder = runtime_root/('ans-dashboard-sync-'+user_id)
+    if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
         raise ValueError('Sync runtime directory must not be a symlink')
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if hasattr(os, 'getuid') and folder.stat().st_uid != os.getuid():
+        raise ValueError('Sync runtime directory has a different owner')
     os.chmod(folder, 0o700)
     stem = hashlib.sha256(str(project).encode('utf-8')).hexdigest()[:32]
     return folder/(stem+'.lock'), folder/(stem+'.json')

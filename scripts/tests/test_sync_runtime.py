@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dashboard.local_config import save_project_config
 from dashboard.sync import main as sync_main
-from dashboard.sync_runtime import SyncAlreadyRunning, SyncLease, sync_status
+from dashboard.sync_runtime import SyncAlreadyRunning, SyncLease, _paths, sync_status
 
 
 class SyncRuntimeTests(unittest.TestCase):
@@ -22,9 +22,9 @@ class SyncRuntimeTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)/'project'
         self.root.mkdir()
-        runtime_dir = patch('dashboard.sync_runtime.tempfile.gettempdir', return_value=self.temp.name)
-        runtime_dir.start()
-        self.addCleanup(runtime_dir.stop)
+        lock_path, status_path = _paths(self.root)
+        self.addCleanup(lambda: lock_path.unlink(missing_ok=True))
+        self.addCleanup(lambda: status_path.unlink(missing_ok=True))
 
     def test_lease_reports_liveness_and_prevents_duplicate(self):
         self.assertEqual(sync_status(self.root)['running'], False)
