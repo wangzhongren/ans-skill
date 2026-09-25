@@ -88,6 +88,9 @@ class LocalConfigTests(unittest.TestCase):
         ignored = subprocess.run(['git', '-C', str(self.root), 'check-ignore', '-q',
                                   path.name], check=False)
         self.assertEqual(ignored.returncode, 0)
+        temporary_ignored = subprocess.run(['git', '-C', str(self.root), 'check-ignore', '-q',
+                                            '.ans-dashboard-example'], check=False)
+        self.assertEqual(temporary_ignored.returncode, 0)
         status = subprocess.run(['git', '-C', str(self.root), 'status', '--short'],
                                 capture_output=True, text=True, check=True)
         self.assertNotIn(path.name, status.stdout)

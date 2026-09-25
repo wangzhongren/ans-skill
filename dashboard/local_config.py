@@ -81,12 +81,15 @@ def exclude_from_git(root, path):
     exclude_path = Path(exclude)
     if not exclude_path.is_absolute():
         exclude_path = root/exclude_path
-    pattern = '/'+relative
+    parent = Path(relative).parent.as_posix()
+    prefix = '/' if parent == '.' else '/'+parent+'/'
+    patterns = (prefix+CONFIG_NAME, prefix+'.ans-dashboard-*')
     existing = exclude_path.read_text(encoding='utf-8') if exclude_path.exists() else ''
-    if pattern not in existing.splitlines():
+    missing = [pattern for pattern in patterns if pattern not in existing.splitlines()]
+    if missing:
         exclude_path.parent.mkdir(parents=True, exist_ok=True)
         with exclude_path.open('a', encoding='utf-8') as output:
-            output.write(('' if not existing or existing.endswith('\n') else '\n')+pattern+'\n')
+            output.write(('' if not existing or existing.endswith('\n') else '\n')+'\n'.join(missing)+'\n')
     ignored = subprocess.run(['git', '-C', str(repository), 'check-ignore', '-q', '--no-index',
                               '--', relative], capture_output=True, check=False)
     if ignored.returncode:
