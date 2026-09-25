@@ -1,5 +1,6 @@
 """Send only dashboard projections from a project to its cloud Dashboard."""
 import argparse
+from contextlib import nullcontext
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ from .context_store import ContextStore
 from .local_config import load_project_config
 from .paths import normalize_base_path
 from .server import Dashboard
+from .sync_runtime import SyncAlreadyRunning, SyncLease, sync_status
 
 
 def projection(root, project_id, roles=None, scheduling=None):
@@ -65,9 +67,16 @@ def main(argv=None):
     parser.add_argument('--server-url')
     parser.add_argument('--key-env', default='ANS_DASHBOARD_KEY', help='Environment variable holding the project Key')
     parser.add_argument('--interval', type=float, help='Seconds between syncs; omit for one sync')
+    parser.add_argument('--status', action='store_true', help='Report continuous sync liveness without reading the Key')
     args = parser.parse_args(argv)
-    environment_key = os.environ.get(args.key_env)
     root = args.root or Path.cwd()
+    if args.status:
+        try:
+            print(json.dumps(sync_status(root), ensure_ascii=False))
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        return 0
+    environment_key = os.environ.get(args.key_env)
     config = None
     if args.project_id is None or args.server_url is None or not environment_key:
         try:
@@ -86,16 +95,25 @@ def main(argv=None):
     if not root.is_dir():
         parser.error('Project root does not exist')
     try:
-        while True:
-            result = send(server_url, project_id, token,
-                          projection(root, project_id, args.roles, args.scheduling))
-            print(json.dumps(result, ensure_ascii=False), flush=True)
-            if args.interval is None:
-                return 0
-            time.sleep(args.interval)
+        lease_context = SyncLease(root, project_id, args.interval) if args.interval is not None else nullcontext(None)
+        with lease_context as lease:
+            while True:
+                try:
+                    result = send(server_url, project_id, token,
+                                  projection(root, project_id, args.roles, args.scheduling))
+                except (OSError, ValueError) as error:
+                    if lease is not None:
+                        lease.failure(error)
+                    raise
+                if lease is not None:
+                    lease.success()
+                print(json.dumps(result, ensure_ascii=False), flush=True)
+                if args.interval is None:
+                    return 0
+                time.sleep(args.interval)
     except KeyboardInterrupt:
         return 0
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, SyncAlreadyRunning) as exc:
         print(str(exc), file=sys.stderr)
         return 2
 

@@ -113,6 +113,8 @@ python3 -m dashboard.sync --root /path/to/business-project --interval 10
 
 初始化时交互输入管理页生成的项目 Key，不会在命令行参数中出现。配置保存在**业务项目根目录**的 `.ans-dashboard.local.json`，权限为 `0600`；若项目使用 Git，初始化工具会把这个文件加入本地 `.git/info/exclude`，不会修改仓库的 `.gitignore`。不要强制添加或提交这个含 Key 的文件，也不要在 AI 对话、文档或项目理解中复制其内容。`python3 -m dashboard.local_config show --root /path/to/business-project` 只显示非密钥字段。更换 Key 时重新运行 `init` 并加 `--replace`。省略 `--interval` 即只同步一次。同步器和角色通信默认以当前目录为项目根目录；从技能目录运行时使用 `--root` 指向业务项目。若曾使用旧版用户目录配置，请重新初始化到项目目录；旧文件不会被自动删除。
 
+每次角色开始开发前，可在技能目录执行 `python3 scripts/check_dashboard_sync.py --root /path/to/business-project`。结果包含 `configured`、`running`、`lastSuccessAt`，不读取 Key。未配置时应询问项目是否需要云端；已配置但停止时不要声称服务器已有最新数据。持续同步用 `python3 -m dashboard.sync --root /path/to/business-project --interval 10` 启动；同一项目的第二个持续进程会被拒绝。`python3 -m dashboard.sync --root /path/to/business-project --status` 给出同一状态。状态检测只证明本机进程是否在运行，不代替云端回读验证。
+
 原来的环境变量方式继续可用，且环境变量中的 Key 优先于本机配置。需要临时使用时，在同一终端执行：
 
 ```sh

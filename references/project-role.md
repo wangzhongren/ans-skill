@@ -45,6 +45,8 @@ Maintain the [project–worker coordination table](coordination.md) as the sole 
 
 ## Role Activation and Customer Control
 
+The default project role performs the same cloud-sync preflight as every execution role before its first mutation: run the installed Skill's `scripts/check_dashboard_sync.py --root <project-root>`. If `configured` is false, ask once whether the customer wants a shared cloud Dashboard and preserve the answer across role changes. A configured but stopped process is reported as stale; a running process is reused, not duplicated. This check does not read the Key or authorize a role switch.
+
 Before each execution-role activation, in-place role switch, or subagent dispatch, require either customer consent covering that activation and task scope, or an applicable preauthorization in the project's designated, customer-approved role configuration. For example, a project may designate `.ans/project.yaml`; no filename by itself makes a file authoritative.
 
 Configuration must identify the target role, owned/allowed scope, permitted task types or operations, and whether automatic dispatch or in-place switching is allowed. File ownership alone does not grant automatic execution. Treat missing, ambiguous, conflicting, or unapproved configuration as no preauthorization and ask the customer. Record the approval or matching configuration rule and its version with the assignment. Preserve already granted consent within the same scoped activation rather than repeatedly asking during execution.

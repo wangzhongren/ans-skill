@@ -28,6 +28,7 @@ The template below is in English for readability. Follow explicit user requireme
 6. `references/documentation.md` — Document format, metadata, and timeline rules.
 7. The canonical inter-role integration designs assigned to this stage, with contract IDs/revisions; implementation reports must reference them.
 8. This role's overview from the shared project-understanding store, when present, and only the topics relevant to the assignment. Query with this role's ID; verify claims against current code and contracts. Follow [project-context.md](project-context.md).
+9. Before the role's first mutation, run the installed Skill's `python3 scripts/check_dashboard_sync.py --root <project-root>`. It reports local sync liveness without reading the Key. If cloud is unconfigured, ask the customer once whether it is needed; preserve the answer across roles. If configured but stopped, report it and resume only within existing authorization. A running process with an old `lastSuccessAt` still needs investigation.
 
 For the assembly role, additionally read:
 - `references/entrypoint.md` — Application entry and lifecycle rules
@@ -57,6 +58,7 @@ For the assembly role, additionally read:
 ## Execution checkpoints
 
 1. **Prepare:** Check existing authorization, gather sufficient evidence, choose the smallest effective action. Load all references listed in Required reading. Inspect the requirement and baseline; load affected layers and supporting references before fixing the mutation scope.
+1a. **Sync preflight:** Run the role-card sync check after activation and before the first mutation. It does not require cloud access and does not block unrelated local work while a cloud preference is pending. Do not infer "synchronized" merely from a running process; inspect `lastSuccessAt` and report errors.
 2. **Build:** Design and implement affected work in build order: **Model → Provider → Service → Pipeline → Interface**. Assess abstractions first. Reuse satisfactory existing layers. Investigate from the highest relevant failing entry downward; root startup problems begin at main.
 3. **Test each layer:** Complete each affected layer's required tests before integrating dependent implementation with it; independent preparation against agreed contracts may proceed without claiming integration success. Skipped, unavailable, or unresolved checks do not pass.
 3b. **Verify adjacent-layer compliance:** Inspect every import and constructor call in changed files. Confirm: Interface imports Pipeline only; Pipeline imports Service public entry only; Service imports Provider public entry only. Re-exporting a lower-layer API or handing a lower-layer object to a higher layer counts as a violation. Fix any violation before proceeding.
