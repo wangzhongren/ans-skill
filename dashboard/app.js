@@ -71,6 +71,110 @@ function contextRelated(ids,topics,roleId){
   }
   return related;
 }
+function linearFlow(steps){
+  const section=el('section',undefined,'contextsection');
+  section.append(el('h3','流程图'),el('p','目前只记录了执行顺序，尚未记录判断条件和异常分支。','small muted'));
+  const list=el('div',undefined,'linearflow');
+  for(const [index,step] of steps.entries()){
+    if(index)list.append(el('span','↓','lineararrow'));
+    const card=el('article',undefined,'linearstep');
+    card.append(el('small','步骤 '+(index+1)),el('strong',step.title));
+    if(step.description)card.append(el('p',step.description));
+    if(step.ref)card.append(el('code',step.ref));
+    list.append(card);
+  }
+  section.append(list);
+  return section;
+}
+function branchFlow(graph){
+  const section=el('section',undefined,'contextsection');
+  section.append(el('h3','流程图'),el('p','橙色是判断，红色是异常。点节点查看条件、代码位置和排查方法；窄屏可左右滑动。','small muted'));
+  if(!Array.isArray(graph?.nodes)||!Array.isArray(graph?.edges)||!graph.nodes.length||
+     graph.nodes.some(node=>!node||typeof node.id!=='string'||typeof node.title!=='string'||!['start','action','decision','end','error'].includes(node.kind))||
+     graph.edges.some(edge=>!edge||typeof edge.from!=='string'||typeof edge.to!=='string'||typeof edge.condition!=='string')){
+    section.append(empty('流程图无法显示','节点或连线数据不完整。'));return section;
+  }
+  const ids=new Set(graph.nodes.map(node=>node.id));
+  if(!graph.nodes.some(node=>node.kind==='start')||graph.edges.some(edge=>!ids.has(edge.from)||!ids.has(edge.to))){
+    section.append(empty('流程图无法显示','入口或连线数据不完整。'));return section;
+  }
+  const outgoing=new Map(graph.nodes.map(node=>[node.id,[]]));
+  const incoming=new Map(graph.nodes.map(node=>[node.id,[]]));
+  for(const edge of graph.edges){outgoing.get(edge.from).push(edge);incoming.get(edge.to).push(edge)}
+  const start=graph.nodes.find(node=>node.kind==='start');
+  const depths=new Map([[start.id,0]]),queue=[start.id];
+  while(queue.length){
+    const current=queue.shift(),depth=depths.get(current);
+    for(const edge of outgoing.get(current))if(!depths.has(edge.to)){depths.set(edge.to,depth+1);queue.push(edge.to)}
+  }
+  const groups=[];
+  for(const node of graph.nodes){const depth=depths.get(node.id);if(!groups[depth])groups[depth]=[];groups[depth].push(node)}
+  const nodeWidth=188,nodeHeight=82,columnGap=92,rowGap=100,padding=48;
+  const widest=Math.max(...groups.map(group=>group.length));
+  const width=Math.max(520,2*padding+widest*nodeWidth+(widest-1)*columnGap);
+  const height=2*padding+groups.length*nodeHeight+(groups.length-1)*rowGap;
+  const positions=new Map();
+  for(const [depth,group] of groups.entries()){
+    const groupWidth=group.length*nodeWidth+(group.length-1)*columnGap;
+    for(const [index,node] of group.entries())positions.set(node.id,{
+      x:(width-groupWidth)/2+index*(nodeWidth+columnGap),y:padding+depth*(nodeHeight+rowGap)
+    });
+  }
+  const scroll=el('div',undefined,'flowchartscroll'),canvas=el('div',undefined,'flowchartcanvas');
+  canvas.style.width=width+'px';canvas.style.height=height+'px';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('aria-hidden','true');
+  const defs=document.createElementNS(svg.namespaceURI,'defs'),marker=document.createElementNS(svg.namespaceURI,'marker');
+  marker.id='flow-arrow';marker.setAttribute('viewBox','0 0 10 10');marker.setAttribute('refX','9');marker.setAttribute('refY','5');marker.setAttribute('markerWidth','7');marker.setAttribute('markerHeight','7');marker.setAttribute('orient','auto-start-reverse');
+  const arrow=document.createElementNS(svg.namespaceURI,'path');arrow.setAttribute('d','M 0 0 L 10 5 L 0 10 z');marker.append(arrow);defs.append(marker);svg.append(defs);
+  for(const edge of graph.edges){
+    const from=positions.get(edge.from),to=positions.get(edge.to),back=to.y<=from.y;
+    const startX=back?from.x+nodeWidth:from.x+nodeWidth/2;
+    const startY=back?from.y+nodeHeight/2:from.y+nodeHeight;
+    const endX=back?to.x+nodeWidth:to.x+nodeWidth/2;
+    const endY=back?to.y+nodeHeight/2:to.y;
+    const path=document.createElementNS(svg.namespaceURI,'path');
+    const bend=back?width-20:(startY+endY)/2;
+    path.setAttribute('d',back
+      ?'M '+startX+' '+startY+' C '+bend+' '+startY+' '+bend+' '+endY+' '+endX+' '+endY
+      :'M '+startX+' '+startY+' C '+startX+' '+bend+' '+endX+' '+bend+' '+endX+' '+endY);
+    path.setAttribute('class','flowedge');path.setAttribute('marker-end','url(#flow-arrow)');svg.append(path);
+    if(edge.condition){
+      const label=document.createElementNS(svg.namespaceURI,'text');
+      label.setAttribute('x',String(back?bend-12:(startX+endX)/2));
+      label.setAttribute('y',String(back?(startY+endY)/2-5:bend-7));
+      label.setAttribute('class','flowedge-label');
+      label.textContent=edge.condition.length>42?edge.condition.slice(0,39)+'…':edge.condition;
+      const full=document.createElementNS(svg.namespaceURI,'title');full.textContent=edge.condition;label.append(full);svg.append(label);
+    }
+  }
+  canvas.append(svg);
+  const inspector=el('div',undefined,'flowinspector');
+  const labels={start:'入口',action:'处理',decision:'判断',end:'完成',error:'异常'};
+  const buttons=new Map();
+  function select(node){
+    for(const button of buttons.values())button.classList.toggle('selected',button.dataset.nodeId===node.id);
+    inspector.replaceChildren(el('small',labels[node.kind],'flowkind'),el('h4',node.title));
+    if(node.description)inspector.append(el('p',node.description));
+    if(node.ref)inspector.append(el('code',node.ref));
+    if(node.checks?.length){const list=el('ol');for(const check of node.checks)list.append(el('li',check));inspector.append(el('strong','出问题先检查'),list)}
+    const branches=outgoing.get(node.id);
+    if(branches.length){const list=el('ul');for(const edge of branches){const next=graph.nodes.find(item=>item.id===edge.to);list.append(el('li',(edge.condition?edge.condition+' → ':'下一步 → ')+next.title))}inspector.append(el('strong','可能的下一步'),list)}
+    const sources=incoming.get(node.id);
+    if(sources.length){const list=el('ul');for(const edge of sources){const previous=graph.nodes.find(item=>item.id===edge.from);list.append(el('li',previous.title+(edge.condition?' · '+edge.condition:'')))}inspector.append(el('strong','从哪里到这里'),list)}
+  }
+  for(const node of graph.nodes){
+    const position=positions.get(node.id),button=el('button',undefined,'flownode '+node.kind);
+    button.type='button';button.dataset.nodeId=node.id;button.style.left=position.x+'px';button.style.top=position.y+'px';
+    button.append(el('small',labels[node.kind]),el('strong',node.title));
+    button.setAttribute('aria-label',labels[node.kind]+'：'+node.title);
+    button.onclick=()=>select(node);
+    buttons.set(node.id,button);canvas.append(button);
+  }
+  scroll.append(canvas);section.append(scroll,inspector);select(start);
+  requestAnimationFrame(()=>{if(scroll.isConnected){const position=positions.get(start.id);scroll.scrollLeft=Math.max(0,position.x-(scroll.clientWidth-nodeWidth)/2)}});
+  return section;
+}
 function renderContext(){
   if(!data)return;
   const select=$('contextRole');select.replaceChildren();
@@ -94,6 +198,10 @@ function renderContext(){
   if(!topicId){
     const topics=context.topics.filter(item=>item.category===category),summary=context.categorySummaries?.[category]?.summary||(category==='flows'?context.overview.summary:contextLabels[category]?.[1]||'');
     const hero=el('div',undefined,'contexthero');hero.append(el('span',role.name+' · '+topics.length+' 个主题','contextkicker'),el('h2',contextLabels[category][0]),el('p',summary));
+    if(category==='flows'){
+      const missing=topics.filter(item=>item.hasIntent!==true).length;
+      if(missing)hero.append(el('p',missing+' 条流程还没写清具体用途；打开详情可查看待补充项。','flowmissing'));
+    }
     if(category==='flows'){const actions=el('div',undefined,'contextactions'),records=el('button','角色记录','btn');records.onclick=()=>roleDetail(role);actions.append(records);hero.append(actions)}
     body.append(hero);
     if((category==='data'||category==='interfaces')&&topics.length){
@@ -114,7 +222,12 @@ function renderContext(){
       }else for(const topic of cached.topics)body.append(topicCard(topic));
       return;
     }
-    const grid=el('div',undefined,'contextgrid');for(const topic of topics)grid.append(contextCard(topic.title,topic.summary,'版本 '+topic.revision,()=>contextGo(category,topic.topic_id)));
+    const grid=el('div',undefined,'contextgrid');
+    for(const topic of topics){
+      const description=category==='flows'&&topic.hasIntent!==true
+        ?'用途待补充：请说明它帮谁完成什么、成功后怎样。':topic.summary;
+      grid.append(contextCard(topic.title,description,'版本 '+topic.revision,()=>contextGo(category,topic.topic_id)));
+    }
     body.append(topics.length?grid:empty('暂无主题','该总览已有汇总，尚未录入具体主题。'));return;
   }
   const topicMeta=context.topics.find(item=>item.topic_id===topicId&&item.category===category);
@@ -124,13 +237,28 @@ function renderContext(){
     const expectedRole=role.id,expectedCategory=category,expectedTopic=topicId;
     fetch(apiPath('/api/context?role='+encodeURIComponent(expectedRole)+'&topic='+encodeURIComponent(expectedTopic)),{cache:'no-store'}).then(async response=>{const result=await response.json();if(!response.ok)throw Error(result.error);if(view==='context'&&contextRoleId===expectedRole&&contextPage.category===expectedCategory&&contextPage.topicId===expectedTopic){contextDetail={...result,roleId:expectedRole};renderContext()}}).catch(error=>{if(contextRoleId===expectedRole&&contextPage.topicId===expectedTopic)body.replaceChildren(empty('详情读取失败',error.message))});return;
   }
-  const topic=contextDetail,hero=el('div',undefined,'contexthero');hero.append(el('span',role.name+' · '+contextLabels[category][0]+' · 版本 '+topic.revision,'contextkicker'),el('h2',topic.title),el('p',topic.summary));body.append(hero);
+  const topic=contextDetail,hero=el('div',undefined,'contexthero');
+  hero.append(el('span',role.name+' · '+contextLabels[category][0]+' · 版本 '+topic.revision,'contextkicker'),el('h2',topic.title));
+  if(category==='flows'){
+    hero.append(el('strong','这条流程做什么'));
+    hero.append(el('p',topic.flow?.intent?.purpose||'还没有写清这条流程要完成什么。'));
+  }else hero.append(el('p',topic.summary));
+  body.append(hero);
   function relatedSection(title,ids){const related=contextRelated(ids,context.topics,role.id);if(!related.childElementCount)return;const section=el('section',undefined,'contextsection');section.append(el('h3',title),related);body.append(section)}
   if(category==='flows'){
     const flow=topic.flow;
     if(flow){
+      const ends=flow.graph?.nodes.filter(node=>node.kind==='end').map(node=>node.description).filter(Boolean)||[];
+      const errors=flow.graph?.nodes.filter(node=>node.kind==='error').map(node=>node.description).filter(Boolean)||[];
+      const outcomes=el('section',undefined,'flowoutcomes');
+      const success=el('article');success.append(el('strong','成功后会怎样'),el('p',flow.intent?.success||ends.join('；')||'成功结果还没有记录。'));
+      const failure=el('article');failure.append(el('strong','失败时会怎样'),el('p',flow.intent?.failure||errors.join('；')||'失败处理还没有记录。'));
+      outcomes.append(success,failure);body.append(outcomes);
+      if(!flow.intent)body.append(el('p','这条流程还缺少一句明确的用途说明；不要把触发条件或校验清单当作用途。','flowmissing'));
       if(flow.triggers?.length){const section=el('section',undefined,'contextsection'),list=el('div',undefined,'contextrelated');section.append(el('h3','触发条件'));for(const trigger of flow.triggers){const card=el('article',undefined,'contextrelatedcard');card.append(el('strong',trigger.when));if(trigger.sourceFlow){const source=context.topics.find(item=>item.topic_id===trigger.sourceFlow);card.append(el('p','来自流程：'+(source?.title||trigger.sourceFlow)))}if(trigger.ref)card.append(el('small',trigger.ref));list.append(card)}section.append(list);body.append(section)}
-      if(flow.steps?.length){const section=el('section',undefined,'contextsection'),steps=el('div',undefined,'contextflow');section.append(el('h3','流程步骤'));for(const [index,step] of flow.steps.entries()){const card=el('article',undefined,'contextstep');card.append(el('b',String(index+1).padStart(2,'0')),el('strong',step.title),el('p',step.description));if(step.ref)card.append(el('small',step.ref));steps.append(card)}section.append(steps);body.append(section)}
+      if(flow.graph)body.append(branchFlow(flow.graph));
+      else if(flow.steps?.length)body.append(linearFlow(flow.steps));
+      if(flow.graph&&flow.steps?.length){const detail=el('details',undefined,'contextsection'),steps=el('div',undefined,'contextflow');detail.append(el('summary','文字步骤'));for(const [index,step] of flow.steps.entries()){const card=el('article',undefined,'contextstep');card.append(el('b',String(index+1).padStart(2,'0')),el('strong',step.title),el('p',step.description));if(step.ref)card.append(el('small',step.ref));steps.append(card)}detail.append(steps);body.append(detail)}
       relatedSection('输入数据',flow.inputs);relatedSection('输出数据',flow.outputs);relatedSection('相关接口',flow.interfaces);
     }else body.append(empty('流程结构待补充','请补充触发条件、执行步骤、输入和输出数据。'));
   }

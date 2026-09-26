@@ -9,5 +9,34 @@
 .contextschema{background:white;border:1px solid var(--line);border-radius:10px;padding:20px;margin:12px 0}.contextschema h3{font-size:15px;margin:0 0 6px}.contextschema p{font-size:12px;color:#586b65;margin:4px 0 13px}.contextschema .btn{margin-top:14px}.requesturl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;font:12px/1.5 ui-monospace,monospace}.requesturl b{background:var(--mint);color:var(--teal);padding:3px 8px;border-radius:5px}.requesturl code{overflow-wrap:anywhere}.fieldsbox{overflow-x:auto}.fieldtable{width:100%;border-collapse:collapse;margin:10px 0 14px;font-size:11px}.fieldtable th,.fieldtable td{padding:8px 9px;border:1px solid var(--line);background:white;text-align:left;vertical-align:top}.fieldtable th{background:#f5f9f6;color:#476c59}.fieldtable td:first-child{font-family:ui-monospace,monospace;color:#285b4a;white-space:nowrap}.contextrelatedcard .fieldtable{font-size:10px}.contextrelatedcard .fieldtable th,.contextrelatedcard .fieldtable td{padding:5px}
 @media(max-width:780px){.sidebar{overflow-x:auto}.sidebar .navbtn{flex:none;white-space:nowrap}.contexthero{padding:22px}.contexthero h2{font-size:22px}.contexttoolbar select{width:100%}.contextstep.withrelations{grid-template-columns:1fr}}
 
+.flowchartscroll{overflow:auto;margin-top:12px;border:1px solid var(--line);border-radius:10px;background:#f8fbf9}
+.flowchartcanvas{position:relative;max-width:none}
+.flowchartcanvas svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.flowedge{fill:none;stroke:#84a598;stroke-width:2}
+.flowchartcanvas marker path{fill:#84a598}
+.flowedge-label{font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#386454;text-anchor:middle;paint-order:stroke;stroke:#f8fbf9;stroke-width:5px;stroke-linejoin:round}
+.flownode{position:absolute;width:188px;height:82px;border:1px solid #b8d6c4;border-radius:10px;background:#fff;padding:10px 12px;text-align:left;box-shadow:0 3px 10px #1a403312;overflow:hidden}
+.flownode small{display:block;color:#668a75;font-size:10px;font-weight:700}
+.flownode strong{display:block;margin-top:5px;font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.flownode.decision{border-color:#dcb879;background:#fff9ed}.flownode.decision small{color:#93602b}
+.flownode.error{border-color:#e4b2aa;background:#fff4f2}.flownode.error small{color:#ad514b}
+.flownode.start,.flownode.end{background:#eaf6ee}
+.flownode.selected{outline:3px solid #4c9a7d;outline-offset:2px}
+.flowinspector{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:18px 20px;font-size:12px}
+.flowinspector .flowkind{color:var(--teal);font-weight:700}.flowinspector h4{font-size:15px;margin:4px 0 8px}
+.flowinspector p{color:#556c62}.flowinspector code,.linearstep code{display:block;color:#3c6d57;background:#edf5ef;border-radius:5px;padding:5px 8px;overflow-wrap:anywhere;margin-top:8px}
+.flowinspector strong{display:block;margin-top:12px}.flowinspector ol,.flowinspector ul{margin:5px 0 0;padding-left:20px;color:#50685b}
+.linearflow{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:12px}
+.linearstep{width:min(100%,520px);border:1px solid var(--line);border-radius:9px;background:#fff;padding:14px 17px}
+.linearstep small{color:var(--teal);font-size:10px}.linearstep strong{display:block;font-size:13px}.linearstep p{font-size:12px;color:#5b7166;margin-top:5px}
+.lineararrow{color:#68a383;font-size:20px;line-height:1}
+.contexthero>strong{display:block;color:#28684f;font-size:11px;margin:12px 0 4px}
+.flowoutcomes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.flowoutcomes article{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px 18px}
+.flowoutcomes strong{display:block;color:var(--teal);font-size:12px;margin-bottom:6px}
+.flowoutcomes p{font-size:12px;color:#516b5e}
+.flowmissing{color:#a05b2d;background:#fff6e8;border:1px solid #eed7b5;border-radius:8px;padding:10px 13px;font-size:12px}
+@media(max-width:780px){.flowoutcomes{grid-template-columns:1fr}}
+
 #eventFull{max-height:none}
 .channelcolumns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.channellist{display:grid;gap:10px;padding:0 20px 20px}.channelcard{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fff;overflow-wrap:anywhere}.channelcard strong{display:block;font-size:12px}.channelcard p{font-size:12px;white-space:pre-wrap;margin:7px 0;color:#455e53}.channelcard small{font-size:10px;color:var(--muted)}.channelcard code{display:block;white-space:pre-wrap;font-size:10px;background:#f5f8f5;padding:8px;margin:7px 0}.channeldecision{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}.channeldecision input{flex:1;min-width:180px;padding:7px;border:1px solid var(--line);border-radius:6px}.channeldecision button{font-size:11px}.channelform{padding:0 20px 20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.channelform label{display:grid;gap:5px;font-size:11px}.channelform input,.channelform select,.channelform textarea{width:100%;max-width:none;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit}.channelform textarea{min-height:90px;resize:vertical}.channelform .wide{grid-column:1/-1}#channelError{color:var(--red);font-size:12px;margin-bottom:10px}@media(max-width:900px){.channelcolumns{grid-template-columns:1fr}}@media(max-width:600px){.channelform{grid-template-columns:1fr}}

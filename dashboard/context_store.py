@@ -12,7 +12,7 @@ import sys
 
 CATEGORIES = ('flows', 'definitions', 'events', 'interfaces', 'data')
 TOPIC_ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 SCHEMA = '''
 PRAGMA foreign_keys=ON;
 CREATE TABLE meta (schema_version INTEGER NOT NULL);
@@ -27,6 +27,8 @@ CREATE TABLE event_definitions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, o
 CREATE TABLE flow_steps (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE flow_relations (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('triggered_by','emits','input','output','interface')), position INTEGER NOT NULL, target_topic_id TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,kind,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,target_topic_id) REFERENCES topics(role_id,topic_id));
 CREATE TABLE flow_trigger_conditions (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, position INTEGER NOT NULL, when_text TEXT NOT NULL, source_flow_id TEXT, ref TEXT NOT NULL, PRIMARY KEY(role_id,topic_id,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE, FOREIGN KEY(role_id,source_flow_id) REFERENCES topics(role_id,topic_id));
+CREATE TABLE flow_graphs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, graph_json TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
+CREATE TABLE flow_intents (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, purpose TEXT NOT NULL, success TEXT NOT NULL, failure TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE data_schemas (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE interface_specs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, entry TEXT NOT NULL, method TEXT NOT NULL, request_url TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('network','internal')), protocol TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
 CREATE TABLE topic_fields (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, section TEXT NOT NULL CHECK(section IN ('data','input','output')), position INTEGER NOT NULL, name TEXT NOT NULL, field_type TEXT NOT NULL, description TEXT NOT NULL, required INTEGER NOT NULL CHECK(required IN (0,1)), PRIMARY KEY(role_id,topic_id,section,position), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE);
@@ -85,12 +87,117 @@ FLOW_RELATIONS = {'triggeredBy': ('triggered_by', 'events'), 'emits': ('emits', 
                   'inputs': ('input', 'data'), 'outputs': ('output', 'data'), 'interfaces': ('interface', 'interfaces')}
 
 
+def flow_intent_input(value):
+    if not isinstance(value, dict):
+        raise ValueError('flow.intent 要说明这条流程做什么、成功后怎样')
+    purpose = required_text(value.get('purpose'), 'flow.intent.purpose')
+    success = required_text(value.get('success'), 'flow.intent.success')
+    failure = optional_text(value.get('failure', ''), 'flow.intent.failure')
+    if any(len(text) > 500 for text in (purpose, success, failure)):
+        raise ValueError('流程用途或结果不能超过 500 字')
+    return {'purpose': purpose, 'success': success, 'failure': failure}
+
+
+def graph_input(value):
+    if not isinstance(value, dict):
+        raise ValueError('flow.graph 必须是流程图对象')
+    nodes, edges = value.get('nodes'), value.get('edges')
+    if not isinstance(nodes, list) or not 2 <= len(nodes) <= 60:
+        raise ValueError('流程图需要 2–60 个节点')
+    if not isinstance(edges, list) or not 1 <= len(edges) <= 120:
+        raise ValueError('流程图需要 1–120 条连线')
+    cleaned_nodes, kinds = [], {}
+    for node in nodes:
+        if not isinstance(node, dict) or not isinstance(node.get('id'), str) or not TOPIC_ID.fullmatch(node['id']):
+            raise ValueError('节点 id 只能用小写字母、数字和短横线，例如 check-input')
+        node_id = node['id']
+        if node_id in kinds:
+            raise ValueError('节点 id 重复：'+node_id)
+        kind = node.get('kind')
+        if kind not in ('start', 'action', 'decision', 'end', 'error'):
+            raise ValueError('节点类型只能是 start、action、decision、end 或 error')
+        title = required_text(node.get('title'), 'graph node title')
+        description = optional_text(node.get('description', ''), 'graph node description')
+        ref = optional_text(node.get('ref', ''), 'graph node ref')
+        checks = node.get('checks', [])
+        if not isinstance(checks, list) or len(checks) > 10:
+            raise ValueError('节点 checks 最多写 10 条排查方法')
+        checks = [required_text(check, 'graph node check') for check in checks]
+        if kind in ('decision', 'error') and not ref:
+            raise ValueError('判断和异常节点要写代码位置 ref')
+        if kind in ('end', 'error') and not description:
+            raise ValueError('完成和异常节点要说明用户会看到什么结果')
+        if kind == 'error' and not checks:
+            raise ValueError('异常节点至少要写一条具体排查方法 checks')
+        if any(len(text) > limit for text, limit in ((title, 120), (description, 1000), (ref, 300))):
+            raise ValueError('流程图节点文字太长')
+        if any(len(check) > 500 for check in checks):
+            raise ValueError('一条排查方法不能超过 500 字')
+        kinds[node_id] = kind
+        cleaned_nodes.append({'id': node_id, 'kind': kind, 'title': title,
+                              'description': description, 'ref': ref, 'checks': checks})
+    starts = [node_id for node_id, kind in kinds.items() if kind == 'start']
+    terminals = {node_id for node_id, kind in kinds.items() if kind in ('end', 'error')}
+    if len(starts) != 1 or not terminals:
+        raise ValueError('流程图必须有一个入口，以及至少一个完成或异常节点')
+    outgoing = {node_id: [] for node_id in kinds}
+    incoming = {node_id: [] for node_id in kinds}
+    cleaned_edges, seen_edges = [], set()
+    for edge in edges:
+        if not isinstance(edge, dict):
+            raise ValueError('每条连线都要写 from 和 to')
+        source, target = edge.get('from'), edge.get('to')
+        if not isinstance(source, str) or not isinstance(target, str) or source not in kinds or target not in kinds or source == target:
+            raise ValueError('连线的 from 和 to 必须是两个不同的现有节点')
+        if source in terminals or target == starts[0]:
+            raise ValueError('完成或异常节点不能继续向外连，其他节点也不能连回入口')
+        condition = optional_text(edge.get('condition', ''), 'graph edge condition')
+        if kinds[source] == 'decision' and not condition:
+            raise ValueError('判断节点的每条分支都要写明条件 condition')
+        if len(condition) > 300:
+            raise ValueError('分支条件不能超过 300 字')
+        identity = (source, target, condition)
+        if identity in seen_edges:
+            raise ValueError('流程图有重复连线')
+        seen_edges.add(identity)
+        outgoing[source].append((target, condition))
+        incoming[target].append(source)
+        cleaned_edges.append({'from': source, 'to': target, 'condition': condition})
+    for node_id, kind in kinds.items():
+        branches = outgoing[node_id]
+        if kind in ('end', 'error') and branches:
+            raise ValueError('完成或异常节点不能再连到下一步')
+        if kind not in ('end', 'error') and not branches:
+            raise ValueError('未结束的节点要连到下一步')
+        if kind != 'decision' and len(branches) > 1:
+            raise ValueError('只有判断节点可以分出多条路')
+        if kind == 'decision' and (len(branches) < 2 or len({condition for _, condition in branches}) != len(branches)):
+            raise ValueError('判断节点至少要有两条条件不同的分支')
+    def reachable(seeds, neighbors):
+        visited, queue = set(seeds), list(seeds)
+        while queue:
+            for target in neighbors(queue.pop(0)):
+                if target not in visited:
+                    visited.add(target)
+                    queue.append(target)
+        return visited
+    from_start = reachable(starts, lambda node_id: [target for target, _ in outgoing[node_id]])
+    to_terminal = reachable(terminals, lambda node_id: incoming[node_id])
+    if from_start != set(kinds) or to_terminal != set(kinds):
+        raise ValueError('每个节点都要能从入口走到，也要能走到完成或异常结果')
+    return {'nodes': cleaned_nodes, 'edges': cleaned_edges}
+
+
 def flow_input(value):
     if not isinstance(value, dict):
         raise ValueError('Flow topics require a flow object')
-    steps = value.get('steps')
-    if not isinstance(steps, list) or not steps:
-        raise ValueError('Flow steps must be a nonempty array')
+    graph = graph_input(value['graph']) if value.get('graph') is not None else None
+    intent = flow_intent_input(value['intent']) if value.get('intent') is not None else None
+    if graph is not None and intent is None:
+        raise ValueError('有流程图时，请填写 flow.intent.purpose（做什么）和 success（成功后怎样）')
+    steps = value.get('steps', [])
+    if not isinstance(steps, list) or (not steps and graph is None):
+        raise ValueError('流程至少要有文字步骤 steps 或流程图 graph')
     cleaned = []
     for step in steps:
         if not isinstance(step, dict):
@@ -111,7 +218,7 @@ def flow_input(value):
         cleaned_triggers.append({'when': required_text(trigger.get('when'), 'flow trigger.when'),
                                  'sourceFlow': source_flow,
                                  'ref': optional_text(trigger.get('ref', ''), 'flow trigger.ref')})
-    result = {'steps': cleaned, 'triggers': cleaned_triggers}
+    result = {'steps': cleaned, 'triggers': cleaned_triggers, 'graph': graph, 'intent': intent}
     for name in FLOW_RELATIONS:
         result[name] = links(value.get(name, []))
     if result['triggers'] and result['triggeredBy']:
@@ -206,8 +313,17 @@ def topic_input(value):
         interface = interface_input(interface)
     elif interface is not None:
         raise ValueError('Only interface topics may define interface fields')
-    return {'category': category, 'title': required_text(value.get('title'), 'title'),
-            'summary': optional_text(value.get('summary'), 'summary'),
+    title = required_text(value.get('title'), 'title')
+    if category == 'flows' and flow['intent'] is not None and flow['intent']['purpose'] == title:
+        raise ValueError('流程用途不能只重复标题；要写清用户想做什么和结果')
+    summary_value = value.get('summary')
+    if category == 'flows' and flow['intent'] is not None:
+        summary_value = flow['intent']['purpose']
+    summary = optional_text(summary_value, 'summary')
+    if category == 'flows' and not summary:
+        raise ValueError('请用一句话说明这条流程具体做什么')
+    return {'category': category, 'title': title,
+            'summary': summary,
             'details': optional_text(value.get('details', ''), 'details'),
             'refs': refs(value.get('refs', [])), 'links': links(value.get('links', [])),
             'event': event, 'flow': flow, 'data': data, 'interface': interface}
@@ -267,7 +383,7 @@ class ContextStore:
             connection.execute('PRAGMA foreign_keys=ON')
             connection.execute('PRAGMA busy_timeout=5000')
             meta = connection.execute('SELECT schema_version FROM meta').fetchall()
-            if len(meta) != 1 or meta[0]['schema_version'] != SCHEMA_VERSION:
+            if len(meta) != 1 or meta[0]['schema_version'] not in (6, SCHEMA_VERSION):
                 raise ValueError('Context database schema mismatch; run the authorized migrate command')
             yield connection
             if not readonly:
@@ -294,7 +410,7 @@ class ContextStore:
             if version == SCHEMA_VERSION:
                 connection.commit()
                 return {'schemaVersion': version, 'changed': False}
-            if version not in (1, 2, 3, 4, 5):
+            if version not in (1, 2, 3, 4, 5, 6):
                 raise ValueError('Unsupported context database schema')
             if version == 1:
                 connection.execute('CREATE TABLE event_triggers (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, when_text TEXT NOT NULL, action_text TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
@@ -318,6 +434,10 @@ class ContextStore:
                 connection.execute("ALTER TABLE interface_specs ADD COLUMN kind TEXT NOT NULL DEFAULT 'internal'")
                 connection.execute("ALTER TABLE interface_specs ADD COLUMN protocol TEXT NOT NULL DEFAULT ''")
                 connection.execute("UPDATE interface_specs SET kind='network', protocol='HTTP' WHERE request_url<>''")
+                version = 6
+            if version == 6:
+                connection.execute('CREATE TABLE IF NOT EXISTS flow_graphs (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, graph_json TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
+                connection.execute('CREATE TABLE IF NOT EXISTS flow_intents (role_id TEXT NOT NULL, topic_id TEXT NOT NULL, purpose TEXT NOT NULL, success TEXT NOT NULL, failure TEXT NOT NULL, PRIMARY KEY(role_id,topic_id), FOREIGN KEY(role_id,topic_id) REFERENCES topics(role_id,topic_id) ON DELETE CASCADE)')
             connection.execute('UPDATE meta SET schema_version=?', (SCHEMA_VERSION,))
             connection.commit()
             return {'schemaVersion': SCHEMA_VERSION, 'changed': True}
@@ -425,13 +545,22 @@ class ContextStore:
         if category is not None and category not in CATEGORIES:
             raise ValueError('Unknown category')
         with self.connection() as connection:
+            version = connection.execute('SELECT schema_version FROM meta').fetchone()[0]
+            explained = ({row['topic_id'] for row in connection.execute('SELECT topic_id FROM flow_intents WHERE role_id=?', (self.role,))}
+                         if version >= 7 and category in (None, 'flows') else set())
             query = 'SELECT topic_id,category,title,summary,revision,updated_at FROM topics WHERE role_id=? AND deleted_at IS NULL'
             params = [self.role]
             if category is not None:
                 query += ' AND category=?'
                 params.append(category)
             query += ' ORDER BY category,title,topic_id'
-            return [dict(row) for row in connection.execute(query, params)]
+            result = []
+            for row in connection.execute(query, params):
+                topic = dict(row)
+                if topic['category'] == 'flows':
+                    topic['hasIntent'] = topic['topic_id'] in explained
+                result.append(topic)
+            return result
 
     def get_topic(self, topic_id, include_deleted=False):
         with self.connection() as connection:
@@ -449,6 +578,13 @@ class ContextStore:
             if row['category'] == 'flows':
                 steps = [dict(step) for step in connection.execute('SELECT title,description,ref FROM flow_steps WHERE role_id=? AND topic_id=? ORDER BY position', (self.role, topic_id))]
                 flow = {'steps': steps}
+                version = connection.execute('SELECT schema_version FROM meta').fetchone()[0]
+                graph_row = (connection.execute('SELECT graph_json FROM flow_graphs WHERE role_id=? AND topic_id=?',
+                                                (self.role, topic_id)).fetchone() if version >= 7 else None)
+                flow['graph'] = json.loads(graph_row['graph_json']) if graph_row is not None else None
+                intent_row = (connection.execute('SELECT purpose,success,failure FROM flow_intents WHERE role_id=? AND topic_id=?',
+                                                 (self.role, topic_id)).fetchone() if version >= 7 else None)
+                flow['intent'] = dict(intent_row) if intent_row is not None else None
                 for name, (kind, _) in FLOW_RELATIONS.items():
                     flow[name] = [item['target_topic_id'] for item in connection.execute('SELECT target_topic_id FROM flow_relations WHERE role_id=? AND topic_id=? AND kind=? ORDER BY position', (self.role, topic_id, kind))]
                 flow['triggers'] = [{'when': item['when_text'], 'sourceFlow': item['source_flow_id'], 'ref': item['ref']}
@@ -477,14 +613,26 @@ class ContextStore:
             raise ValueError('Topic ID must be a lowercase hyphenated slug')
         topic = topic_input(value)
         with self.connection(False) as connection:
+            version = connection.execute('SELECT schema_version FROM meta').fetchone()[0]
+            if topic['flow'] is not None and (topic['flow']['graph'] is not None or topic['flow']['intent'] is not None) and version < 7:
+                raise ValueError('项目理解数据库是旧版；先运行 migrate，再写流程图或用途说明')
             connection.execute('BEGIN IMMEDIATE')
-            row = connection.execute('SELECT revision,deleted_at FROM topics WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
+            row = connection.execute('SELECT revision,deleted_at,category FROM topics WHERE role_id=? AND topic_id=?', (self.role, topic_id)).fetchone()
             if row is None:
+                if topic['category'] == 'flows' and topic['flow']['intent'] is None:
+                    raise ValueError('新流程必须写 flow.intent.purpose（做什么）和 success（成功后怎样）')
                 if expected != 0:
                     raise ValueError('New topic requires expected revision 0')
                 connection.execute('INSERT INTO topics VALUES (?,?,?,?,?,?,1,?,NULL)',
                                    (self.role, topic_id, topic['category'], topic['title'], topic['summary'], topic['details'], now()))
             else:
+                if topic['category'] == 'flows' and row['category'] != 'flows' and topic['flow']['intent'] is None:
+                    raise ValueError('改成流程时必须写 flow.intent.purpose 和 success')
+                if topic['category'] == 'flows' and topic['flow']['intent'] is None and version >= 7:
+                    had_intent = connection.execute('SELECT 1 FROM flow_intents WHERE role_id=? AND topic_id=?',
+                                                    (self.role, topic_id)).fetchone()
+                    if had_intent is not None:
+                        raise ValueError('更新流程时要保留 flow.intent，不能把用途说明删掉')
                 if row['deleted_at'] is not None:
                     raise ValueError('Deleted topic must be restored before editing')
                 if row['revision'] != expected:
@@ -497,6 +645,9 @@ class ContextStore:
                 connection.execute('DELETE FROM flow_steps WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM flow_relations WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM flow_trigger_conditions WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                if version >= 7:
+                    connection.execute('DELETE FROM flow_graphs WHERE role_id=? AND topic_id=?', (self.role, topic_id))
+                    connection.execute('DELETE FROM flow_intents WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM data_schemas WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM interface_specs WHERE role_id=? AND topic_id=?', (self.role, topic_id))
                 connection.execute('DELETE FROM topic_fields WHERE role_id=? AND topic_id=?', (self.role, topic_id))
@@ -518,6 +669,13 @@ class ContextStore:
                                        (self.role, topic_id, position, trigger['when'], source_flow, trigger['ref']))
                 for position, step in enumerate(topic['flow']['steps']):
                     connection.execute('INSERT INTO flow_steps VALUES (?,?,?,?,?,?)', (self.role, topic_id, position, step['title'], step['description'], step['ref']))
+                if topic['flow']['graph'] is not None:
+                    connection.execute('INSERT INTO flow_graphs VALUES (?,?,?)',
+                                       (self.role, topic_id, json.dumps(topic['flow']['graph'], ensure_ascii=False)))
+                if topic['flow']['intent'] is not None:
+                    intent = topic['flow']['intent']
+                    connection.execute('INSERT INTO flow_intents VALUES (?,?,?,?,?)',
+                                       (self.role, topic_id, intent['purpose'], intent['success'], intent['failure']))
                 for name, (kind, category) in FLOW_RELATIONS.items():
                     for position, target in enumerate(topic['flow'][name]):
                         target_row = connection.execute('SELECT category,deleted_at FROM topics WHERE role_id=? AND topic_id=?', (self.role, target)).fetchone()
@@ -574,14 +732,29 @@ class ContextStore:
                        ) ORDER BY flow.topic_id"""
             return [row['topic_id'] for row in connection.execute(query, (self.role,))]
 
+    def flows_without_purpose(self):
+        with self.connection() as connection:
+            version = connection.execute('SELECT schema_version FROM meta').fetchone()[0]
+            if version < 7:
+                query = "SELECT topic_id FROM topics WHERE role_id=? AND category='flows' AND deleted_at IS NULL ORDER BY topic_id"
+            else:
+                query = """SELECT flow.topic_id FROM topics AS flow
+                           LEFT JOIN flow_intents AS intent ON intent.role_id=flow.role_id AND intent.topic_id=flow.topic_id
+                           WHERE flow.role_id=? AND flow.category='flows' AND flow.deleted_at IS NULL
+                           AND intent.topic_id IS NULL ORDER BY flow.topic_id"""
+            return [row['topic_id'] for row in connection.execute(query, (self.role,))]
+
     def validate(self):
-        missing = self.flows_without_triggers()
-        return {'valid': not missing, 'roleId': self.role, 'flowsWithoutTriggers': missing}
+        triggers = self.flows_without_triggers()
+        purpose = self.flows_without_purpose()
+        return {'valid': not triggers and not purpose, 'roleId': self.role,
+                'flowsWithoutTriggers': triggers, 'flowsWithoutPurpose': purpose}
 
     def outline(self):
         return {'roleId': self.role, 'role': self.role_metadata(), 'overview': self.overview(),
                 'categorySummaries': self.list_categories(), 'topics': self.list_topics(),
-                'flowsWithoutTriggers': self.flows_without_triggers()}
+                'flowsWithoutTriggers': self.flows_without_triggers(),
+                'flowsWithoutPurpose': self.flows_without_purpose()}
 
 
 def input_json(path):

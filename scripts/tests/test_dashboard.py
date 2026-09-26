@@ -30,7 +30,7 @@ class DashboardTests(unittest.TestCase):
   store=ContextStore(self.root,'订单');store.init({'title':'订单总览','summary':'订单处理'})
   (self.role/'boundary.md').write_text('# Section 1\n| Type | Path |\n| --- | --- |\n| File | `src/orders.py` |\n')
   store.set_category('flows','按钮启动导出流程',0)
-  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取订单'}]}},0)
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','refs':['src/orders.py'],'flow':{'intent':{'purpose':'用户点击导出后，系统生成可下载的订单文件。','success':'浏览器得到订单文件。'},'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取订单'}]}},0)
   store.set_overview({'title':'订单总览','summary':'订单处理','steps':[{'title':'导出'}]},1)
   context=self.app.snapshot()['roles'][0]['projectContext']
   self.assertEqual(self.app.snapshot()['roles'][0]['boundaryPaths'],['src/orders.py'])
@@ -39,9 +39,9 @@ class DashboardTests(unittest.TestCase):
   self.assertEqual([(row['category'],row['topic_id']) for row in context['topics']],[('flows','order-export')])
   self.assertEqual(self.app.context_topic('订单','order-export')['flow']['triggers'][0]['when'],'用户点击导出按钮')
   self.assertEqual(self.app.context_topic('订单','order-export')['details'],'读取订单')
-  store.upsert('order-export',{'category':'flows','title':'导出','summary':'新版导出','details':'生成文件','flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'生成文件'}]}},1)
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'新版导出','details':'生成文件','flow':{'intent':{'purpose':'用户再次导出时，系统生成最新的订单文件。','success':'浏览器得到最新文件。'},'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'生成文件'}]}},1)
   updated={row['topic_id']:row for row in self.app.snapshot()['roles'][0]['projectContext']['topics']}
-  self.assertEqual(updated['order-export']['summary'],'新版导出')
+  self.assertEqual(updated['order-export']['summary'],'用户再次导出时，系统生成最新的订单文件。')
   with self.assertRaises(ValueError):self.app.document('project-context/context.sqlite3')
   with self.assertRaises(ValueError):self.app.context_topic('不存在','order-export')
  def test_live_re_read_and_no_mutation(self):
@@ -91,7 +91,17 @@ class HTTPTests(unittest.TestCase):
   store.upsert('order-record',{'category':'data','title':'订单数据','summary':'只读输入','data':{'owner':'订单角色','fields':[{'name':'orderId','type':'string','required':True}]}},0)
   store.upsert('export-api',{'category':'interfaces','title':'导出接口','summary':'HTTP 接口','interface':{'entry':'orders.export','method':'POST','requestUrl':'/api/orders/export','inputs':[{'name':'status','type':'string'}],'outputs':[{'name':'taskId','type':'string'}]}},0)
   store.upsert('internal-api',{'category':'interfaces','title':'订单内部接口','summary':'内部契约','interface':{'kind':'internal','entry':'OrderService.public.export','inputs':[{'name':'orderId','type':'string'}],'outputs':[{'name':'result','type':'ExportResult'}]}},0)
-  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取订单'}]}},0)
+  graph={'nodes':[{'id':'start','kind':'start','title':'点击导出'},
+                  {'id':'allowed','kind':'decision','title':'允许导出？','ref':'src/interface/export.py'},
+                  {'id':'generate','kind':'action','title':'生成文件'},
+                  {'id':'done','kind':'end','title':'下载文件','description':'用户得到导出文件。'},
+                  {'id':'denied','kind':'error','title':'拒绝导出','description':'没有生成文件并提示权限不足。','ref':'src/interface/export.py','checks':['检查用户权限']}
+                 ],'edges':[{'from':'start','to':'allowed'},
+                             {'from':'allowed','to':'generate','condition':'if 已授权'},
+                             {'from':'allowed','to':'denied','condition':'else 未授权'},
+                             {'from':'generate','to':'done'}]}
+  store.upsert('order-export',{'category':'flows','title':'导出','summary':'导出订单','details':'读取订单','flow':{'triggers':[{'when':'用户点击导出按钮'}],'steps':[{'title':'读取订单'}],
+    'intent':{'purpose':'用户下载订单数据，系统生成一个可保存的文件。','success':'浏览器得到导出文件。','failure':'未授权时不生成文件并提示原因。'},'graph':graph}},0)
   server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(self.app));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
    url='http://127.0.0.1:'+str(server.server_port)
@@ -101,7 +111,10 @@ class HTTPTests(unittest.TestCase):
     self.assertEqual(role['projectContext']['overview']['title'],'订单总览')
    from urllib.parse import urlencode
    with urlopen(url+'/api/context?'+urlencode({'role':'订单','topic':'order-export'}),timeout=5) as response:
-    self.assertEqual(json.load(response)['details'],'读取订单')
+    flow=json.load(response)
+    self.assertEqual(flow['details'],'读取订单')
+    self.assertEqual(flow['flow']['intent']['purpose'],'用户下载订单数据，系统生成一个可保存的文件。')
+    self.assertEqual(flow['flow']['graph']['edges'][2]['condition'],'else 未授权')
    with urlopen(url+'/api/context?'+urlencode({'role':'订单','category':'data'}),timeout=5) as response:
     self.assertEqual(json.load(response)['topics'][0]['data']['fields'][0]['name'],'orderId')
    with urlopen(url+'/api/context?'+urlencode({'role':'订单','category':'interfaces'}),timeout=5) as response:

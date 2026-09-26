@@ -1,17 +1,17 @@
 ---
 name: ans-governed-construction
-description: Govern repository implementation, repair, and refactoring with explicit mutation scopes, architecture-aware capability boundaries, dual static/dynamic verification gates, and evidence invalidation. Use when a task requests bounded AI code changes, architecture enforcement, protected or frozen components, evidence-based acceptance, or ANS-style software construction governance. Do not use for read-only explanation, ordinary content editing, or unconstrained brainstorming.
+description: Help Codex make code changes within approved file and role boundaries. Use for implementation, bug fixes, or refactoring in projects that need five-layer call rules, tests, and clear evidence. Do not use for read-only answers, ordinary writing, or open-ended brainstorming.
 ---
 
 # ANS Governed Construction
 
-Treat software construction as a governed transition from a trusted baseline to a candidate state. The model may inspect broadly enough to understand the system, but it may mutate only artifacts authorized by the current task.
+This skill helps AI change a project without touching unrelated files. Read enough to understand the problem, but edit only files the current task and active role allow. Explain results so a beginning programmer can tell what changed, what it does, and how it was checked.
 
 The governing rule is:
 
-> Knowledge may be global; mutation authority must be local.
+> Read widely when needed; change only what you are allowed to change.
 
-The model has proposal authority. The user and the execution environment retain authorization and commit authority.
+AI may propose a change. The user and the execution environment decide what may run and what may be accepted.
 
 When first invoked, you work under the **ANS Governance** built-in role — no separate role card or boundary document is needed to begin. See [Built-in Role: ANS Governance](#built-in-role-ans-governance).
 
@@ -19,13 +19,13 @@ When first invoked, you work under the **ANS Governance** built-in role — no s
 
 Maintain these invariants throughout the task:
 
-1. **Bounded mutation:** Every changed artifact must belong to the current mutation scope or to an explicitly approved scope expansion.
-2. **Architecture as capability:** A component may depend on or invoke only capabilities permitted by its architectural role and declared contracts.
-3. **Proposal is not acceptance:** A generated patch is a candidate until both required verification gates pass.
-4. **Evidence has provenance:** Validation evidence is meaningful only for the exact candidate, environment, inputs, and policy that produced it.
-5. **Frozen means protected, not permanent:** Do not modify a frozen artifact during ordinary downstream repair. Change it only when the task explicitly authorizes upstream evolution.
-6. **Upstream change invalidates downstream evidence:** When a dependency or contract changes, previously collected evidence for affected dependents becomes stale until revalidated.
-7. **No silent governance weakening:** Do not make a candidate pass by deleting tests, weakening assertions, broadening permissions, suppressing failures, or rewriting governance metadata unless the user explicitly requests that policy change.
+1. **Edit only allowed files.** A file must be in this task's write scope; ask for a scope change before editing anything else.
+2. **Follow the layer rules.** Code may call only capabilities allowed by its layer and the agreed public interface.
+3. **A patch is not yet a finished change.** Run the required structure checks and behavior tests first.
+4. **Tests prove only what they actually ran.** Record the code version, environment, inputs, and rules used for the result.
+5. **Protect frozen files.** Do not change them during an ordinary downstream fix; change them only when the task authorizes it.
+6. **Retest callers after changing a dependency.** Earlier test results for affected code are no longer current.
+7. **Do not make a failing change look successful.** Never delete tests, loosen assertions, widen permissions, or hide errors just to make it pass unless the user explicitly changes that rule.
 
 ### Adjacent-Layer Call Direction
 
@@ -46,7 +46,7 @@ Role cards (角色卡) and module boundary documents (模块边界文档) togeth
 
 The project keeps one [SQLite project-understanding store](references/project-context.md) at `project-context/context.sqlite3`. Each role reads its overview first, then queries task-relevant topics by `role_id`. Content writes use the role-scoped CRUD tool and its accepted logical row scope; the store does not replace canonical contracts or authorize changes.
 
-Record GUI control activation, including button clicks, directly as an Interface-origin Flow trigger when it starts behavior. A resulting HTTP request is a flow/Interface step for the same action. Do not create a separate Event topic merely to name that trigger. See [Interface constraints](references/interface.md) and [project context](references/project-context.md).
+Write each Flow so a beginning programmer can answer: **What is the user trying to do? What changes on success? What happens on failure?** Put those answers in `flow.intent`, using short, concrete sentences backed by current code. Put button clicks in `flow.triggers`, actual `if/else` conditions in `flow.graph.edges`, and debugging checks plus source locations on error nodes. Never use generic filler such as "from entry to result" as a purpose, invent branches from prose, or bulk-fill old flows from button names. Update only task-relevant flows after checking real code and tests; mark the rest as missing. A resulting HTTP request is a step of the same Flow, not a separate Event. See [Interface constraints](references/interface.md) and [project context](references/project-context.md).
 
 ### Bootstrap
 

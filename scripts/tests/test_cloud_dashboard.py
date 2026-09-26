@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dashboard.cloud_store import CloudStore, digest, password_digest
+from dashboard.context_store import ContextStore
 from dashboard.paths import normalize_base_path
 from dashboard.server import ThreadingHTTPServer, main, make_handler
 from dashboard.sync import projection, send
@@ -164,6 +165,40 @@ class CloudStoreTests(unittest.TestCase):
         self.assertEqual(value['snapshot']['roles'][0]['id'], 'orders')
         self.assertNotIn('PRIVATE DOCUMENT BODY', serialized)
         self.assertNotIn(str(root), serialized)
+
+    def test_flow_purpose_and_branches_survive_cloud_projection(self):
+        root = Path(self.tmp.name)/'project'
+        role = root/'角色卡'/'orders'
+        role.mkdir(parents=True)
+        (role/'role-card.md').write_text('# Orders\n\nOwns order flows.\n', encoding='utf-8')
+        (role/'boundary.md').write_text('# Section 1\n| File | `src/orders.py` |\n', encoding='utf-8')
+        context = ContextStore(root, 'orders')
+        context.init({'title': 'Order flows', 'summary': 'Create an order'})
+        graph = {'nodes': [
+            {'id': 'start', 'kind': 'start', 'title': 'Receive request'},
+            {'id': 'valid', 'kind': 'decision', 'title': 'Valid?', 'ref': 'src/orders.py'},
+            {'id': 'saved', 'kind': 'end', 'title': 'Saved', 'description': 'Order is saved.'},
+            {'id': 'invalid', 'kind': 'error', 'title': 'Rejected',
+             'description': 'Order is not saved.', 'ref': 'src/orders.py',
+             'checks': ['Check required fields']}
+        ], 'edges': [
+            {'from': 'start', 'to': 'valid'},
+            {'from': 'valid', 'to': 'saved', 'condition': 'if valid'},
+            {'from': 'valid', 'to': 'invalid', 'condition': 'else invalid'}
+        ]}
+        context.upsert('create-order', {'category': 'flows', 'title': 'Create order',
+            'flow': {'triggers': [{'when': 'POST /orders'}], 'graph': graph,
+                     'intent': {'purpose': 'The user creates an order for later tracking.',
+                                'success': 'The new order is saved and shown.',
+                                'failure': 'Invalid input leaves no saved order.'}}}, 0)
+        self.store.add_project('alpha', 'Alpha')
+        self.store.ingest('alpha', projection(root, 'alpha'))
+        received = self.store.projection('alpha')['contexts']['orders']['topics']['create-order']
+        outline = self.store.projection('alpha')['contexts']['orders']['outline']
+        self.assertTrue(outline['topics'][0]['hasIntent'])
+        self.assertEqual(received['flow']['intent']['purpose'],
+                         'The user creates an order for later tracking.')
+        self.assertEqual(received['flow']['graph']['edges'][2]['condition'], 'else invalid')
 
 
 class CloudHTTPTests(unittest.TestCase):

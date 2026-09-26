@@ -32,7 +32,7 @@ flowchart LR
 
 1. **确定角色与边界。**新项目先由内置 ANS Governance 建立角色卡和 `boundary.md`；候选边界需要客户接受。项目默认角色负责总体调查、架构与角色间设计；能力角色写自己拥有的代码；装配角色写根入口并做整体验证。一个聊天框可调查问题，多角色开发需要逐个授权或已有客户批准的配置。角色卡说明职责，**`boundary.md` Section 1 才是可写文件清单**。
 2. **角色开始工作前做同步预检。**每个角色卡都运行 `scripts/check_dashboard_sync.py --root <项目目录>`。未配置云端时提醒并询问一次是否需要；已配置但同步器停止时报告；运行中复用。`running=true` 只代表本机进程还在，仍要看 `lastSuccessAt` 和 `lastError`。
-3. **按五层职责设计和实现。**构建顺序通常是 `Model → Provider → Service → Pipeline → Interface`；根 `main` 文件只负责启动 Interface。运行调用方向是 `Interface → Pipeline → Service → Provider`，每层只调用相邻下一层，Model 可被共享。新建或明确重构的 Provider 和 Service 使用 `abstract/` 契约、`impl/` 实现、`public/` 唯一对外入口；已有项目不因使用技能就自动迁目录。`utils/`、`resource/`、`test/`、`docs/` 只是辅助目录，不增加架构层；简单功能无需每层都新增文件。
+3. **按五层职责设计和实现。**构建顺序通常是 `Model → Provider → Service → Pipeline → Interface`；根 `main` 文件只负责启动 Interface。运行调用方向是 `Interface → Pipeline → Service → Provider`，每层只调用相邻下一层，Model 可被共享。新建或明确重构的 Provider 和 Service 使用 `abstract/` 放调用约定、`impl/` 放具体代码、`public/` 放上层能使用的入口；已有项目不因使用技能就自动迁目录。`utils/`、`resource/`、`test/`、`docs/` 只是辅助目录，不增加架构层；简单功能无需每层都新增文件。
 4. **验证受影响的层，再接上层。**角色写自己的测试和带日期的设计、功能、修改或修复文档；实际成功/失败、文件范围和版本构成证据。不涉及的层无需为了凑齐五层而新增文件或测试。项目角色管理跨角色依赖。若要建立阶段计划、派发和验收记录，必须通过 `task_ops` 和客户审阅的配置哈希；它写入 `plan.json`、`state.json`、`events.jsonl` 并生成 `board.md`，但不自动启动代理。已授权的独立单角色任务可以不建调度图。
 5. **装配与展示。**装配角色跑根入口和端到端测试。项目角色被接受后就可启动本地 Dashboard，在开发过程中查看真实角色、项目理解、阶段任务和协作事件；没有调度记录时，任务视图保持空白，不会编造状态。
 
@@ -50,7 +50,7 @@ flowchart LR
 | 内容 | 本地位置 | Dashboard 里看到什么 |
 | --- | --- | --- |
 | 角色职责与可写边界 | `角色卡/<role>/role-card.md`、`boundary.md` | 角色卡、职责与边界 |
-| 当前项目理解 | 一份 `project-context/context.sqlite3`，用 `role_id` 区分角色 | 流程、数据、接口、定义总览与详情；流程可直接显示触发、输入/输出和相关接口 |
+| 当前项目理解 | 一份 `project-context/context.sqlite3`，用 `role_id` 区分角色 | 流程先说明用途与成功/失败结果，再显示真实分支图、输入/输出、接口和异常排查点 |
 | 执行与版本记录 | `docs/scheduling/<task>/plan.json`、`state.json`、`events.jsonl`、`board.md` | 阶段任务、协作事件与验收状态 |
 | 历史与设计依据 | 根 `docs/` 和角色自己的 `docs/`，文件名带日期 | 当前 Dashboard 只可直接打开角色目录根部的角色卡、边界、API、功能说明和变更日志；带日期的记录仍在文件中 |
 
