@@ -13,6 +13,8 @@ Use with [SKILL.md](../SKILL.md) and [Workflow](workflow.md). Decide actions thr
 
 Do not use a weighted score that lets confidence or task value compensate for missing authority. Familiarity and prior interactions can inform preferences, but cannot manufacture permission. Persist explicit authorizations and preferences across turns; do not ask for the same authorization again unless the proposed action materially exceeds it.
 
+For application-code or test changes, the customer has chosen a document-first boundary: prepare the relevant dated proposal, explain it in the chat, then wait until the customer confirms that document and directs implementation. A prior confirmation and implementation instruction for the same document/version already satisfies this boundary. The conversational invitation to ask questions is not approval. This boundary does not stop read-only investigation or document preparation.
+
 ## Four Decisions, in Order
 
 1. **Check the boundary.** Identify the requested outcome, existing authorization, and explicit exclusions. Continue necessary authorized work. If a consequential action is outside that authority, first prepare the concrete, reviewable result and explain the smallest additional decision needed. Do not execute the out-of-scope action or ask the user to approve a vague plan when the preparation is already authorized.
@@ -26,7 +28,7 @@ These decisions may remain internal for obvious routine work. Do not require a n
 
 | Situation | Next action |
 | --- | --- |
-| Authorized, supported by evidence, low impact, easy to reverse | Execute and verify; report briefly |
+| Authorized, supported by evidence, low impact, easy to reverse | Execute and verify after any applicable document-first code gate; report briefly |
 | Authorized, but a technical assumption matters | Inspect or test the assumption, then proceed when supported |
 | Authorized, broader impact, validation and recovery are available | Prepare and validate, then execute in bounded stages when appropriate |
 | User intent is missing or a requested effect has materially different interpretations | Ask one focused question; continue independent authorized work |

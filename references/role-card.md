@@ -13,6 +13,14 @@ The template below is in English for readability. Follow explicit user requireme
 
 <Short description in project language>
 
+## System features owned by this role
+
+| Feature | Current status | How it works |
+| --- | --- | --- |
+| <System feature a user can trigger> | Planned / implemented / needs verification | `features/<feature-id>.md` (link after creation) |
+
+List only current or planned system features for which this role is the primary owner, not role duties such as coding or testing. Mark planned features as planned; use `None yet` when the role owns no system feature. Follow [feature-point.md](feature-point.md). Each feature gets its own current-behavior document after the owning role is accepted; until then show `待补文档` as plain text instead of a broken link. This list does not grant permission to change files.
+
 ## Required reading
 
 1. `<boundary-doc in project language>` — Section 1 is the mutation whitelist.
@@ -28,6 +36,7 @@ The template below is in English for readability. Follow explicit user requireme
 6. `references/documentation.md` — Common location, date and timeline rules; when writing a document, also load only its design, feature, change or fix guide.
 7. The canonical inter-role integration designs assigned to this stage, with contract IDs/revisions; implementation reports must reference them.
 8. This role's overview from the shared project-understanding store, when present, and only the topics relevant to the assignment. Query with this role's ID; verify claims against current code and contracts. Follow [project-context.md](project-context.md).
+9. The feature-point document for the assigned system feature, when present. Check its current behavior against source and tests before changing it.
 
 For the assembly role, additionally read:
 - `references/entrypoint.md` — Application entry and lifecycle rules
@@ -57,6 +66,7 @@ For the assembly role, additionally read:
 ## Execution checkpoints
 
 1. **Prepare:** Check existing authorization, gather sufficient evidence, choose the smallest effective action. Load all references listed in Required reading. Inspect the requirement and baseline; load affected layers and supporting references before fixing the mutation scope.
+1a. **Explain before coding:** For an application-code or test change, write the appropriate dated document first and show its short summary to the customer. Wait for confirmation of that document plus instruction to implement it, unless the same version and scope have already been confirmed and authorized. A question or silence is not confirmation; read-only investigation and document refinement may continue.
 2. **Build:** Design and implement affected work in build order: **Model → Provider → Service → Pipeline → Interface**. Assess abstractions first. Reuse satisfactory existing layers. Investigate from the highest relevant failing entry downward; root startup problems begin at main.
 3. **Test each layer:** Complete each affected layer's required tests before integrating dependent implementation with it; independent preparation against agreed contracts may proceed without claiming integration success. Skipped, unavailable, or unresolved checks do not pass.
 3b. **Verify adjacent-layer compliance:** Inspect every import and constructor call in changed files. Confirm: Interface imports Pipeline only; Pipeline imports Service public entry only; Service imports Provider public entry only. Re-exporting a lower-layer API or handing a lower-layer object to a higher layer counts as a violation. Fix any violation before proceeding.
@@ -67,6 +77,7 @@ For the assembly role, additionally read:
     - **Readability:** Ternary operators (`condition ? a : b`) are forbidden — they reduce review readability. Use `if/else` instead.
     - **Test structure:** `test/` mirrors the role structure under `角色卡/`, using the project's language-native test files grouped by owning role where the runner permits. Tests are grouped by role, not by layer.
 4. **Explain the change to a reader.** Write the relevant dated design, feature, change or fix document using that type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Create or refresh relevant rows in the shared project-understanding store through its CRUD CLI when verified understanding changes, within this role's accepted logical row scope. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Governance handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
+   If the current behavior of a system feature changed, update its `features/<feature-id>.md` after verification. Keep the dated document as the history of this particular change. If feature ownership or the role-card list must change, request a Governance update; the execution role does not edit its own role card. Follow [feature-point.md](feature-point.md).
 5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. The default project role feeds the shared Dashboard; do not create a separate viewer for this worker. Do not write the shared project table; wait for the project role to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Scheduler validates the release conditions; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
 6. **Verify acceptance.** Apply evidence invalidation and acceptance rules before the final report. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
 
@@ -86,6 +97,7 @@ When implementation is complete, create these documents at the role directory ro
 - `changelog.md` — Change history with date, description, and doc reference
 - `functional-description.md` — Architecture diagrams, key code locations, detailed explanation
 - `api-spec.md` — Actual exports, dependencies, assembly notes, design contract ID/revision, compliance/deviations and test evidence; shared integration design remains project-role-owned
+- `features/<feature-id>.md` — One current-behavior document for each system feature primarily owned by this role; do not create filler files for roles with no system feature
 
 Detailed design, feature, change, and fix records go into `docs/design/`, `docs/feature/`, `docs/change/`, `docs/fix/` respectively.
 ````
@@ -101,6 +113,8 @@ appointment-booking/
 ├── changelog.md              # 变更日志 ← 角色实现阶段创建（角色根目录）
 ├── functional-description.md # 功能描述: 图 + 代码位置 + 详解 ← 角色实现阶段创建（角色根目录）
 ├── api-spec.md               # API 规范: 导出 + 依赖 + 装配说明 ← 角色实现阶段创建（角色根目录）
+├── features/                 # 本角色负责的系统功能点；一功能一文档（有内容时创建）
+│   └── <feature-id>.md        # 当前怎样触发、运行、分支和结束
 └── docs/
     ├── design/               # 详细设计记录
     ├── feature/              # 功能记录
@@ -108,7 +122,7 @@ appointment-booking/
     └── fix/                  # 修复记录
 ```
 
-Bootstrap creates only the role definition: `role-card.md` and `boundary.md`. Other role documents are created by the owning role when grounded in actual project evidence. The project-understanding database is created on first authorized use, and a role needs an accepted logical row-scope entry in Section 1 before writing its rows.
+Bootstrap creates only the role definition: `role-card.md` and `boundary.md`. It lists planned or source-identified system features in the card, but their current-behavior documents are created by the accepted owning role within its `features/` scope. A planned path may be shown as plain text with `待补文档` until the file exists; do not leave a broken link. Other role documents are also created by the owning role when grounded in actual project evidence. The project-understanding database is created on first authorized use, and a role needs an accepted logical row-scope entry in Section 1 before writing its rows.
 
 `changelog.md` records every creation, scope update, split, or merge of this role in reverse chronological order. Each entry must index the actual completion document:
 

@@ -74,6 +74,8 @@ Rules for deriving the contract:
 
 ## Execute Scoped Mutation
 
+For application code or tests, first write the relevant design, feature, change or fix document as a concrete proposal. Summarize the proposed behavior and limits in the chat, adding a small diagram/table only when it clarifies the decision. Start code changes only after the customer confirms that document and instructs implementation based on it; use an earlier same-version confirmation when one already exists. If material findings change the proposal, revise and present the affected part before coding. Do not treat a question about the proposal as approval.
+
 Implement the smallest coherent candidate that satisfies the objective and architectural contracts.
 
 - Preserve public behavior outside the requested change unless a contract change is authorized.

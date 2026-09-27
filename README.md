@@ -35,9 +35,9 @@ git submodule update --init --recursive
 
 在 AI 中调用 `$ans-governed-construction`，说明要开发或修复什么。一个新项目通常按下面的顺序开始：
 
-1. **确定角色和范围。**治理角色拟定角色卡与 `boundary.md`；客户确认后，角色只能改边界第 1 节列出的文件。项目默认角色负责调查、架构设计、任务安排和验收，不直接代写业务源码。
+1. **确定角色、功能点和范围。**治理角色拟定角色卡与 `boundary.md`；角色卡列出这个角色主要负责的系统功能点，每个功能点各有一份当前说明。客户确认后，角色只能改边界第 1 节列出的文件。项目默认角色负责调查、架构设计、任务安排和验收，不直接代写业务源码。
 2. **沿五层设计和排查。**构建时通常按 `Model → Provider → Service → Pipeline → Interface` 思考；运行时只沿 `Interface → Pipeline → Service → Provider` 逐层调用，Model 供各层共享。简单功能不需要每层都新增文件。
-3. **实现并验证。**执行角色修改自己负责的代码和测试，写对应的[设计、新增、修改或修复说明](references/documentation.md)。文档主要让后来的人看懂，不是测试日志的副本。实际测试通过后才能称为已验证；跨角色任务可使用 `task_ops` 记录派发、反馈和验收。
+3. **先交文档，再实现。**先写对应的[设计、新增、修改或修复说明](references/documentation.md)，在聊天里简要讲给客户听。客户确认文档并授意按它修改后，执行角色才改自己负责的代码和测试。已确认的同版方案不用反复问；测试通过后才能称为已验证。
 4. **更新项目理解。**每个项目共用一份 `project-context/context.sqlite3`，按 `role_id` 区分角色。流程先写明用途、成功和失败结果，再记录真实的 `if/else` 分支、数据字段与接口；没有源码证据的内容保持待补充。
 
 角色切换和派发必须有客户同意，或符合客户认可的项目预授权配置。角色卡归属本身不等于执行授权。[中文说明](SKILL.zh.md)、[五层架构](references/architecture.md)、[任务操作](references/task-operations.md)和[项目理解](references/project-context.md)分别说明细节。

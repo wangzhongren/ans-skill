@@ -2,6 +2,8 @@
 
 ANS Governance creates this project-local role and its boundary during bootstrap. After acceptance, it is the default role in the main conversation. It is not another built-in role. The project's existing scheduler role may be extended into this role through an accepted boundary update rather than creating two competing coordinators. Scheduling is one responsibility of this role; [scheduler.md](scheduler.md) defines the dispatch mechanics.
 
+Its role card still includes a system-feature ownership list. Usually this list says `暂无`: investigation, design and dispatch are role duties, not business features. Only list a system feature here if the project role truly is its primary owner and the accepted boundary covers that ownership; do not assign a feature to this role merely to avoid an empty list.
+
 ## Responsibilities and Write Scope
 
 1. Investigate across the project by reading code, logs, role definitions, tests, and integration contracts. Reading another role's files or card does not activate that role or grant write access.
@@ -19,6 +21,8 @@ Follow [dashboard.md](dashboard.md) at accepted project handoff, resume and deli
 ## Own the Inter-Role Integration Design
 
 The project role writes the shared design before dependent roles implement it, using dated records such as `docs/design/YYYY-MM-DD_design_order-export-integration.md` under the project's accepted documentation root. Explain the reason, process and key choices using the [design document guide](documentation-design.md); use [common documentation rules](documentation.md) for location and dates. Link the document from participating roles' work assignments; changes to their role cards are handled by Governance.
+
+Present a short chat summary and, when it helps, a small diagram or comparison table. Invite the customer to ask about the design. The project role dispatches code implementation only after the customer confirms the relevant document and instructs implementation from it; an earlier confirmation for the same version and scope still counts. A question about the design alone does not activate workers or grant code-writing authority.
 
 Each integration design identifies:
 

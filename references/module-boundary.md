@@ -16,6 +16,7 @@ The mutation whitelist. A table listing every file or directory the AI may creat
 | --- | --- | --- |
 | Single file | `src/module/service.py` | Business transformation |
 | Conditional directory | `docs/` | Task-specific documentation only |
+| Conditional directory | `角色卡/<role>/features/` | Current behavior of this role's owned system features |
 | Logical row scope | `project-context/context.sqlite3`, `role_id=<role>` | This role's understanding rows, only through `context_store.py` |
 
 **Files not listed in Section 1 are read-only by default.** To mutate an unlisted file, the AI must first propose updating Section 1 — a change subject to the same evidence and acceptance gates as code changes.
@@ -28,7 +29,7 @@ Within its Section 1 files, a role may create helpers, utilities, and internal t
 
 ### Companion file: `functional-description.md`
 
-Architecture diagrams, key code locations, detailed explanations, and ownership tables live in `functional-description.md` — a separate file in the same role directory. See [functional-description.md](functional-description.md) for the format.
+Architecture diagrams, key code locations, and ownership tables live in `functional-description.md` — a separate file in the same role directory. Current behavior of each owned system feature lives in `features/<feature-id>.md`; see [feature-point.md](feature-point.md).
 
 ## Governance
 

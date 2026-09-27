@@ -1,6 +1,6 @@
 # Functional Description (功能描述)
 
-A companion document to `boundary.md`. It contains architecture diagrams, key code locations, and detailed explanations — everything that is NOT the mutation whitelist.
+A companion document to `boundary.md`. It contains architecture diagrams and key code locations — everything that is NOT the mutation whitelist. The role card lists which system features this role owns; each feature's current behavior belongs in a separate [`features/<feature-id>.md`](feature-point.md), not in one large role-level explanation.
 
 For the role's cross-project workflow position and topic navigation, use [project-context.md](project-context.md). Link shared contracts rather than copying their definitions into either document.
 
@@ -30,9 +30,9 @@ flowchart LR
 
 ## Detailed Explanation
 
-### How it works
+### How the role's modules fit together
 
-Step-by-step description of the capability's behavior, data flow, and edge cases.
+Explain the shared architecture and data handoffs here. Link each owned system feature's `features/<feature-id>.md` for its trigger, complete flow, branches and results.
 
 ### Ownership
 
