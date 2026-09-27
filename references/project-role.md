@@ -18,7 +18,7 @@ Follow [dashboard.md](dashboard.md) at accepted project handoff, resume and deli
 
 ## Own the Inter-Role Integration Design
 
-The project role writes the shared design before dependent roles implement it, using dated records such as `docs/design/YYYY-MM-DD_design_order-export-integration.md` under the project's accepted documentation root. Apply [documentation.md](documentation.md) metadata and filename rules. Link the document from the participating roles' work assignments; changes to their role cards are handled by Governance.
+The project role writes the shared design before dependent roles implement it, using dated records such as `docs/design/YYYY-MM-DD_design_order-export-integration.md` under the project's accepted documentation root. Explain the reason, process and key choices using the [design document guide](documentation-design.md); use [common documentation rules](documentation.md) for location and dates. Link the document from participating roles' work assignments; changes to their role cards are handled by Governance.
 
 Each integration design identifies:
 

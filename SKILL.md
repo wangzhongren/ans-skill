@@ -46,6 +46,8 @@ Role cards (角色卡) and module boundary documents (模块边界文档) togeth
 
 The project keeps one [SQLite project-understanding store](references/project-context.md) at `project-context/context.sqlite3`. Each role reads its overview first, then queries task-relevant topics by `role_id`. Content writes use the role-scoped CRUD tool and its accepted logical row scope; the store does not replace canonical contracts or authorize changes.
 
+Dated documents explain work to people; they are not copies of the task audit log. Use [the shared documentation rules](references/documentation.md) plus only the guide for the type being written: [design](references/documentation-design.md), [feature](references/documentation-feature.md), [change](references/documentation-change.md), or [fix](references/documentation-fix.md). Keep the date metadata for navigation, but make the body answer the reader's concrete question in plain language. Link detailed test evidence instead of copying logs into every document.
+
 Write each Flow so a beginning programmer can answer: **What is the user trying to do? What changes on success? What happens on failure?** Put those answers in `flow.intent`, using short, concrete sentences backed by current code. Put button clicks in `flow.triggers`, actual `if/else` conditions in `flow.graph.edges`, and debugging checks plus source locations on error nodes. Never use generic filler such as "from entry to result" as a purpose, invent branches from prose, or bulk-fill old flows from button names. Update only task-relevant flows after checking real code and tests; mark the rest as missing. A resulting HTTP request is a step of the same Flow, not a separate Event. See [Interface constraints](references/interface.md) and [project context](references/project-context.md).
 
 ### Bootstrap
@@ -167,6 +169,7 @@ Read only the relevant references, at the stated stage. These are mandatory task
 | [Module boundary document Section 1](references/module-boundary.md) | Before any task: load Section 1 to determine mutation scope |
 | [Role card](references/role-card.md) | Before any task: load role card for capability context, execution principles, and required reading |
 | [Evidence and acceptance](references/evidence.md) | Frozen artifacts or changed dependencies, and before accepting or reporting completion of any candidate |
+| [Human-first documentation](references/documentation.md) | When writing a dated document; then load only its design, feature, change, or fix guide |
 
 Map repository names to the five responsibilities; naming differences do not relax dependencies. Report existing conflicts and scope the necessary repair rather than silently adding exceptions or migrating unrelated code. Filenames and export mechanisms follow the project language; `main.js` and `index.js` are not universal requirements.
 

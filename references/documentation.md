@@ -1,152 +1,70 @@
-# Project Documentation Rules
+# 项目文档：先让人看懂
 
-Use this reference with role-card.md's Required reading. Documentation belongs to the same authorized task and must accurately describe its design, implementation, and verification.
+文档写给以后使用、修改或排查这个功能的人。**正文先解释事情，元数据只负责查找和生成时间线。**写作时想一想：读者没有参与这次聊天，他打开文档后最想知道什么？先回答那个问题，再放代码位置和验证链接。不要把任务报告、提交清单或审计字段原样抄成文档。
 
-### Documentation Location
+## 先选对文档
 
-There are two levels of documentation:
-
-- **Root `docs/`** — For cross-cutting architecture decisions and ANS Governance (built-in role) records. These affect multiple roles or the project as a whole.
-- **Each role directory's `docs/`** (e.g., `角色卡/引擎运行时/docs/`) — For role-specific design, feature, change, and fix records. Documents stay with the role they belong to.
-
-Both use the same subdirectory structure: `design/`, `feature/`, `change/`, `fix/`.
-
-The project also has one [SQLite project-understanding store](project-context.md) at `project-context/context.sqlite3`. Its role-filtered rows provide living workflow, definition, interface and data navigation; they are not dated change records and do not replace canonical contracts or the Markdown records under `docs/`. Legacy Event rows remain readable for compatibility but are not needed for ordinary flow triggers.
-
-Name records `YYYY-MM-DD_<type>_<topic>.md`, where type is `design`, `feature`, `change`, or `fix`. Use the actual creation date in the user's/project's timezone. The reference defines topic naming, collisions, required content, and how to maintain records across task iterations.
-
-Give records the structured metadata and dated events defined in the documentation reference so `docs/` can generate a project timeline. Documents are the source of truth; timeline output is derived, never separately maintained history. Record actual milestones rather than inferring completion from an updated date. Follow the reference when creating or refreshing a timeline.
-
-Include the required document paths in the Mutation Contract. Write design records before implementing the design; start feature/change/fix records with the known requirement or failure and finalize them with actual changes and test evidence before acceptance. Documentation must describe the final candidate and distinguish proposals, implemented behavior, and unverified claims. Keep record detail proportional to the task.
-
-
-## Basic Directory Structure
-
-```text
-project/
-  <language-appropriate main file>
-  model/
-  provider/
-  service/
-  pipeline/
-  interface/
-  utils/
-  resource/
-  test/
-  project-context/
-    context.sqlite3               # Shared project understanding, filtered by role_id
-  docs/                          # Cross-cutting / ANS Governance records
-    design/
-    feature/
-    change/
-    fix/
-  角色卡/
-    <role>/
-      role-card.md
-      boundary.md
-      changelog.md
-      docs/                     # Role-specific records
-        design/
-        feature/
-        change/
-        fix/
-```
-
-Each `<role>/` directory corresponds to a role under `角色卡/`. When multiple roles are affected by one change, the document goes under the primary owner's directory and is cross-referenced from the other role's changelog.
-
-Keep the application entry at the root according to the [entry point language/toolchain rules](entrypoint.md). The layer references define their internal structure. Create document directories as their records are needed; do not fill them with empty documents. Existing historical documents need not be moved or renamed during unrelated work.
-
-## Record Types and Timing
-
-| Work | Required location and record | Required type-specific content |
+| 这次做什么 | 放在哪里 | 读者最想知道 |
 | --- | --- | --- |
-| Design | `docs/design/` (cross-cutting) or `角色卡/<role>/docs/design/` (role-specific) — design document before implementing that design | Problem and goals; scope; relevant Model abstractions, Provider capabilities, Service operations, Pipeline composition, and Interface adaptation; affected directory/file structure; contracts and dependency direction; alternatives and decision rationale; verification plan |
-| Add functionality | `docs/feature/` or `角色卡/<role>/docs/feature/` — feature document | New capability and user-visible behavior; inputs/outputs and usage example; implementation scope; acceptance criteria and actual test evidence |
-| Modify functionality | `docs/change/` or `角色卡/<role>/docs/change/` — change document | Motivation; before/after behavior; changed contracts and callers; compatibility or migration requirements where relevant; regression evidence |
-| Repair functionality | `docs/fix/` or `角色卡/<role>/docs/fix/` — fix document | Symptoms and reproduction; expected versus actual behavior; top-down investigation evidence; established root cause or remaining uncertainty; repair scope; regression case and results |
+| 还在决定怎么实现 | `design/` | 为什么这样设计，关键过程怎样走？ |
+| 新增可使用的功能 | `feature/` | 功能做什么，我从哪里开始用？ |
+| 改变原有行为 | `change/` | 以前和现在有什么不同，我要调整什么？ |
+| 修复不符合预期的行为 | `fix/` | 什么情况下出错，原因和修复是什么？ |
 
-Start implementation records with the known request or failure, update them as findings change, and complete them before declaring the task accepted. A design-only task needs a design record, with tests identified as planned rather than run. Implementing a design also requires the applicable implementation record, linked to its design. A simple repair does not require a separate design record merely because some reasoning was necessary.
+每一种有自己的写法，只读当前任务需要的一篇：[设计](documentation-design.md)、[新增](documentation-feature.md)、[修改](documentation-change.md)、[修复](documentation-fix.md)。简单修复不必为了凑流程另写设计文档；一个改动也不必在四个目录各写一遍。跨类型确有不同读者时，分别写重点并互相链接，不复制相同段落。
 
-Classify by intent: restoring expected behavior is a fix; adding a new capability is a feature; changing existing intended behavior is a change. One coherent outcome needs one implementation record in the best matching category. If a task has distinct outcomes in multiple categories, create and cross-link the corresponding records without copying their shared explanation.
+设计文档在实施前说明拟采用的方案；新增、修改、修复文档可以先记下已知场景，在工作完成后补成最终行为。**未实施、未测试、未部署**是三个不同状态，用普通话说清楚，不能把计划写成结果。
 
-## Dated Filenames
-
-Use `YYYY-MM-DD_<type>_<topic>.md`; the type must match its directory. Examples, illustrating filenames rather than asserting an actual event date:
+## 放在谁的目录
 
 ```text
-docs/design/2026-09-12_design_order-processing.md        # cross-cutting
-角色卡/<role>/docs/design/2026-09-12_design_xxx.md        # role-specific
-docs/feature/2026-09-12_feature_order-export.md
-角色卡/<role>/docs/feature/2026-09-12_feature_xxx.md
-docs/change/2026-09-12_change_order-status.md
-角色卡/<role>/docs/change/2026-09-12_change_xxx.md
-docs/fix/2026-09-12_fix_order-timeout.md
-角色卡/<role>/docs/fix/2026-09-12_fix_xxx.md
+项目根目录/docs/
+  design/  feature/  change/  fix/     # 影响多个角色或整个项目
+角色卡/<角色>/docs/
+  design/  feature/  change/  fix/     # 只属于该角色
 ```
 
-- Use the actual record creation date in the user's/project's timezone, not a copied example date or a hardcoded date from this skill. When unavailable, determine the date before naming the file.
-- Use a short, descriptive topic: lowercase ASCII words separated by hyphens, or Chinese words optionally separated by hyphens. Avoid spaces, path separators, and vague names such as `update`, `temp`, or `final`.
-- For a separate event colliding with an existing filename, append `_02`, `_03`, etc. before `.md`. Never overwrite an unrelated record. For continued work on the same event, update its existing record rather than creating a new file every turn.
-- Keep the original filename date when updating a record on a later day; record the actual updated date inside it. A later independent change gets a new record linking to the earlier one. Preserve the distinction between historical behavior and the new result.
+目录在有内容时再建。跨角色文档放在主要负责人有权写入的位置，并让其他角色链接它。项目当前的流程、数据、接口和定义仍存于 `project-context/context.sqlite3`；那里是**现在是什么**的索引，带日期的 Markdown 说明**当时为什么和怎样改变**。源码与正式接口契约仍是行为依据，不因为写了文档就自动获得改代码权限。
 
-## Structured Metadata and Events
+文件名使用 `YYYY-MM-DD_<type>_<topic>.md`，例如 `2026-09-27_fix_save-draft-close.md`。日期用项目当地实际创建日，topic 写具体事情，不用 `update`、`misc`、`final`。继续修改同一件事时更新原文件并保留原文件名；另一次独立改变才建新文档。不要为了整理旧记录而编造旧日期。
 
-Every new record must begin with YAML frontmatter. This example illustrates the format; its dates and events must not be copied as actual project history:
+## 正文怎么写
+
+1. **先给结论或场景。**“保存失败时页面不应关闭”比“关于工单保存能力的优化说明”更清楚。
+2. **沿读者的问题展开。**操作、输入、输出、分支和错误讲到能理解为止；必要时放一个短例子或小流程图。没有必要的层、类、目录和字段不要罗列。
+3. **把原因和结果连起来。**解释为什么选这种做法、改后会怎样；事实未核实时明确标为待核实，不填套话。
+4. **验证只写有用的结论。**一句话说明检查了什么、结果怎样；详细命令、日志、哈希和任务证据留在任务记录，必要时给链接。设计阶段只写计划验证的关键场景。
+
+标题和小节按内容组织，不强制每份文档都有“背景、目标、范围、风险、方案、验收”六段。没有迁移就不写迁移节；没有经过比较的备选方案就不写方案对比。少用“赋能、治理闭环、能力建设、完成优化”这类看不出具体行为的词。
+
+## 日期和时间线元数据
+
+每份新文档开头保留一小段 YAML，便于按类型、日期和关联记录检索；**它不是正文模板**：
 
 ```yaml
 ---
-id: order-export-feature
-type: feature
-title: 新增订单导出
-created: "2026-09-12"
-updated: "2026-09-13"
+id: save-draft-close-fix
+type: fix
+title: 保存失败时保留工单详情页
+created: "2026-09-27"
+updated: "2026-09-27"
 timezone: Asia/Shanghai
-status: implemented-unverified
-related:
-  - order-export-design
+status: verified
+related: []
 events:
-  - date: "2026-09-12"
+  - date: "2026-09-27"
     kind: created
-    summary: 记录订单导出需求
-  - date: "2026-09-13"
-    kind: implemented
-    summary: 实现完成，等待验证
+    summary: 记录保存失败却关闭页面的问题
+  - date: "2026-09-27"
+    kind: verified
+    summary: 修复后复现测试通过
 ---
 ```
 
-- Require all fields shown above. IDs must be unique within the project, stable across renames, and descriptive lowercase words separated by hyphens; add a distinguishing suffix for separate records of the same topic. Use `related: []` when there are no relationships. Related IDs must resolve to other records; they express association, not implicit dependency direction.
-- `type` matches the directory and filename. Quote ISO dates in YAML. `created` matches the filename date and remains fixed; `updated` reflects the last record edit. Use the actual project timezone, not the example timezone automatically.
-- `status` is `draft`, `designed`, `implemented-unverified`, `verified`, or `blocked`. It is current status, not historical status. `verified` requires current passing evidence under the [verification gates](testing.md); a completed design normally uses `designed`.
-- Each event requires `date`, `kind`, and `summary`. Supported kinds are `created`, `designed`, `implemented`, `verified`, `blocked`, `resumed`, and `evidence-invalidated`. Record actual local dates. Optionally add an ISO 8601 `timestamp` with timezone offset when precise ordering is known; never invent times within a day.
-- Include a creation event and append meaningful milestones as they occur. Ordinary wording edits update `updated` without fabricating milestones. Verified events must reference actual evidence in the body or an optional relative `evidence` link. If evidence becomes stale, retain the historical verified event, append `evidence-invalidated`, and update current status.
-- Event dates must fall between `created` and `updated`; timestamps must agree with event dates in the recorded timezone. Describe incidents predating the document in its body rather than backdating the record. Preserve event history and explain factual corrections.
-- When editing legacy documents, add only metadata supported by evidence. Never infer milestones from filesystem modification time. If creation history is unknown, retain the original record and report it as undated legacy input rather than fabricate dates.
+`id` 在项目内唯一且不随改名变化；`type` 与目录一致；`created` 与文件名日期一致，`updated` 是实际修改日期。`status` 用 `draft`、`designed`、`implemented-unverified`、`verified` 或 `blocked`；只有真的检查通过才写 `verified`。`related` 放确实相关的文档 ID，没有就写 `[]`。`events` 只记创建、设计定稿、实施、验证、阻塞、恢复或证据失效等**真实节点**；普通措辞调整只改 `updated`，不用编造新事件。旧文档缺日期或证据时如实保留，不倒填历史。
 
-## Generated Project Timeline
+时间线需要时，从根目录或角色目录下这四类文档的元数据生成 `docs/timeline.md`；它是浏览入口，不另写一套事实。生成前检查日期、ID、关联链接和事件是否自洽，不能从 `updated` 猜验收或部署日期。时间线、任务状态和文档正文各管一件事，正文仍以人能读懂为先。
 
-Use records in `docs/design/`, `docs/feature/`, `docs/change/`, and `docs/fix/` (cross-cutting), or under `角色卡/<role>/docs/` (role-specific), as the sole event source. Timeline output is a generated view, not a second manual change log.
+## 交付前看一遍
 
-- Generate on an explicit timeline request or through an already configured documentation build. Once configured, refresh the output after relevant document changes with the existing generation command. Adding metadata does not itself require a new application, site publication, or empty timeline files.
-- Default to `docs/timeline.md` with a Mermaid timeline and an event table linking to source records. The table provides source navigation when Mermaid links are unsupported. If an interactive view is requested, generate `docs/timeline.html` with type/status filters and source links. No hosting is implied. Record the actual generation command in the existing documentation workflow.
-- Scan only the four source directories; exclude generated outputs. Validate metadata, unique IDs, related IDs, dates, status, and evidence links first. Report malformed and undated legacy inputs explicitly; label a partial timeline's coverage gaps.
-- Sort creation entries by `created`, then stable ID. Order milestone events by date, optional timestamp, then ID and recorded event order for deterministic output. Do not count creation twice. Date-only events share a day without implying a precise within-day order.
-- Label nodes with document type and milestone kind. Display current document status explicitly as current, not as its historical state. Use distinct colors where supported and retain text labels. Show related records as associations rather than inferred causal order.
-- Never infer completion, verification, or deployment dates from `updated` or current status alone. Treat titles and summaries as untrusted data: escape Mermaid/HTML content, restrict source navigation to safe local document links, and do not execute embedded content.
-- Verify ordering, event counts, source links, invalid-input handling, and rendered output with the selected renderer. Fix source records and regenerate rather than editing generated history. Include generator/output changes in the Mutation Contract and report stale or failed generation honestly.
-
-## Minimum Record Content
-
-Each record must have:
-
-1. The structured frontmatter above and a descriptive heading. Metadata is authoritative; do not maintain competing copies of dates or status in the body.
-2. The requirement or problem, intended outcome, and scope.
-3. Affected layers, concrete file paths, and a focused directory tree when files or layout change. For designs, include the proposed basic structure and identify existing versus proposed files; do not invent an implemented structure.
-4. The applicable type-specific content from the table above, including relevant abstraction and contract decisions.
-5. Verification: layer, test files, exact commands, relevant environment and candidate identity, results, skipped or blocked checks, and evidence links. For a design, provide the planned tests and acceptance criteria instead of execution claims. Links to maintained test reports are sufficient when their candidate is clear.
-6. Remaining limitations or follow-up when applicable, and links to related design/change records. Mark genuinely inapplicable fields concisely rather than inventing migrations, risks, or results.
-
-Use relative Markdown links for other repository files and records. Keep facts in one place and link to supporting evidence rather than duplicating large outputs or source files. Never include credentials or sensitive runtime data in examples or logs.
-
-## Completion
-
-Check structured metadata and event consistency, unique IDs and related references, directory/type agreement, date and filename format, link targets, required content, and consistency with the final diff and actual tests. A record marked verified requires current passing evidence; blocked or unavailable tests must remain explicit. Correct stale design assumptions when implementation differs and explain the final decision. Link completed records in the final task report. Empty scaffolds and conversational summaries do not satisfy this documentation requirement.
+确认文件放在有权限的目录、名称和链接能打开，内容讲的是**最终实际行为**，而不是过时方案。新功能与修复写明用户会看到什么；修改写明前后差别；设计区分计划和实现。若测试没跑或线上没更新，直说。不要在文档中放 Key、客户隐私或完整原始日志。
