@@ -15,6 +15,8 @@ from .cloud_store import CloudStore, MAX_PROJECTION_BYTES
 from .channel_store import ChannelStore
 from .context_store import ContextStore
 from .paths import normalize_base_path
+from .versioned_sync import ProjectReplica, MAX_BYTES as MAX_VERSIONED_BYTES
+from .write_queue import WriteQueue, WriteQueueBusy
 
 STATUSES = {'pending', 'ready', 'running', 'awaiting-verification', 'verified', 'failed', 'blocked', 'cancelled'}
 MAX_BYTES = 2 * 1024 * 1024
@@ -328,6 +330,8 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
     trusted = set(trusted_hosts)
     cookie_name = 'anssid' if insecure_local else '__Host-anssid'
     channel_store = ChannelStore(cloud_store) if cloud_store is not None else None
+    project_replica = ProjectReplica(cloud_store) if cloud_store is not None else None
+    writes = WriteQueue() if cloud_store is not None else None
 
     class Handler(BaseHTTPRequestHandler):
         def page(self, name):
@@ -529,13 +533,51 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 role_id = parse_qs(parsed.query).get('role', [None])[0]
                 if role_id and not cloud_store.role_exists(project_id, role_id):
                     raise ValueError('Role is not in the current project snapshot')
-                self.json_response(200, channel_store.view(project_id, role_id))
+                self.json_response(200, writes.call(channel_store.view, project_id, role_id))
+                return
+            if subpath == '/api/channel/changes':
+                if not self.project_allowed(project_id):
+                    self.json_response(403, {'error': 'Project access required'})
+                    return
+                query = parse_qs(parsed.query)
+                after = int(query.get('after', ['0'])[0])
+                limit = int(query.get('limit', ['50'])[0])
+                self.json_response(200, writes.call(channel_store.changes, project_id, after, limit))
                 return
             if not self.project_allowed(project_id):
                 self.json_response(403, {'error': 'Project access denied'})
                 return
+            if subpath == '/api/changes':
+                query = parse_qs(parsed.query)
+                after, limit = int(query.get('after', ['0'])[0]), int(query.get('limit', ['20'])[0])
+                result = writes.call(project_replica.changes, project_id, after, limit)
+                self.json_response(200, result)
+                return
+            if subpath == '/api/conflicts':
+                self.json_response(200, {'conflicts': writes.call(project_replica.conflicts, project_id)})
+                return
+            conflict_match = re.fullmatch(r'/api/conflicts/([0-9]+)', subpath)
+            if conflict_match:
+                self.json_response(200, writes.call(project_replica.conflict_detail,
+                                                    project_id, int(conflict_match.group(1))))
+                return
+            if subpath == '/api/design-docs':
+                query = parse_qs(parsed.query)
+                path = query.get('path', [None])[0]
+                revision = query.get('revision', [None])[0]
+                self.json_response(200, writes.call(project_replica.design_history,
+                    project_id, path, int(revision) if revision is not None else None))
+                return
             value = cloud_store.projection(project_id)
             if subpath == '/api/snapshot':
+                value['snapshot']['syncRevision'] = writes.call(project_replica.head, project_id)
+                conflicts = writes.call(project_replica.conflicts, project_id)
+                if conflicts:
+                    value['snapshot'].setdefault('issues', []).extend(
+                        {'path': 'sync/'+str(item['id']),
+                         'message': '同步冲突：本地依据第 '+str(item['baseRevision'])+
+                                    ' 版，云端已是第 '+str(item['headRevision'])+' 版；请客户决定如何合并。'}
+                        for item in conflicts)
                 self.json_response(200, value['snapshot'])
             elif subpath == '/api/context':
                 query = parse_qs(parsed.query)
@@ -586,6 +628,8 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                     self.cloud_get(parsed)
             except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
                 self.json_response(400, {'error': str(exc)})
+            except WriteQueueBusy as exc:
+                self.json_response(503, {'error': str(exc)}, headers=[('Retry-After', '2')])
             except sqlite3.IntegrityError:
                 self.json_response(409, {'error': 'Record already exists'})
             except (OSError, sqlite3.Error):
@@ -595,11 +639,11 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
             path = parsed.path
             if path == '/api/login':
                 value = self.request_json()
-                user = cloud_store.authenticate(value.get('username'), value.get('password'))
+                user = writes.call(cloud_store.authenticate, value.get('username'), value.get('password'))
                 if user is None:
                     self.json_response(401, {'error': 'Invalid credentials'})
                     return
-                token, _ = cloud_store.create_session(user['id'])
+                token, _ = writes.call(cloud_store.create_session, user['id'])
                 flags = '; Path=/; HttpOnly; SameSite=Strict' + ('' if insecure_local else '; Secure')
                 self.json_response(200, {'username': user['username'], 'role': user['role']},
                                    headers=[('Set-Cookie', cookie_name + '=' + token + flags)])
@@ -608,7 +652,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 user = self.session_user()
                 if user is None or not self.require_csrf(user):
                     return
-                cloud_store.revoke_session(self.session_token())
+                writes.call(cloud_store.revoke_session, self.session_token())
                 flags = '; Max-Age=0; Path=/; HttpOnly; SameSite=Strict' + ('' if insecure_local else '; Secure')
                 self.json_response(200, {'loggedOut': True}, headers=[('Set-Cookie', cookie_name + '=' + flags)])
                 return
@@ -619,8 +663,20 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 if not token or not cloud_store.key_allows(project_id, token):
                     self.json_response(403, {'error': 'Project Key required'})
                     return
-                result = cloud_store.ingest(project_id, self.request_json(MAX_PROJECTION_BYTES))
+                result = writes.call(cloud_store.ingest, project_id, self.request_json(MAX_PROJECTION_BYTES))
                 self.json_response(200, result)
+                return
+            if match is not None and match.group(2) in ('api/sync-v2', 'api/conflict-report', 'api/conflict-resolve'):
+                project_id, action = match.group(1), match.group(2)
+                token = self.bearer_token()
+                if not token or not cloud_store.key_allows(project_id, token):
+                    self.json_response(403, {'error': 'Project Key required'})
+                    return
+                value = self.request_json(MAX_VERSIONED_BYTES + 65536)
+                result = (writes.call(project_replica.publish, project_id, value) if action == 'api/sync-v2'
+                          else writes.call(project_replica.report_conflict, project_id, value) if action == 'api/conflict-report'
+                          else writes.call(project_replica.resolve_conflict, project_id, value))
+                self.json_response(409 if result.get('conflict') else 200, result)
                 return
             if match is not None:
                 project_id, action = match.group(1), match.group(2)
@@ -631,7 +687,8 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                             self.json_response(403, {'error': 'Project Key required'})
                             return
                         value = self.request_json()
-                        result = channel_store.request_permission(project_id, value.get('requesterRoleId'), value)
+                        result = writes.call(channel_store.request_permission, project_id,
+                                            value.get('requesterRoleId'), value)
                     else:
                         if project_key:
                             value = self.request_json()
@@ -645,7 +702,7 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                                 return
                             actor = {'kind': 'user', 'id': user['username']}
                             value = self.request_json()
-                        result = channel_store.send_message(project_id, actor, value)
+                        result = writes.call(channel_store.send_message, project_id, actor, value)
                     self.json_response(200, result)
                     return
                 decision_match = re.fullmatch(r'api/permission-requests/([0-9]+)/decision', action)
@@ -653,8 +710,8 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                     user = self.require_admin()
                     if user is None or not self.require_csrf(user):
                         return
-                    result = channel_store.decide(project_id, int(decision_match.group(1)),
-                                                  user['username'], self.request_json())
+                    result = writes.call(channel_store.decide, project_id, int(decision_match.group(1)),
+                                        user['username'], self.request_json())
                     self.json_response(200, result)
                     return
             if not path.startswith('/api/admin/'):
@@ -665,18 +722,18 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 return
             value = self.request_json()
             if path == '/api/admin/users':
-                result = cloud_store.create_user(value.get('username'), value.get('password'), value.get('role', 'viewer'))
+                result = writes.call(cloud_store.create_user, value.get('username'), value.get('password'), value.get('role', 'viewer'))
             elif path == '/api/admin/projects':
-                result = cloud_store.add_project(value.get('id'), value.get('title'))
+                result = writes.call(cloud_store.add_project, value.get('id'), value.get('title'))
                 result['url'] = base_path + result['url']
             elif path == '/api/admin/keys':
-                result = cloud_store.create_key(value.get('projectId'), value.get('label'))
+                result = writes.call(cloud_store.create_key, value.get('projectId'), value.get('label'))
             elif path == '/api/admin/keys/revoke':
-                result = cloud_store.revoke_key(value.get('id'))
+                result = writes.call(cloud_store.revoke_key, value.get('id'))
             elif path == '/api/admin/users/disable':
                 if value.get('username') == user['username']:
                     raise ValueError('Cannot disable the current administrator')
-                result = cloud_store.disable_user(value.get('username'))
+                result = writes.call(cloud_store.disable_user, value.get('username'))
             else:
                 self.json_response(404, {'error': 'not found'})
                 return
@@ -697,6 +754,8 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 self.cloud_post(parsed)
             except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
                 self.json_response(400, {'error': str(exc)})
+            except WriteQueueBusy as exc:
+                self.json_response(503, {'error': str(exc)}, headers=[('Retry-After', '2')])
             except sqlite3.IntegrityError:
                 self.json_response(409, {'error': 'Record already exists'})
             except (OSError, sqlite3.Error):

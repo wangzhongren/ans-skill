@@ -310,7 +310,7 @@ async function refresh(){
     $('notice').hidden=!next.issues.length;
     if(next.issues.length)$('noticeText').textContent=next.issues.length+' 项记录需要核对，受影响状态不会显示为已验收。';
     $('connection').classList.remove('failed');
-    $('connectionText').textContent=currentProjectId?(next.receivedAt?'上次同步 '+when(next.receivedAt):'项目尚未同步'):'记录已连接 · 2s 刷新';
+    $('connectionText').textContent=currentProjectId?(next.receivedAt?(next.syncRevision?'云端第 '+next.syncRevision+' 版 · ':'')+'上次同步 '+when(next.receivedAt):'项目尚未同步'):'记录已连接 · 2s 刷新';
     if(view==='channel')window.refreshChannel?.();
   }catch(error){
     $('connection').classList.add('failed');$('connectionText').textContent='连接中断';$('notice').hidden=false;
@@ -318,4 +318,22 @@ async function refresh(){
   }finally{loading=false;$('refresh').disabled=false;refreshTimer=setTimeout(refresh,2000)}
 }
 function help(){const body=showDialog('让角色信息持续同步');body.append(el('p',currentProjectId?'本地同步器只发送角色摘要、边界路径、项目理解和任务快照，云端不需要业务源码。页面显示最近同步的数据，不监测代理进程，也不自动验收。':'页面只读，每 2 秒重新读取磁盘。项目角色更新记录后即可看到变化；它不会监测代理进程，也不会把“报告完成”自动验收。','muted'),el('h3','本地记录目录'),el('pre','项目根目录/\n  角色卡/<角色>/role-card.md\n  角色卡/<角色>/boundary.md\n  project-context/context.sqlite3  # 按 role_id 筛选\n  docs/scheduling/<任务>/\n    plan.json\n    state.json\n    events.jsonl'),el('h3','字段约定'),el('p','plan 和 state 使用 schemaVersion: 1、相同 taskId 和 planRevision。nodes 可为数组或按 nodeId 索引的对象。roleId 对应角色文件夹名。'),el('pre','节点状态字段示例（不是实际执行记录）：\n'+JSON.stringify({nodeId:'export-impl',roleId:'导出',attemptId:'attempt-1',status:'running',assignedRevisions:{requirement:'R2',design:'D3'},acknowledgedRevisions:{requirement:'R2',design:'D3'},latestReport:{reportId:'report-1',summary:'正在实现导出'},nextAction:{summary:'完成契约测试',responsibleRole:'导出'}},null,2)),el('p','state 顶层需有 stateRevision、lastEventSeq、updatedAt。事件按 seq 从 1 连续递增，带 eventId、taskId、kind、summary 和时间。记录缺失或版本不一致会明确提示。','small muted'))}
-$('help').onclick=$('helpInline').onclick=help;$('refresh').onclick=refresh;$('closeDetail').onclick=()=>$('detail').close();$('detail').onclick=e=>{if(e.target===$('detail'))$('detail').close()};$('issuesButton').onclick=()=>{const b=showDialog('记录检查');b.append(el('pre',JSON.stringify(data?.issues||[],null,2)))};$('allTasks').onclick=()=>setView('tasks');document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));$('contextRole').onchange=e=>openContext(e.target.value);$('roleSearch').oninput=$('roleFilter').onchange=()=>{if(data)renderRoles()};$('taskSearch').oninput=()=>{if(data)renderTasks()};loadProjects();refresh();
+$('help').onclick=$('helpInline').onclick=help;$('refresh').onclick=refresh;$('closeDetail').onclick=()=>$('detail').close();$('detail').onclick=e=>{if(e.target===$('detail'))$('detail').close()};$('issuesButton').onclick=async()=>{
+  const body=showDialog('记录检查');
+  body.append(el('pre',JSON.stringify(data?.issues||[],null,2)));
+  if(!currentProjectId)return;
+  for(const issue of data?.issues||[]){
+    const match=String(issue.path||'').match(/^sync\/([0-9]+)$/);
+    if(!match)continue;
+    try{
+      const response=await fetch(apiPath('/api/conflicts/'+match[1]),{cache:'no-store'});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const detail=await response.json();
+      body.append(el('h3','同步冲突 #'+match[1]),el('p','请客户核对两边版本，再决定保留哪一版。'));
+      if(!detail.candidateAvailable)body.append(el('p','本地候选内容尚未上传，请在原机器查看本地同步记录。','muted'));
+      for(const item of detail.differences||[]){
+        body.append(el('h4',item.item),el('pre','本地：'+item.local+'\n云端：'+item.cloud));
+      }
+    }catch(error){body.append(el('p','无法读取冲突详情：'+error.message,'muted'))}
+  }
+};$('allTasks').onclick=()=>setView('tasks');document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));$('contextRole').onchange=e=>openContext(e.target.value);$('roleSearch').oninput=$('roleFilter').onchange=()=>{if(data)renderRoles()};$('taskSearch').oninput=()=>{if(data)renderTasks()};loadProjects();refresh();

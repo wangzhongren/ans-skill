@@ -16,13 +16,7 @@ description: 按角色的文件范围开发和修复代码，遵守五层调用�
 
 新项目先由内置的 ANS Governance 角色拟好角色卡和文件范围，交给用户确认。确认后，项目角色负责整体设计、任务安排和验收；业务角色只写自己范围内的源码与测试；装配角色负责根目录的启动文件和整体运行测试。角色切换、派发工作需要用户已给出的同意，或用户认可的项目配置，不能因为文件属于某角色就自动切过去。
 
-每个角色开始改文件前，在技能目录运行：
-
-```sh
-python3 scripts/check_dashboard_sync.py --root /absolute/path/to/project
-```
-
-如果项目还没配置云端，提醒并问用户是否需要；同一项目得到过回答就不要反复问。已配置但同步进程停了，应说明云端可能不是最新；运行中就复用，不启动第二份。这个检查不会读取项目 Key。详细规则见[角色卡写法](references/role-card.md)和[项目角色](references/project-role.md)。
+云端同步是用户主动决定的操作，不是角色开始改文件的前置步骤。需要查看待上传内容或冲突时再运行状态命令；不要因角色切换自动启动服务或上传。详细规则见[Dashboard 说明](dashboard/README.md)。
 
 ## 2. 代码放哪：五层是调用规则，不是五个角色
 
@@ -61,9 +55,9 @@ python3 scripts/check_dashboard_sync.py --root /absolute/path/to/project
 ## 5. Dashboard 和云端各做什么
 
 - **本地 Dashboard**：在本机只读查看角色、项目理解、任务状态和协作记录。项目角色获确认后就可启动；没有任务记录时显示为空，不编造进度。
-- **云端 Dashboard**：多人查看时才配置。管理员用本地项目 ID 创建 Key；项目根目录用 `.ans-dashboard.local.json` 保存 Key。同步器只把展示所需的摘要从本地上传到云端，不上传完整源码、角色文档全文、原始 SQLite 文件或 Key。
-- **同步状态**：`scripts/check_dashboard_sync.py` 看本机进程是否在运行、上次上传是否成功；运行中不等于云端一定最新。
-- **云端消息**：角色可用同一个项目 Key 发消息和申请，并声明自己的角色 ID；服务器只能确认项目，不能单独证明具体是哪位角色。服务器消息可按需查询，目前不会自动写回本地项目。
+- **云端 Dashboard**：多人查看时才配置。管理员用本地项目 ID 创建 Key；项目根目录用 `.ans-dashboard.local.json` 保存 Key。用户运行 `python3 -m dashboard.versioned_sync --root <项目目录>` 才会拉取并上传管理数据；它会保存角色卡和日期文档的版本，**不上传业务源码或项目 Key**。
+- **同步状态**：用户要查看时，运行 `python3 -m dashboard.versioned_sync --root <项目目录> --status`，看已知云端版本、待上传数量和冲突。完成管理数据修改后运行 `--record` 只在本地 SQLite 记一版，不会上传。
+- **云端消息**：角色可用同一个项目 Key 发消息和申请，并声明自己的角色 ID；服务器只能确认项目，不能单独证明具体是哪位角色。用户手动拉取时，消息和审批按游标进入本地同步库；收到批准也不自动获得源码写入权限。
 
 启动、配置、同步和部署命令见[入门总览](doc/guide/2026-09-25_guide_ans-skill-overview.md)与[Dashboard 说明](dashboard/README.md)。旧式全项目代码图谱默认关闭，只有用户明确要求时才生成。
 

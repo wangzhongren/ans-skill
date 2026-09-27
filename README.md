@@ -6,6 +6,8 @@
 
 第一次接触这套技能，先看[白话说明](SKILL.zh.md)；要看目录、数据流和命令，再看[完整总览](doc/guide/2026-09-25_guide_ans-skill-overview.md)。
 
+按需同步的设计依据见[本地与云端手动双向同步方案](doc/design/2026-09-26_design_manual-bidirectional-sync.md)；[云端成为正式数据的方案](doc/design/2026-09-26_design_cloud-first-dashboard.md)保留为备选。下面的使用说明区分新版手动同步与旧版兼容命令。
+
 ## 能做什么
 
 1. **知道谁能改什么**：每个角色有自己的文件清单；清单外的文件不能顺手修改。
@@ -109,9 +111,9 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/your
 
 如果挂在已有域名的 `/ans-dashboard/`，配置 `ANS_DASHBOARD_BASE_PATH=/ans-dashboard`（直接运行时用 `--base-path /ans-dashboard`），反向代理保留该前缀；本地同步的 `--server-url` 也带 `/ans-dashboard`。示例见 [路径前缀部署](dashboard/README.md)。
 
-业务项目先运行 `python3 -m dashboard.local_config init`，在项目根目录的 `.ans-dashboard.local.json` 保存项目 ID、服务器地址和项目 Key；随后运行 `python3 -m dashboard.sync --root <业务项目目录>`，读取角色卡摘要、边界路径、项目理解 SQLite 和任务记录，将**展示快照**同步到对应项目。若是 Git 项目，这个含 Key 的本地文件会加入 Git 的本地排除规则，不应提交；环境变量方式仍可用。服务器不用访问业务仓库，也不接收源码或角色文档全文。完整启动、配置和部署示例见 [独立 Dashboard README](dashboard/README.md)。本地单项目模式无需登录，仍使用上面的启动命令。
+业务项目先运行 `python3 -m dashboard.local_config init`，在项目根目录的 `.ans-dashboard.local.json` 保存项目 ID、服务器地址和项目 Key。**服务器更新后**，用户需要同步时运行 `python3 -m dashboard.versioned_sync --root <业务项目目录>`：先拉云端版本，再上传本地管理数据快照；不运行命令就不上传。角色卡和日期文档原文保存在版本记录，业务源码仍由 Git 管。若是 Git 项目，含 Key 的配置和本地同步 SQLite 都会加入 Git 的本地排除规则。完整升级、拉取、冲突处理命令见 [独立 Dashboard README](dashboard/README.md)。本地单项目页面无需登录。
 
-开发角色激活时使用 `python3 scripts/check_dashboard_sync.py --root <业务项目目录>` 检查同步进程。未配置云端时询问用户是否需要；已配置但未运行时报告状态并按现有授权恢复；运行中则复用，不重复启动。该检查不读取或显示 Key。
+角色激活不检查同步服务，也不自动上传。用户需要查看同步状态时，运行 `python3 -m dashboard.versioned_sync --root <业务项目目录> --status`；需要同步时再运行不带 `--status` 的命令。发生冲突时告诉客户，等待选择。状态命令不显示 Key。
 
 **服务器按项目分库。**每个业务项目本地各有一份 `project-context/context.sqlite3`；共享服务器为每个项目保存一份 `projects/<project-id>.sqlite3`，存该项目的展示快照和协作记录。服务器另有一份 `dashboard.sqlite3`，保存用户、项目 Key 哈希和项目元数据。同步的是页面需要的 JSON，不是本地 SQLite 文件。Docker 部署时这些数据库都位于 `/data` 持久卷中。
 

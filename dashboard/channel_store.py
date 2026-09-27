@@ -258,3 +258,33 @@ class ChannelStore:
                  for role in snapshot['roles']]
         return {'roles': roles, 'messages': result_messages, 'requests': result_requests,
                 'events': [dict(row) for row in events]}
+
+    def changes(self, project_id, after=0, limit=50):
+        """Read every channel event after a cursor, not only the newest 100 rows."""
+        if type(after) is not int or after < 0 or type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError('Invalid channel cursor or limit')
+        with self.connection(project_id) as connection:
+            head = connection.execute('SELECT COALESCE(MAX(seq),0) FROM channel_events').fetchone()[0]
+            events = connection.execute('''SELECT * FROM channel_events WHERE seq>?
+                ORDER BY seq LIMIT ?''', (after, limit)).fetchall()
+            changes = []
+            for row in events:
+                event = dict(row)
+                if event['kind'] == 'message':
+                    record = connection.execute('SELECT * FROM channel_messages WHERE id=?',
+                                                (event['record_id'],)).fetchone()
+                else:
+                    record = connection.execute('''SELECT r.*,d.decision,d.decided_by,
+                        d.reason AS decision_reason,d.decided_at,d.expires_at
+                        FROM permission_requests r LEFT JOIN permission_decisions d ON d.request_id=r.id
+                        WHERE r.id=?''', (event['record_id'],)).fetchone()
+                item = dict(record) if record else None
+                if item:
+                    item.pop('payload_hash', None)
+                    item.pop('client_id', None)
+                    if 'write_set_json' in item:
+                        item['writeSet'] = json.loads(item.pop('write_set_json'))
+                changes.append({'event': event, 'record': item})
+        next_seq = changes[-1]['event']['seq'] if changes else after
+        return {'headSequence': head, 'changes': changes, 'nextSequence': next_seq,
+                'hasMore': bool(changes and next_seq < head)}

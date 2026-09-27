@@ -1,6 +1,6 @@
 # ANS Dashboard（独立后端）
 
-Dashboard 可以部署一份服务，供多个项目共用。服务端保存用户、供同一项目角色共用的 Key、**展示快照**与协作记录；不需要上传业务仓库、角色文档全文或项目 SQLite 文件。每个项目通过 `/p/<project-id>/` 访问；所有启用的用户登录后默认可查看全部项目。本地同步器通过该项目的 Key 上传角色摘要、职责、边界路径、项目理解和任务状态。
+Dashboard 可以部署一份服务，供多个项目共用。服务端保存用户、供同一项目角色共用的 Key、**展示快照**与协作记录；不上传业务源码仓库或项目 SQLite 文件。新版手动同步还保存角色卡、边界和带日期文档的原文版本，以便拉取和查询历史。每个项目通过 `/p/<project-id>/` 访问；所有启用的用户登录后默认可查看全部项目，请只上传适合这些用户阅读的文档。
 
 仅部署云端时，复制整个 `dashboard/` 目录到服务器即可。它只使用 Python 3.10+ 标准库。可用下面的 Docker Compose 部署，也可直接运行 Python。项目业务语言不受 Python 限制。
 
@@ -101,22 +101,26 @@ server {
 
 ## 在项目本地同步
 
-同步端需要 `dashboard/` 代码和业务项目的本地读取权限；它不需要部署在云端服务器上。推荐在技能目录中为每个项目初始化一次本机配置：
+同步端需要 `dashboard/` 代码和业务项目的本地读取权限；它不需要部署在云端服务器上。**先备份服务器状态卷并更新服务器 Dashboard，再停止旧版 `dashboard.sync --interval` 进程**，新版默认只在用户运行命令时同步：
 
 ```sh
 python3 -m dashboard.local_config init \
   --project-id orders \
   --root /path/to/business-project \
   --server-url https://dashboard.example.com/ans-dashboard
-python3 -m dashboard.sync --root /path/to/business-project --interval 10
+python3 -m dashboard.versioned_sync --root /path/to/business-project --pull-only  # 只拉取
+python3 -m dashboard.versioned_sync --root /path/to/business-project              # 拉取后上传
 ```
 
-初始化时交互输入管理页生成的项目 Key，不会在命令行参数中出现。配置保存在**业务项目根目录**的 `.ans-dashboard.local.json`，权限为 `0600`；若项目使用 Git，初始化工具会把这个文件加入本地 `.git/info/exclude`，不会修改仓库的 `.gitignore`。不要强制添加或提交这个含 Key 的文件，也不要在 AI 对话、文档或项目理解中复制其内容。`python3 -m dashboard.local_config show --root /path/to/business-project` 只显示非密钥字段。更换 Key 时重新运行 `init` 并加 `--replace`。省略 `--interval` 即只同步一次。同步器和角色通信默认以当前目录为项目根目录；从技能目录运行时使用 `--root` 指向业务项目。若曾使用旧版用户目录配置，请重新初始化到项目目录；旧文件不会被自动删除。
+初始化时交互输入管理页生成的项目 Key，不会在命令行参数中出现。配置保存在**业务项目根目录**的 `.ans-dashboard.local.json`，权限为 `0600`；若项目使用 Git，初始化工具会把这个文件加入本地 `.git/info/exclude`，不会修改仓库的 `.gitignore`。不要强制添加或提交这个含 Key 的文件，也不要在 AI 对话、文档或项目理解中复制其内容。`python3 -m dashboard.local_config show --root /path/to/business-project` 只显示非密钥字段。更换 Key 时重新运行 `init` 并加 `--replace`。同步器和角色通信默认以当前目录为项目根目录；从技能目录运行时使用 `--root` 指向业务项目。若曾使用旧版用户目录配置，请重新初始化到项目目录；旧文件不会被自动删除。
 
-每次角色开始开发前，可在技能目录执行 `python3 scripts/check_dashboard_sync.py --root /path/to/business-project`。结果包含 `configured`、`running`、`lastSuccessAt`，不读取 Key。未配置时应询问项目是否需要云端；已配置但停止时不要声称服务器已有最新数据。持续同步用 `python3 -m dashboard.sync --root /path/to/business-project --interval 10` 启动；同一项目的第二个持续进程会被拒绝。`python3 -m dashboard.sync --root /path/to/business-project --status` 给出同一状态。状态检测只证明本机进程是否在运行，不代替云端回读验证。
-持续模式遇到短暂网络故障或服务器 5xx 会记录 `lastError` 并按间隔重试；无效请求、认证失败等不可重试的 4xx 会停止，预检显示 `running=false`。进程运行并不等于每次上传都成功，应同时检查 `lastSuccessAt` 和 `lastError`。
+新版每次手动同步先拉云端新版本，再把本地管理数据快照写入 Git 忽略的 `.ans/project.sqlite3` 并按版本上传；内容没变化就不重复上传。它会把角色卡、边界和带日期的设计/功能/修改/修复文档原文作为 `artifacts` 保存到云端版本记录，**不会上传业务源码**。本地 SQLite 保存已拉取的云端版本、待上传改动和冲突；当前云端版本可通过 `--remote-summary`、`--remote-artifact <项目相对路径>`、`--remote-context <角色ID>` 查询。拉取不会自动改写业务源码、角色文件或项目理解库；两边都改动时会停在冲突状态，等待人工核对。旧展示快照只含页面信息，不能当作完整的本地备份。
 
-原来的环境变量方式继续可用，且环境变量中的 Key 优先于本机配置。需要临时使用时，在同一终端执行：
+每次完成一项管理数据修改后，可立即运行 `python3 -m dashboard.versioned_sync --root /path/to/business-project --record` 将当前版本入本地 SQLite；这一步只记本地，不上传。用户决定同步时再执行上面的手动命令。历史设计可用 `--design-list`、`--design-path <相对路径>`、再加 `--design-revision <云端版本号>` 查询。发生冲突时先查看 Dashboard 记录和本地差异，取得客户决定后才运行 `--resolve <changeId> --choice local|cloud`；`cloud` 选择要求本地文件已经与云端版本一致，`local` 选择会以云端当前版本重新上传本地内容。一个冲突只提醒一次，不随每轮定时任务重复打扰。
+
+角色开始开发不需要检查同步服务。用户要求查看状态时，运行 `python3 -m dashboard.versioned_sync --root /path/to/business-project --status`；结果包含已知云端版本、待上传数量和冲突，不显示 Key。`scripts/check_dashboard_sync.py` 保留为兼容的只读状态入口，但不再写进角色卡作为必做项。只有用户明确选择定时模式时，才加 `--interval 10`；同一项目不能同时运行两个同步进程。服务器收到第一次新版同步后会拒绝该项目的旧 `/api/sync` 整份覆盖，因此**不能同时运行新旧同步器**。
+
+下面是**旧版 `dashboard.sync` 的兼容命令**，不用于新版双向同步。旧版环境变量中的 Key 优先于本机配置；需要临时使用时，在同一终端执行：
 
 ```sh
 read -r -s ANS_DASHBOARD_KEY
@@ -150,7 +154,7 @@ python3 -m dashboard.server --root /path/to/business-project --port 0
 
 ## 数据边界
 
-云端快照包括角色名称、职责摘要、边界路径、项目理解的流程/数据/接口/定义条目，以及任务状态、计划操作、写入范围、批次、反馈与协作事件。条目中的说明、字段和自定义引用会按原值同步，因为页面要展示这些内容；请在本地项目理解里只记录适合授权用户查看的信息。同步器不递归读取角色文档正文或完整仓库文件，并会剔除自动采集的项目根目录 URI。展示视图是观察页；协作收件箱可写入消息和决定，但 Dashboard 不负责派发角色、修改业务代码或自动验收。
+云端展示快照包括角色名称、职责摘要、边界路径、项目理解的流程/数据/接口/定义条目，以及任务状态、计划操作、写入范围、批次、反馈与协作事件。新版同步另外保存角色卡、边界、任务记录和带日期文档的受限原文版本；它只扫描约定的管理目录，不递归上传业务源码，且剔除项目根目录 URI。所有启用用户目前都可查看全部项目，请在上传前检查文档不含 Key、密码、客户隐私或不应共享的内容。展示视图是观察页；协作收件箱可写入消息和决定，但 Dashboard 不负责派发角色、修改业务代码或自动验收。
 
 流程图、分支条件、排查点和“这条流程做什么”也属于展示快照。旧版云端页面需更新 `dashboard/` 后才能画图；旧项目理解数据库可继续查看，写入新流程图前需按[项目理解说明](../references/project-context.md)显式升级本地数据库。
 

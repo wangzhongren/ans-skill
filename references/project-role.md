@@ -45,7 +45,7 @@ Maintain the [project–worker coordination table](coordination.md) as the sole 
 
 ## Role Activation and Customer Control
 
-The default project role performs the same cloud-sync preflight as every execution role before its first mutation: run the installed Skill's `scripts/check_dashboard_sync.py --root <project-root>`. If `configured` is false, ask once whether the customer wants a shared cloud Dashboard and preserve the answer across role changes. A configured but stopped process is reported as stale; a running process is reused, not duplicated. This check does not read the Key or authorize a role switch.
+Cloud synchronization is separate from role activation. The project role does not start a sync process or upload merely because it begins work or switches roles. When the customer asks to synchronize, inspect the local pending changes and conflicts with the manual Dashboard commands, then follow the customer's chosen action.
 
 Before each execution-role activation, in-place role switch, or subagent dispatch, require either customer consent covering that activation and task scope, or an applicable preauthorization in the project's designated, customer-approved role configuration. For example, a project may designate `.ans/project.yaml`; no filename by itself makes a file authoritative.
 

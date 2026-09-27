@@ -1,10 +1,12 @@
 """Local liveness lease for one continuous cloud-sync process per project."""
+from contextlib import closing
 from datetime import datetime, timezone
 import getpass
 import hashlib
 import json
 import os
 from pathlib import Path
+import sqlite3
 import tempfile
 
 from .local_config import config_path
@@ -151,7 +153,18 @@ def sync_status(root):
             state = json.loads(status_path.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             state = {}
-    return {'configured': configured, 'running': not acquired,
+    result = {'configured': configured, 'running': not acquired,
             'projectId': state.get('projectId'), 'intervalSeconds': state.get('intervalSeconds'),
             'lastSuccessAt': state.get('lastSuccessAt'), 'lastError': state.get('lastError'),
             'stoppedAt': state.get('stoppedAt')}
+    local_db = Path(root).expanduser().resolve()/'.ans'/'project.sqlite3'
+    if local_db.is_symlink():
+        raise ValueError('Local replica database must not be a symlink')
+    if local_db.is_file():
+        with closing(sqlite3.connect(local_db.as_uri()+'?mode=ro', uri=True, timeout=5)) as connection:
+            row = connection.execute('SELECT project_id,server_version FROM meta WHERE singleton=1').fetchone()
+            pending = connection.execute("SELECT COUNT(*) FROM local_changes WHERE status='ready'").fetchone()[0]
+            conflicts = connection.execute('SELECT COUNT(*) FROM conflicts WHERE resolved=0').fetchone()[0]
+        result.update(syncMode='versioned', projectId=row[0], serverVersion=row[1],
+                      pendingChanges=pending, conflicts=conflicts)
+    return result

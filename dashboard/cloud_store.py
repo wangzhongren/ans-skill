@@ -304,6 +304,14 @@ class CloudStore:
             raise ValueError('Projection requires snapshot roles and contexts')
         if snapshot.get('projectId') != project_id:
             raise ValueError('Projection projectId mismatch')
+        with self.connection() as connection:
+            if connection.execute('SELECT 1 FROM projects WHERE id=?', (project_id,)).fetchone() is None:
+                raise ValueError('Project not found')
+        path = self.ensure_project_db(project_id)
+        with closing(sqlite3.connect(path, timeout=5)) as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_meta'").fetchone():
+                if db.execute('SELECT active FROM sync_meta WHERE singleton=1').fetchone()[0]:
+                    raise ValueError('Legacy overwrite is disabled after versioned sync starts')
         clean_snapshot = dict(snapshot)
         clean_snapshot.pop('projectRootUri', None)
         clean_snapshot['projectId'] = project_id
