@@ -17,7 +17,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 import uuid
 
 from .cloud_store import PROJECT_ID, utcnow
-from .local_config import load_project_config
+from .local_config import load_project_config, resolve_document_roots
 from .paths import normalize_base_path
 from .sync_runtime import SyncAlreadyRunning, SyncLease, sync_status
 
@@ -155,11 +155,22 @@ class ProjectReplica:
                 'differences': changed, 'candidateAvailable': candidate_available}
 
     def design_history(self, project_id, path=None, revision=None):
+        return self._document_history(project_id, path, revision, design_only=True)
+
+    def document_history(self, project_id, path=None, revision=None):
+        return self._document_history(project_id, path, revision, design_only=False)
+
+    def _document_history(self, project_id, path, revision, design_only):
         if path is not None and (not isinstance(path, str) or len(path) > 300 or
-                                 path.startswith('/') or '..' in Path(path).parts):
-            raise ValueError('Invalid design document path')
+                                 path.startswith('/') or '\\' in path or '\x00' in path or
+                                 '..' in Path(path).parts):
+            if design_only:
+                raise ValueError('Invalid design document path')
+            raise ValueError('Invalid document path')
         if revision is not None and (type(revision) is not int or revision < 1):
-            raise ValueError('Invalid design revision')
+            if design_only:
+                raise ValueError('Invalid design revision')
+            raise ValueError('Invalid document revision')
         with closing(self._open(project_id)) as db:
             rows = db.execute('SELECT revision,content_json,created_at FROM sync_versions ORDER BY revision').fetchall()
         documents = {}
@@ -167,7 +178,9 @@ class ProjectReplica:
         for number, raw, stamp in rows:
             artifacts = json.loads(raw).get('artifacts', {})
             for name, content in artifacts.items():
-                if not isinstance(content, str) or 'design' not in Path(name).parts or not name.endswith('.md'):
+                if not isinstance(content, str) or not name.endswith('.md'):
+                    continue
+                if design_only and 'design' not in Path(name).parts:
                     continue
                 signature = hashlib.sha256(content.encode('utf-8')).hexdigest()
                 if last_hash.get(name) == signature:
@@ -177,15 +190,22 @@ class ProjectReplica:
                     'id': match.group(1) if match else None, 'createdAt': stamp, 'content': content})
                 last_hash[name] = signature
         if path is None:
-            return {'documents': [{'path': name, 'id': versions[-1]['id'],
-                                    'latestRevision': versions[-1]['revision'], 'versionCount': len(versions)}
-                                   for name, versions in sorted(documents.items())][:200]}
+            items = [{'path': name, 'id': versions[-1]['id'],
+                      'latestRevision': versions[-1]['revision'], 'versionCount': len(versions)}
+                     for name, versions in sorted(documents.items())]
+            if design_only:
+                items = items[:200]
+            return {'documents': items}
         versions = documents.get(path, [])
+        if not versions and not design_only:
+            raise ValueError('云端没有这份文档：'+path)
         if revision is None:
             return {'path': path, 'versions': [{k: v for k, v in item.items() if k != 'content'} for item in versions]}
         item = next((item for item in versions if item['revision'] == revision), None)
         if item is None:
-            raise ValueError('Design document version not found')
+            if design_only:
+                raise ValueError('Design document version not found')
+            raise ValueError('Document version not found')
         return {'path': path, **item}
 
     def report_conflict(self, project_id, value):
@@ -508,30 +528,45 @@ class LocalReplica:
             db.commit()
 
 
-def capture(root, project_id):
+def capture(root, project_id, document_roots=None):
     from .sync import projection
     root = Path(root).expanduser().resolve()
+    if document_roots is None:
+        config = load_project_config(root, project_id)
+        document_roots = []
+        if config is not None:
+            document_roots = config.get('documentRoots', [])
+    configured_directories = resolve_document_roots(root, document_roots)
     value = projection(root, project_id)
     value['snapshot'].pop('projectRootUri', None)
     value['snapshot'].pop('sampledAt', None)
     artifacts, total = {}, 0
-    parents = [root/name for name in ('角色卡', 'role-cards', 'doc', 'docs')]
-    for parent in parents:
+    parents = [(root/name, False) for name in ('角色卡', 'role-cards', 'doc', 'docs')]
+    parents.extend((directory, True) for directory in configured_directories)
+    for parent, configured in parents:
         if not parent.is_dir() or parent.is_symlink():
             continue
-        for path in parent.rglob('*'):
+        for path in sorted(parent.rglob('*')):
             if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(root):
                 continue
             relative = path.relative_to(root)
-            if path.name not in ('role-card.md', 'boundary.md', 'functional-description.md', 'api-spec.md', 'changelog.md') and not (path.suffix in ('.md', '.json', '.jsonl') and any(part in ('design','feature','change','fix','scheduling') for part in relative.parts)):
+            name = relative.as_posix()
+            if name in artifacts:
                 continue
-            if len(artifacts) >= 300 or path.stat().st_size > 256 * 1024:
-                raise ValueError('Too many or oversized governance documents')
+            if configured:
+                if path.suffix != '.md':
+                    continue
+            elif path.name not in ('role-card.md', 'boundary.md', 'functional-description.md', 'api-spec.md', 'changelog.md') and not (path.suffix in ('.md', '.json', '.jsonl') and any(part in ('design','feature','change','fix','scheduling') for part in relative.parts)):
+                continue
+            if len(artifacts) >= 300:
+                raise ValueError('Document count exceeds 300; next document: '+name)
+            if path.stat().st_size > 256 * 1024:
+                raise ValueError('Document exceeds 256 KiB: '+name)
             text = path.read_text(encoding='utf-8')
             total += len(text.encode('utf-8'))
             if total > 4 * 1024 * 1024:
-                raise ValueError('Governance documents exceed 4 MiB')
-            artifacts[relative.as_posix()] = text
+                raise ValueError('Governance documents exceed 4 MiB; document: '+name)
+            artifacts[name] = text
     value['artifacts'] = artifacts
     return value
 
@@ -619,12 +654,20 @@ def main(argv=None):
     parser.add_argument('--design-list', action='store_true')
     parser.add_argument('--design-path')
     parser.add_argument('--design-revision', type=int)
+    parser.add_argument('--document-list', action='store_true')
+    parser.add_argument('--document-path')
+    parser.add_argument('--document-revision', type=int)
     parser.add_argument('--remote-summary', action='store_true')
     parser.add_argument('--remote-artifact')
     parser.add_argument('--remote-context')
     parser.add_argument('--local-history', metavar='ENTITY_KEY')
     parser.add_argument('--channel-after', type=int, metavar='SEQ')
     args = parser.parse_args(argv)
+    if args.document_revision is not None:
+        if not args.document_path or args.document_revision < 1:
+            parser.error('--document-revision requires --document-path and a positive version')
+    if (args.document_list or args.document_path) and (args.design_list or args.design_path):
+        parser.error('Use either document history or design history in one command')
     root = args.root.expanduser().resolve()
     if args.status:
         print(json.dumps(sync_status(root), ensure_ascii=False))
@@ -650,7 +693,10 @@ def main(argv=None):
         print(json.dumps({'changes': local.channel_history(args.channel_after)}, ensure_ascii=False, indent=2))
         return 0
     if args.record:
-        changed = local.observe(capture(root, config['projectId']))
+        try:
+            changed = local.observe(capture(root, config['projectId']))
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
         print(json.dumps({'recorded': changed, **local.state()}, ensure_ascii=False))
         return 0
     if args.remote_summary or args.remote_artifact or args.remote_context:
@@ -674,16 +720,29 @@ def main(argv=None):
                               'artifacts': sorted(data.get('artifacts', {})),
                               'contextRoles': sorted(data.get('contexts', {}))}, ensure_ascii=False, indent=2))
         return 0
-    if args.design_list or args.design_path:
-        action = 'design-docs'
-        if args.design_path:
-            action += '?path='+quote(args.design_path, safe='')
-            if args.design_revision is not None:
-                action += '&revision='+str(args.design_revision)
+    if args.design_list or args.design_path or args.document_list or args.document_path:
+        if args.document_list or args.document_path:
+            action = 'document-history'
+            path, revision = args.document_path, args.document_revision
+        else:
+            action = 'design-docs'
+            path, revision = args.design_path, args.design_revision
+        if path:
+            action += '?path='+quote(path, safe='')
+            if revision is not None:
+                action += '&revision='+str(revision)
         try:
             print(json.dumps(request(config['serverUrl'], config['projectId'],
                                      config['projectKey'], action), ensure_ascii=False, indent=2))
             return 0
+        except HTTPError as error:
+            try:
+                detail = json.load(error)
+            except (OSError, ValueError) as detail_error:
+                print(str(error)+'; '+str(detail_error), file=sys.stderr)
+            else:
+                print(detail.get('error', str(error)), file=sys.stderr)
+            return 2
         except (OSError, ValueError, URLError) as error:
             print(str(error), file=sys.stderr)
             return 2

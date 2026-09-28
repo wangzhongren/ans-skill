@@ -71,6 +71,39 @@ class LocalConfigTests(unittest.TestCase):
             save_project_config('dkds', self.root, 'http://example.com', self.key)
         self.assertFalse(config_path(self.root).exists())
 
+    def test_document_roots_are_configurable_and_survive_key_rotation(self):
+        roots = ['kefuAgent/src/platform/docs/dev_docs', 'kefuAgent/src/platform/docs/bug_docs']
+        for name in roots:
+            (self.root/name).mkdir(parents=True)
+        with patch('dashboard.local_config.getpass.getpass', return_value=self.key), redirect_stdout(io.StringIO()):
+            config_main(['init', '--project-id', 'dkds', '--root', str(self.root),
+                         '--server-url', 'https://example.com',
+                         '--document-root', roots[0], '--document-root', roots[1]])
+        self.assertEqual(load_project_config(self.root)['documentRoots'], roots)
+        save_project_config('dkds', self.root, 'https://example.com', 'ansp_new-key', replace=True)
+        self.assertEqual(load_project_config(self.root)['documentRoots'], roots)
+        shown = io.StringIO()
+        with redirect_stdout(shown):
+            config_main(['show', '--root', str(self.root)])
+        self.assertEqual(json.loads(shown.getvalue())['documentRoots'], roots)
+        self.assertNotIn('ansp_new-key', shown.getvalue())
+        self.assertEqual(stat.S_IMODE(config_path(self.root).stat().st_mode), 0o600)
+        save_project_config('dkds', self.root, 'https://example.com', self.key,
+                            replace=True, document_roots=[])
+        self.assertEqual(load_project_config(self.root)['documentRoots'], [])
+
+    def test_invalid_document_roots_do_not_write_configuration(self):
+        outside = Path(self.temp.name)/'outside'
+        outside.mkdir()
+        (self.root/'linked').symlink_to(outside, target_is_directory=True)
+        (self.root/'not-a-directory.md').write_text('# document', encoding='utf-8')
+        for roots in ('docs', [42], ['../outside'], [str(outside)], ['C:/outside'],
+                      ['missing'], ['linked'], ['not-a-directory.md']):
+            with self.subTest(roots=roots), self.assertRaises(ValueError):
+                save_project_config('dkds', self.root, 'https://example.com', self.key,
+                                    document_roots=roots)
+            self.assertFalse(config_path(self.root).exists())
+
     def test_explicit_arguments_and_environment_still_work_without_config(self):
         with patch.dict(os.environ, {'ANS_DASHBOARD_KEY': self.key}), \
              patch('dashboard.sync.projection', return_value={'schemaVersion': 1}), \

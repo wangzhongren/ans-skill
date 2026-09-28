@@ -3,7 +3,7 @@ import argparse
 import getpass
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import stat
 import subprocess
 import tempfile
@@ -31,6 +31,39 @@ def validate_server_url(server_url):
     return server_url.rstrip('/')
 
 
+def validate_document_roots(value):
+    if not isinstance(value, list):
+        raise ValueError('documentRoots must be a list of project-relative directories')
+    roots = []
+    for name in value:
+        if (not isinstance(name, str) or not name.strip() or '\\' in name or '\x00' in name or
+                Path(name).is_absolute() or PureWindowsPath(name).is_absolute() or
+                '..' in Path(name).parts):
+            raise ValueError('documentRoots must contain project-relative directories without ..')
+        relative = Path(name).as_posix()
+        if relative not in roots:
+            roots.append(relative)
+    return roots
+
+
+def resolve_document_roots(root, value):
+    root = Path(root).expanduser().resolve()
+    directories = []
+    for name in validate_document_roots(value):
+        directory = root/name
+        current = directory
+        while current != root:
+            if current.is_symlink():
+                raise ValueError('Document directory must not use a symlink: '+name)
+            current = current.parent
+        if not directory.resolve().is_relative_to(root):
+            raise ValueError('Document directory must remain inside the project: '+name)
+        if not directory.is_dir():
+            raise ValueError('Document directory does not exist: '+name)
+        directories.append(directory)
+    return directories
+
+
 def validate_config(config, project_id=None):
     if not isinstance(config, dict) or config.get('schemaVersion') != 1:
         raise ValueError('Invalid local project configuration')
@@ -43,6 +76,8 @@ def validate_config(config, project_id=None):
     key = config.get('projectKey')
     if not isinstance(key, str) or not key.startswith('ansp_') or not 5 < len(key) <= 256:
         raise ValueError('Invalid project Key')
+    if 'documentRoots' in config:
+        validate_document_roots(config['documentRoots'])
     return config
 
 
@@ -96,18 +131,23 @@ def exclude_from_git(root, path):
         raise ValueError('Git did not ignore the local project configuration')
 
 
-def save_project_config(project_id, root, server_url, key, replace=False):
+def save_project_config(project_id, root, server_url, key, replace=False, document_roots=None):
     root = Path(root).expanduser().resolve()
     if not root.is_dir():
         raise ValueError('Project root does not exist')
-    config = validate_config({'schemaVersion': 1, 'projectId': project_id,
-                              'serverUrl': validate_server_url(server_url),
-                              'projectKey': key})
     path = config_path(root)
     if path.is_symlink():
         raise ValueError('Local project configuration must not be a symlink')
     if path.exists() and not replace:
         raise ValueError('Local project configuration already exists; use --replace to update it')
+    if path.exists() and document_roots is None:
+        document_roots = load_project_config(root).get('documentRoots')
+    config = {'schemaVersion': 1, 'projectId': project_id,
+              'serverUrl': validate_server_url(server_url), 'projectKey': key}
+    if document_roots is not None:
+        config['documentRoots'] = validate_document_roots(document_roots)
+        resolve_document_roots(root, config['documentRoots'])
+    config = validate_config(config)
     exclude_from_git(root, path)
     fd, temporary = tempfile.mkstemp(prefix='.ans-dashboard-', dir=root)
     try:
@@ -130,6 +170,8 @@ def main(argv=None):
     initialize.add_argument('--root', type=Path, required=True)
     initialize.add_argument('--server-url', required=True)
     initialize.add_argument('--replace', action='store_true', help='Replace an existing local configuration')
+    initialize.add_argument('--document-root', action='append',
+                            help='Additional project-relative Markdown directory; repeat for multiple directories')
     show = commands.add_parser('show', help='Show configuration without revealing the Key')
     show.add_argument('--root', type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
@@ -139,14 +181,16 @@ def main(argv=None):
             if path.exists() and not args.replace:
                 raise ValueError('Local project configuration already exists; use --replace to update it')
             key = getpass.getpass('Project Key: ')
-            path = save_project_config(args.project_id, args.root, args.server_url, key, args.replace)
+            path = save_project_config(args.project_id, args.root, args.server_url, key,
+                                       args.replace, args.document_root)
             print('Saved '+str(path))
         else:
             config = load_project_config(args.root)
             if config is None:
                 raise ValueError('Local project configuration not found')
             shown = {'schemaVersion': config['schemaVersion'], 'projectId': config['projectId'],
-                     'serverUrl': config['serverUrl'], 'root': str(Path(args.root).expanduser().resolve())}
+                     'serverUrl': config['serverUrl'], 'root': str(Path(args.root).expanduser().resolve()),
+                     'documentRoots': config.get('documentRoots', [])}
             print(json.dumps(shown, ensure_ascii=False, indent=2))
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.error(str(error))

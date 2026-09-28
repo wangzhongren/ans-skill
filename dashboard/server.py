@@ -561,11 +561,15 @@ def make_handler(dashboard=None, cloud_store=None, trusted_hosts=(), insecure_lo
                 self.json_response(200, writes.call(project_replica.conflict_detail,
                                                     project_id, int(conflict_match.group(1))))
                 return
-            if subpath == '/api/design-docs':
+            if subpath in ('/api/design-docs', '/api/document-history'):
                 query = parse_qs(parsed.query)
                 path = query.get('path', [None])[0]
                 revision = query.get('revision', [None])[0]
-                self.json_response(200, writes.call(project_replica.design_history,
+                if subpath == '/api/document-history':
+                    history = project_replica.document_history
+                else:
+                    history = project_replica.design_history
+                self.json_response(200, writes.call(history,
                     project_id, path, int(revision) if revision is not None else None))
                 return
             value = cloud_store.projection(project_id)

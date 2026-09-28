@@ -89,6 +89,38 @@ class StoreTests(unittest.TestCase):
                 'changeId': 'unsafe', 'data': bad})
         self.assertEqual(self.replica.changes('alpha')['headVersion'], 0)
 
+    def test_document_history_reads_nested_paths_and_changed_versions(self):
+        path = 'kefuAgent/src/platform/docs/dev_docs/方案.md'
+        bug_path = 'kefuAgent/src/platform/docs/bug_docs/方案.md'
+        first = sample()
+        first['artifacts'].update({path: '# First', bug_path: '# Bug', 'docs/design/raw.json': '{}'})
+        self.replica.publish('alpha', {'schemaVersion': 2, 'baseRevision': 0,
+                            'changeId': 'first', 'data': first})
+        second = json.loads(json.dumps(first))
+        second['artifacts'][path] = '# Second'
+        self.replica.publish('alpha', {'schemaVersion': 2, 'baseRevision': 1,
+                            'changeId': 'second', 'data': second})
+        history = self.replica.document_history('alpha', path)
+        self.assertEqual([item['revision'] for item in history['versions']], [1, 2])
+        self.assertEqual(self.replica.document_history('alpha', path, 1)['content'], '# First')
+        self.assertEqual(self.replica.document_history('alpha', path, 2)['content'], '# Second')
+        self.assertEqual(len(self.replica.document_history('alpha', bug_path)['versions']), 1)
+        listed = self.replica.document_history('alpha')['documents']
+        self.assertEqual({item['path'] for item in listed}, {path, bug_path, 'docs/design/example.md'})
+        self.assertEqual([item['path'] for item in self.replica.design_history('alpha')['documents']],
+                         ['docs/design/example.md'])
+        with self.assertRaisesRegex(ValueError, '云端没有这份文档'):
+            self.replica.document_history('alpha', 'not-uploaded.md')
+        with self.assertRaises(ValueError):
+            self.replica.document_history('alpha', '../outside.md')
+
+    def test_document_history_does_not_truncate_at_200(self):
+        value = sample()
+        value['artifacts'] = {'custom/'+str(number)+'.md': '# document' for number in range(228)}
+        self.replica.publish('alpha', {'schemaVersion': 2, 'baseRevision': 0,
+                            'changeId': 'many-documents', 'data': value})
+        self.assertEqual(len(self.replica.document_history('alpha')['documents']), 228)
+
     def test_channel_cursor_reads_past_recent_100(self):
         channel = ChannelStore(self.cloud)
         with channel.connection('alpha') as db:
@@ -197,6 +229,66 @@ class LocalTests(unittest.TestCase):
             self.assertEqual(a['artifacts']['docs/design/2026-09-26_design_example.md'], '# design\n')
             self.assertNotIn('sampledAt', a['snapshot'])
 
+    def test_capture_uses_configured_roots_and_keeps_distinct_paths(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root)
+            base = 'kefuAgent/src/platform/docs'
+            dev, bug = source/base/'dev_docs', source/base/'bug_docs'
+            dev.mkdir(parents=True)
+            bug.mkdir()
+            (dev/'same.md').write_text('# Design', encoding='utf-8')
+            (bug/'same.md').write_text('# Fix', encoding='utf-8')
+            (dev/'source.py').write_text('print("not uploaded")', encoding='utf-8')
+            (dev/'key.txt').write_text('ansp_private-key', encoding='utf-8')
+            (source/'unselected').mkdir()
+            (source/'unselected/other.md').write_text('# not selected', encoding='utf-8')
+            default = source/'docs/design'
+            default.mkdir(parents=True)
+            (default/'current.md').write_text('# Default', encoding='utf-8')
+            save_project_config('alpha', source, 'https://example.com', 'ansp_test-key',
+                                document_roots=[base, base+'/dev_docs', 'docs'])
+            value = capture(source, 'alpha')
+            self.assertEqual(value['artifacts'], {base+'/dev_docs/same.md': '# Design',
+                base+'/bug_docs/same.md': '# Fix', 'docs/design/current.md': '# Default'})
+            self.assertEqual(fingerprint(value), fingerprint(capture(source, 'alpha')))
+            self.assertNotIn('ansp_', json.dumps(value))
+
+    def test_capture_rejects_missing_directories_and_skips_symlinked_files(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
+            source = Path(root)
+            docs = source/'custom'
+            docs.mkdir()
+            (Path(outside)/'private.md').write_text('# outside', encoding='utf-8')
+            (docs/'linked.md').symlink_to(Path(outside)/'private.md')
+            (source/'linked').symlink_to(outside, target_is_directory=True)
+            self.assertEqual(capture(source, 'alpha', ['custom'])['artifacts'], {})
+            for directory in ('missing', 'linked', '../outside'):
+                with self.subTest(directory=directory), self.assertRaises(ValueError):
+                    capture(source, 'alpha', [directory])
+
+    def test_capture_enforces_document_count_and_size_limits(self):
+        with tempfile.TemporaryDirectory() as root:
+            docs = Path(root)/'custom'
+            docs.mkdir()
+            for number in range(300):
+                (docs/(str(number)+'.md')).write_text('# document', encoding='utf-8')
+            self.assertEqual(len(capture(root, 'alpha', ['custom', 'custom'])['artifacts']), 300)
+            (docs/'extra.md').write_text('# extra', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'count exceeds 300'):
+                capture(root, 'alpha', ['custom'])
+        with tempfile.TemporaryDirectory() as root:
+            docs = Path(root)/'custom'
+            docs.mkdir()
+            oversized = docs/'large.md'
+            oversized.write_text('x'*(256*1024+1), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'exceeds 256 KiB.*large.md'):
+                capture(root, 'alpha', ['custom'])
+            oversized.unlink()
+            for number in range(17):
+                (docs/(str(number)+'.md')).write_text('x'*(256*1024), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'exceed 4 MiB'):
+                capture(root, 'alpha', ['custom'])
+
     def test_each_recorded_document_change_has_local_sqlite_history(self):
         with tempfile.TemporaryDirectory() as root:
             local = LocalReplica(root, 'alpha')
@@ -233,6 +325,61 @@ class LocalTests(unittest.TestCase):
 
 
 class HTTPTests(unittest.TestCase):
+    def test_nested_documents_sync_and_history_cli_under_base_path(self):
+        with tempfile.TemporaryDirectory() as state, tempfile.TemporaryDirectory() as project:
+            store = CloudStore(state)
+            key = store.create_key('alpha', 'local')['key']
+            other_key = store.create_key('beta', 'other')['key']
+            prefix = '/ans-dashboard'
+            server = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(
+                cloud_store=store, insecure_local=True, base_path=prefix))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                source = Path(project)
+                paths = ['kefuAgent/src/platform/docs/dev_docs/方案.md',
+                         'kefuAgent/src/platform/docs/bug_docs/问题.md']
+                for path in paths:
+                    document = source/path
+                    document.parent.mkdir(parents=True, exist_ok=True)
+                    document.write_text('# First', encoding='utf-8')
+                url = 'http://127.0.0.1:'+str(server.server_port)+prefix
+                save_project_config('alpha', source, url, key,
+                    document_roots=['kefuAgent/src/platform/docs/dev_docs',
+                                    'kefuAgent/src/platform/docs/bug_docs'])
+                with redirect_stdout(io.StringIO()):
+                    self.assertEqual(sync_main(['--root', project]), 0)
+                (source/paths[0]).write_text('# Second', encoding='utf-8')
+                with redirect_stdout(io.StringIO()):
+                    self.assertEqual(sync_main(['--root', project]), 0)
+
+                def query(*arguments):
+                    output = io.StringIO()
+                    with redirect_stdout(output):
+                        self.assertEqual(sync_main(['--root', project, *arguments]), 0)
+                    return json.loads(output.getvalue())
+
+                listed = query('--document-list')['documents']
+                self.assertEqual({item['path'] for item in listed}, set(paths))
+                history = query('--document-path', paths[0])['versions']
+                self.assertEqual([item['revision'] for item in history], [1, 2])
+                self.assertEqual(query('--document-path', paths[0], '--document-revision', '1')['content'], '# First')
+                self.assertEqual(query('--document-path', paths[0], '--document-revision', '2')['content'], '# Second')
+                self.assertEqual(query('--design-list')['documents'], [])
+                errors = io.StringIO()
+                with redirect_stderr(errors):
+                    self.assertEqual(sync_main(['--root', project, '--document-path', 'missing.md']), 2)
+                self.assertIn('云端没有这份文档', errors.getvalue())
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(Request(url+'/p/alpha/api/document-history',
+                                    headers={'Authorization': 'Bearer '+other_key}), timeout=5)
+                self.assertEqual(caught.exception.code, 403)
+                caught.exception.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
     def test_manual_cli_end_to_end_and_no_upload_on_record_or_pull(self):
         with tempfile.TemporaryDirectory() as state, tempfile.TemporaryDirectory() as project:
             store = CloudStore(state)

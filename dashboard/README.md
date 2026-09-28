@@ -114,6 +114,39 @@ python3 -m dashboard.versioned_sync --root /path/to/business-project            
 
 初始化时交互输入管理页生成的项目 Key，不会在命令行参数中出现。配置保存在**业务项目根目录**的 `.ans-dashboard.local.json`，权限为 `0600`；若项目使用 Git，初始化工具会把这个文件加入本地 `.git/info/exclude`，不会修改仓库的 `.gitignore`。不要强制添加或提交这个含 Key 的文件，也不要在 AI 对话、文档或项目理解中复制其内容。`python3 -m dashboard.local_config show --root /path/to/business-project` 只显示非密钥字段。更换 Key 时重新运行 `init` 并加 `--replace`。同步器和角色通信默认以当前目录为项目根目录；从技能目录运行时使用 `--root` 指向业务项目。若曾使用旧版用户目录配置，请重新初始化到项目目录；旧文件不会被自动删除。
 
+### 项目文档放在其他目录时
+
+默认收集项目根目录 `角色卡/`、`role-cards/`、`doc/`、`docs/` 下的角色文档和标准增改修设计记录。已有项目的文档位置不同，可以在上述本地配置文件中增加 `documentRoots`。下面只展示新增字段；保留文件中原有的项目 ID、服务器地址和 Key：
+
+```json
+{
+  "documentRoots": [
+    "kefuAgent/src/platform/docs/dev_docs",
+    "kefuAgent/src/platform/docs/bug_docs"
+  ]
+}
+```
+
+额外目录必须是项目内已存在的相对目录，用 `/` 分隔。同步器递归收集其中的 `.md` 原文，保留完整相对路径；同名不同路径的文档分别保存，重叠目录不会重复收集。不需要移动或改名旧文档。绝对路径、`..` 和符号链接目录会报错，符号链接文件及非 Markdown 文件不收集。现有上限仍为 300 份文档、单份 256 KiB、文档原文合计 4 MiB，超限会停止并说明原因。
+
+首次运行 `dashboard.local_config init` 时也可重复传入 `--document-root <相对目录>`。更换 Key 时若没有传此参数，会保留已配置目录；`show` 会显示目录但隐藏 Key。没有 `documentRoots` 的旧配置继续按默认范围收集。配置后仍由用户运行原来的手动同步命令上传，没有新增预览命令。
+
+### 查询已上传文档的历史
+
+更新云端后端后，可查询所有已上传 Markdown，不再要求它放在名为 `design` 的目录：
+
+```sh
+python3 -m dashboard.versioned_sync --root /path/to/business-project --document-list
+python3 -m dashboard.versioned_sync --root /path/to/business-project \
+  --document-path 'kefuAgent/src/platform/docs/dev_docs/方案.md'
+python3 -m dashboard.versioned_sync --root /path/to/business-project \
+  --document-path 'kefuAgent/src/platform/docs/dev_docs/方案.md' --document-revision 1
+```
+
+第一条列出文档路径和已保存版本数量；第二条列出某份文档的变更版本；第三条取回该文档在指定变更版本的原文。内容没变不会重复生成文档变更条目，首次上传也不能找回此前已经丢失的版本。未上传的文件会明确报“云端没有这份文档”。接口为 `GET /p/<项目ID>/api/document-history`，支持 `path`、`revision` 查询参数，并沿用项目 Key 权限；服务器有路径前缀时，把前缀放在 `/p/` 前。
+
+原有 `--design-list`、`--design-path`、`--design-revision` 和 `/api/design-docs` 继续只查标准 `design` 目录。额外文档上传可使用已有版本存储接口，新的历史查询需要服务器部署本次代码；本地收集通过不代表云端已经更新或文件已经上传。
+
 新版每次手动同步先拉云端新版本，再把本地管理数据快照写入 Git 忽略的 `.ans/project.sqlite3` 并按版本上传；内容没变化就不重复上传。它会把角色卡、边界和带日期的设计/功能/修改/修复文档原文作为 `artifacts` 保存到云端版本记录，**不会上传业务源码**。本地 SQLite 保存已拉取的云端版本、待上传改动和冲突；当前云端版本可通过 `--remote-summary`、`--remote-artifact <项目相对路径>`、`--remote-context <角色ID>` 查询。拉取不会自动改写业务源码、角色文件或项目理解库；两边都改动时会停在冲突状态，等待人工核对。旧展示快照只含页面信息，不能当作完整的本地备份。
 
 每次完成一项管理数据修改后，可立即运行 `python3 -m dashboard.versioned_sync --root /path/to/business-project --record` 将当前版本入本地 SQLite；这一步只记本地，不上传。用户决定同步时再执行上面的手动命令。历史设计可用 `--design-list`、`--design-path <相对路径>`、再加 `--design-revision <云端版本号>` 查询。发生冲突时先查看 Dashboard 记录和本地差异，取得客户决定后才运行 `--resolve <changeId> --choice local|cloud`；`cloud` 选择要求本地文件已经与云端版本一致，`local` 选择会以云端当前版本重新上传本地内容。一个冲突只提醒一次，不随每轮定时任务重复打扰。
