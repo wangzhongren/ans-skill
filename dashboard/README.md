@@ -1,5 +1,7 @@
 # ANS Dashboard（独立后端）
 
+这是可选的旧 Dashboard 与云端工具。当前技能默认生成[本地架构 HTML](../references/role-architecture-viewer.md)，不启动 Dashboard，也不要求重复维护项目理解索引。已有用户、Key、同步和旧记录的功能保留，需要时继续按本文使用。
+
 Dashboard 可以部署一份服务，供多个项目共用。服务端保存用户、供同一项目角色共用的 Key、**展示快照**与协作记录；不上传业务源码仓库或项目 SQLite 文件。新版手动同步还保存角色卡、边界和带日期文档的原文版本，以便拉取和查询历史。每个项目通过 `/p/<project-id>/` 访问；所有启用的用户登录后默认可查看全部项目，请只上传适合这些用户阅读的文档。
 
 仅部署云端时，复制整个 `dashboard/` 目录到服务器即可。它只使用 Python 3.10+ 标准库。可用下面的 Docker Compose 部署，也可直接运行 Python。项目业务语言不受 Python 限制。

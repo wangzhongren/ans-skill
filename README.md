@@ -2,7 +2,7 @@
 
 ANS Skill 帮助 AI 在项目里回答三个问题：**谁可以改哪些文件、代码该放在哪、改完怎么验证**。它用角色卡限定文件范围，用五层规则约束调用方向，并把测试和文档作为交付的一部分。
 
-可以只在本地使用。Dashboard 用来查看角色、流程和任务记录；多人需要共享时，再接云端。**云端同步由用户手动触发**，角色开始工作不会自动上传。
+可以只在本地使用。默认用一份本地架构 HTML 查看角色配合、功能数据流和内部抽象；各角色只维护自己的 architecture.json，不再要求重复维护项目理解数据库。旧 Dashboard 和云端工具按需要使用。**云端同步由用户手动触发**，角色开始工作不会自动上传。
 
 ## 安装
 
@@ -38,19 +38,22 @@ git submodule update --init --recursive
 1. **确定角色、功能点和范围。**治理角色拟定角色卡与 `boundary.md`；角色卡列出这个角色主要负责的系统功能点，每个功能点各有一份当前说明。客户确认后，角色只能改边界第 1 节列出的文件。项目默认角色负责调查、架构设计、任务安排和验收，不直接代写业务源码。
 2. **沿五层设计和排查。**构建时通常按 `Model → Provider → Service → Pipeline → Interface` 思考；运行时只沿 `Interface → Pipeline → Service → Provider` 逐层调用，Model 供各层共享。简单功能不需要每层都新增文件。
 3. **先交文档，再实现。**先写对应的[设计、新增、修改或修复说明](references/documentation.md)，在聊天里简要讲给客户听。客户确认文档并授意按它修改后，执行角色才改自己负责的代码和测试。已确认的同版方案不用反复问；测试通过后才能称为已验证。
-4. **更新项目理解。**每个项目共用一份 `project-context/context.sqlite3`，按 `role_id` 区分角色。流程先写明用途、成功和失败结果，再记录真实的 `if/else` 分支、数据字段与接口；没有源码证据的内容保持待补充。
+4. **更新角色架构并交付页面。**架构变化后，各角色更新自己的 `architecture.json`；项目角色运行绘图工具并打开生成 HTML。功能文档写清用途、完整流程、分支及结果；图展示核实过的抽象与数据交接。缺失信息保持待补，不另维护 `content.json` 或 `context.sqlite3`。
 
-角色切换和派发必须有客户同意，或符合客户认可的项目预授权配置。角色卡归属本身不等于执行授权。[中文说明](SKILL.zh.md)、[五层架构](references/architecture.md)、[任务操作](references/task-operations.md)和[项目理解](references/project-context.md)分别说明细节。
+角色切换和派发必须有客户同意，或符合客户认可的项目预授权配置。角色卡归属本身不等于执行授权。[中文说明](SKILL.zh.md)、[五层架构](references/architecture.md)、[任务操作](references/task-operations.md)和[本地架构图](references/role-architecture-viewer.md)分别说明细节。
 
-## 查看 Dashboard
+## 查看本地架构页面（默认）
 
-在本地打开项目的只读 Dashboard：
+每个角色的数据放在 `角色卡/<角色>/architecture.json`。项目角色在已批准的文档输出范围内运行：
 
 ```sh
-python3 /path/to/ans-skill/scripts/serve_dashboard.py --root /path/to/project --port 0
+python3 /path/to/ans-skill/scripts/render_architecture.py \
+  --root /path/to/project --out doc/architecture/index.html
 ```
 
-打开命令打印的地址。页面显示角色、项目理解、阶段任务和协作事件；没有记录就显示为空，不会编造进度。它不会启动 AI 角色，也不会把云端审批直接变成本地写代码权限。详细使用见 [Dashboard 指南](dashboard/README.md)。
+打开命令打印的 HTML 文件。先看角色之间使用什么约定，再选功能看数据流；点击角色或模块，进入可展开的内部抽象图。模板自带脚本和样式，不需要后端、联网或额外的画图师角色。已有项目使用 `docs/` 时，将输出改成 `docs/architecture/index.html`，不新建第二套文档根。JSON 格式和更新规则见[使用说明](references/role-architecture-viewer.md)。
+
+旧 Dashboard 保留为可选工具；需要查看旧任务记录或已有项目理解数据时，再运行 `scripts/serve_dashboard.py`。不默认启动，也不要求角色填充旧索引。部署和命令仍见 [Dashboard 指南](dashboard/README.md)。
 
 ## 手动同步到云端（可选）
 
@@ -82,6 +85,6 @@ python3 -m dashboard.versioned_sync --root /path/to/project              # 先�
 python3 -m unittest discover -s scripts/tests -q
 ```
 
-设计与变更记录在 [`doc/`](doc/)；[完整总览](doc/guide/2026-09-25_guide_ans-skill-overview.md)解释角色、任务和数据如何配合。旧角色演示和全项目代码图谱只在明确要求时使用，不参与普通开发。
+设计与变更记录在 [`doc/`](doc/)；[中文说明](SKILL.zh.md)与[本地架构图说明](references/role-architecture-viewer.md)是当前入口。[旧 Dashboard 总览](doc/guide/2026-09-25_guide_ans-skill-overview.md)供可选旧工具参考；旧角色演示和全项目代码图谱只在明确要求时使用。
 
 本项目以 [Apache-2.0 许可证](LICENSE)开源。

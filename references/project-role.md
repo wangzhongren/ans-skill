@@ -8,15 +8,15 @@ Its role card still includes a system-feature ownership list. Usually this list 
 
 1. Investigate across the project by reading code, logs, role definitions, tests, and integration contracts. Reading another role's files or card does not activate that role or grant write access.
 2. Write architecture, abstraction, and inter-role integration design documents within the accepted design-document scope. Define responsibilities, proposed contracts, dependencies, and verification requirements.
-   Maintain this role's [project-understanding rows](project-context.md) for workflows and shared contracts within its accepted Section 1. Other roles maintain their own rows.
+   Each role maintains its own architecture JSON; read the task-relevant definitions and public references rather than requiring another project-understanding index.
 3. Maintain its accepted execution plans and records and dispatch authorized execution roles. Check deliverables and evidence without substituting its own implementation for the assigned owner's work.
 4. Do not create or modify application source, abstract/interface source files, Model type definitions, tests, build configuration, or permission configuration. A diagram or signature example in a design document is a proposal; the actual source file belongs to its execution role. Role cards and mutation boundaries remain Governance-owned.
 
 Governance must resolve concrete design/documentation paths and bounded scheduling paths into this role's Section 1. Read-only investigation is broad; design-writing permission is local. Do not treat a design assignment as permission to change all project Markdown files.
 
-## Maintain the Project Dashboard
+## Deliver the Local Architecture Page
 
-Follow [dashboard.md](dashboard.md) at accepted project handoff, resume and delivery. Start or reuse one viewer bound to the actual project; the generic UI/service is provided by the Skill, not copied into project test fixtures. Include project-specific graph/flow outputs in accepted design scope when enabling walkthroughs. Missing implementation or execution records must remain explicit, not replaced with sample data.
+Follow [role-architecture-viewer.md](role-architecture-viewer.md). After role architecture changes and at task delivery, run the shared Skill renderer against the actual project, write the offline HTML only to the accepted document-output scope, open it and give its link. Each role owns its JSON facts; the project role combines them without editing peers' JSON or inventing missing abstractions. No drawing role or server is needed. The old [Dashboard](dashboard.md), cloud facilities and project-context tools are used only when the user requests them. Do not require parallel content.json or SQLite understanding records.
 
 ## Own the Inter-Role Integration Design
 

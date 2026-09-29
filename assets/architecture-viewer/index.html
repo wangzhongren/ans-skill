@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>__PROJECT__ · 架构脉络</title>
+  <style>__STYLE__</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon">A</span><span>架构脉络</span><span class="local-tag">本地快照</span></div>
+    <span id="generated"></span>
+  </header>
+  <main>
+    <section class="intro">
+      <div><div class="eyebrow">PROJECT ARCHITECTURE</div><h1 id="project"></h1><p>先看角色如何配合，再沿着功能和抽象看清系统。</p></div>
+      <div class="summary" id="summary"></div>
+    </section>
+    <nav class="tabs" aria-label="架构视图">
+      <button data-view="roles" class="active">角色配合</button>
+      <button data-view="flows">数据流向</button>
+      <button data-view="internal">内部抽象</button>
+    </nav>
+    <div class="workspace">
+      <section class="canvas-panel">
+        <div class="panel-heading"><div><h2 id="view-title"></h2><p id="view-help"></p></div><div class="controls" id="controls"></div></div>
+        <div id="breadcrumb"></div>
+        <div class="graph-wrap" id="graph"></div>
+        <div class="legend" id="legend"></div>
+      </section>
+      <aside class="detail-panel" id="details" aria-live="polite"></aside>
+    </div>
+    <section class="issues-section" id="issues"></section>
+    <footer>图来自各角色维护的 architecture.json。更新 JSON 后重新生成；页面不会运行项目代码。</footer>
+  </main>
+  <script type="application/json" id="architecture-data">__DATA__</script>
+  <script>__APP__</script>
+</body>
+</html>

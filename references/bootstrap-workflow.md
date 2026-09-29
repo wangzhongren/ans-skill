@@ -26,7 +26,7 @@ For projects with no source code yet:
 
     **Section 1 requirements:** Application-source entries must list specific files. Supporting and governance directories may use conditional entries as defined in module-boundary.md. For Service and Provider capabilities, account for required contract, public-entry, and implementation files across the ownership map; a shared public entry has one owner and is read-only for other roles, rather than being duplicated in every whitelist.
 
-    The `docs/` subdirectory is a scaffold — the role fills it during implementation. Add a logical `project-context/context.sqlite3` row-scope entry for this role's `role_id` to its proposed Section 1. The shared database is created only on first authorized use; see [project-context.md](project-context.md).
+    The `docs/` subdirectory is a scaffold — the role fills it during implementation. Add this role's exact `architecture.json` path to its proposed Section 1. After acceptance, the owner fills verified or clearly planned abstractions under [role-architecture-viewer.md](role-architecture-viewer.md). Do not scaffold a parallel content.json or project-understanding SQLite database.
 
 4. **Identify shared abstractions:** Find every Model and cross-module contract (event bus, shared types, utility classes, public entry points). Assign each to exactly one role as **primary owner**. That role's Section 1 includes the shared file; other roles reference it as read-only. Record the planned contracts and owner dependencies in governance documents only. After acceptance, the activated owning role creates and verifies shared Model or contract source files before dependent implementation relies on them.
 5. **Create an assembly role:** For an executable application, assign one role the language-appropriate entry file, required build/test configuration, and layer-local wiring files. For a library, own its actual package entry rather than inventing an executable main. Resolve exact paths in the accepted whitelist.
@@ -43,15 +43,15 @@ For projects with existing source code that needs role mapping:
 2. For each capability, draft a module boundary document. **Section 1 lists the existing files this role owns** — not files to create. Describe the current architecture in the companion `functional-description.md`, not extra sections in the capability boundary document.
 3. **Identify shared abstractions:** Find cross-module contracts, shared models, and public entry points used by multiple capabilities. Assign each to exactly one role as **primary owner**. Other roles that already use it become read-only dependents.
 4. Create one role card per capability, referencing its boundary document. Reuse the accepted default project role, or create its card and boundary from project-role.md before requesting acceptance.
-   Include the role's logical `role_id` row scope in each new boundary; do not treat a missing entry in an existing accepted boundary as implied permission.
+   Include the role's own `architecture.json` path in each new boundary; do not treat a missing entry in an existing accepted boundary as implied permission. Do not add mandatory project-understanding SQLite scopes.
    Map actual system features to one primary role each and list them in that role card. After acceptance, the owning role writes one current-behavior `features/<feature-id>.md` per verified feature within its accepted scope. Check entry points, branches and results in source and tests; mark unverified details instead of guessing from names. See [feature-point.md](feature-point.md).
 5. **Full coverage scan:** Verify every source file is listed in exactly one role's Section 1. Treat duplicate ownership as a conflict to resolve before parallel work. Files not covered by any role are **unowned** — report them to the client for decision: add to an existing role, create a new role, or mark as orphaned and frozen.
 6. Present all artifacts as candidates for human acceptance (#3). Do not proceed to code changes until accepted.
 7. **After acceptance, activate the project scheduler for coordinated execution**, or a specifically authorized owning role for a standalone single-role task under the [Role Switching](../SKILL.md#role-switching) rules. Before a code stage, the customer must also confirm that stage's proposal document and instruct implementation from it. Routine work happens under the owning role's Section 1. Cross-role changes follow the same dispatch rules.
 
-## Dashboard Handoff
+## Architecture Viewer Handoff
 
-After the default project role and its scope are accepted, that role starts or reuses the shared Skill Dashboard against the real project root under [dashboard.md](dashboard.md). Include coordination records and requested design/role-graph outputs in its accepted scope; use the Skill's reusable assets/scripts rather than building a project-specific copy. Early roles without implementation can appear in overview with no fabricated execution or feature traces.
+After the default project role and its scope are accepted, that role generates and opens the offline architecture HTML under [role-architecture-viewer.md](role-architecture-viewer.md). Resolve one output path under the project's existing documentation root into its accepted scope; reuse the Skill's assets and renderer. Missing role JSON and references appear as missing, not fabricated implementations. The old Dashboard is optional and does not start automatically.
 
 ## Dependency-Aware Scheduling
 

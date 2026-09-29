@@ -74,6 +74,6 @@ Derive `board.md` or the chat table from JSON, displaying `stateRevision` and `l
 
 Completion requires current verified evidence for all required nodes and integrated checks where applicable. Table status alone cannot compensate for a stale design, failed test, or missing authorization.
 
-## Live Dashboard
+## Optional Live Dashboard
 
-Use [dashboard.md](dashboard.md) to view the same records in a local read-only dashboard with periodic refresh. The HTML is a derived view, not a second writer or a source of permissions; it does not replace the acknowledgment and verification protocol above.
+When the user requests it, use [dashboard.md](dashboard.md) to view the same records in the optional local read-only Dashboard. Do not start it by default. The default architecture HTML is generated separately from role JSON and does not claim to display live worker execution. Neither view is a source of permissions or a replacement for acknowledgment and verification.

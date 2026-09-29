@@ -1,18 +1,20 @@
-# Local Role Dashboard
+# Optional Legacy Role Dashboard
+
+The default project viewer is now the [offline architecture HTML](role-architecture-viewer.md), built from each role's architecture.json. Use this Dashboard only when the customer asks for its task, cloud or legacy project-context facilities. Do not automatically start it or require content.json/SQLite understanding data to be maintained. Existing records remain available; this reference does not authorize deletion.
 
 The [dashboard server](../dashboard/server.py) serves the [HTML viewer](../dashboard/index.html) using Python 3 standard-library HTTP tools. The old `scripts/serve_dashboard.py` path remains a compatibility entry point. It reads the [coordination records](coordination.md); it neither dispatches workers nor authorizes actions. Python is the tool implementation language, not a business-project requirement. For a shared server, follow the [standalone Dashboard deployment guide](../dashboard/README.md), including its Docker Compose and optional `--base-path` settings. The versioned client records local management snapshots in SQLite and synchronizes only when the user requests it; it never uploads the business source tree. Initialize the project-root `.ans-dashboard.local.json` with `python3 -m dashboard.local_config init`; it contains the Key and must remain untracked and out of prompts. When a prefix is configured, include it in the server URL.
 
 There is no role-activation sync preflight. When the customer requests synchronization or asks about its state, use `python3 -m dashboard.versioned_sync --root <project-root> --status` to read the local cloud version, pending changes and conflicts. This does not show the Key. Upload only in response to the customer's sync request; a conflict requires the customer's resolution choice. The local Dashboard remains read-only.
 
-## Default Per-Project Workflow
+## Optional Per-Project Workflow
 
-1. After bootstrap acceptance, the default project role loads this reference and establishes a dashboard for the actual project. Reuse a known running URL only after its `/api/snapshot` projectRootUri matches the selected project. Do not probe arbitrary ports or reuse another project's page based only on the folder name.
+1. When the customer explicitly requests the Dashboard, the default project role loads this reference and establishes it for the actual project. Reuse a known running URL only after its `/api/snapshot` projectRootUri matches the selected project. Do not probe arbitrary ports or reuse another project's page based only on the folder name.
 2. If no matching session is known, launch the installed Skill's server with an absolute script path, `--root` set to the actual project and `--port 0` to choose a free port. Keep the process in the task's managed terminal/session. Record its printed URL and process/session identifier in the task handoff, and avoid starting another instance for each worker or turn.
 3. Open the Dashboard with available app/browser tools and provide its URL. On resume, check the known session and reconnect or restart if needed. On completion, include the current URL and any hosting limitation; do not claim the process will survive app shutdown or reboot.
 4. The project role maintains approved plan/state/event records through the task gateway. Execution roles send feedback, not separate dashboards. Missing records remain unreported. The UI includes role overview, project understanding, tasks and coordination events in one place.
 5. Role graph content belongs to the actual project: generate its role overviews from accepted boundaries, and author function scenarios from its functional descriptions and real source once implementations exist. Keep generated graph/flow document paths in the project role's accepted design-output scope. Do not copy example functions or fabricate steps for source that does not exist. Only relevant role graph data is generated/loaded; the whole-codebase atlas remains opt-in.
 
-This is a standard workflow for this Skill, not a game-engine feature or an extra application module. Do not copy dashboard code into the project's src/ or test/ directories. Reuse the installed Dashboard and scripts, and let each project supply its own metadata. Respect an explicit user opt-out and unavailable hosting permissions; deploy remotely or add a persistent system service only when the user requests it.
+This is an optional legacy workflow. The new local architecture page is the default and does not need this server. When this Dashboard is requested, reuse the installed assets and scripts rather than copying them into the project's src/ or test/ directories. Deploy remotely or add a persistent system service only when the user requests it.
 
 ## Start and Stop
 

@@ -1,0 +1,96 @@
+{
+  "sourceProject": "test/game-engine",
+  "roles": [
+    {
+      "schemaVersion": 1,
+      "roleId": "场景管理",
+      "revision": 1,
+      "updatedAt": "2026-09-29",
+      "summary": "管理场景的创建、切换和更新；使用实体管理提供的数据定义。",
+      "abstractions": [
+        {"id": "场景管理:SceneManager", "name": "场景管理约定", "kind": "contract", "layer": "service", "public": true, "description": "管理场景的创建、查询、切换、销毁和更新。", "sourceRefs": ["src/services/abstract/scene.ts"]},
+        {"id": "场景管理:Scene", "name": "场景", "kind": "model", "layer": "model", "public": true, "description": "一个有名称、状态和实体引用的场景。", "sourceRefs": ["src/models/scene.ts"]},
+        {"id": "场景管理:SceneState", "name": "场景状态", "kind": "model", "layer": "model", "public": true, "description": "记录加载、活跃、未激活或已销毁状态。", "sourceRefs": ["src/models/scene.ts"]},
+        {"id": "场景管理:SceneLifecycle", "name": "生命周期约定", "kind": "contract", "layer": "model", "public": true, "description": "约定场景进入、退出和更新时调用的钩子。", "sourceRefs": ["src/models/scene.ts"]}
+      ],
+      "relations": [
+        {"from": "场景管理:SceneManager", "to": "场景管理:Scene", "kind": "manages"},
+        {"from": "场景管理:SceneManager", "to": "场景管理:SceneLifecycle", "kind": "uses"},
+        {"from": "场景管理:Scene", "to": "场景管理:SceneState", "kind": "contains"},
+        {"from": "场景管理:Scene", "to": "实体管理:Entity", "kind": "uses-model"}
+      ],
+      "features": [
+        {"id": "场景管理:switch", "name": "切换场景", "purpose": "退出当前场景，并激活指定场景。", "abstractionIds": ["场景管理:SceneManager", "场景管理:SceneLifecycle"], "sourceRefs": ["src/services/impl/scene/scene.manager.ts"]}
+      ],
+      "dataFlows": []
+    },
+    {
+      "schemaVersion": 1,
+      "roleId": "实体管理",
+      "revision": 1,
+      "updatedAt": "2026-09-29",
+      "summary": "管理实体、组件与查询，并提供其他角色共用的实体数据定义。",
+      "abstractions": [
+        {"id": "实体管理:EntityService", "name": "实体管理约定", "kind": "contract", "layer": "service", "public": true, "description": "提供实体创建、销毁、组件操作和查询。", "sourceRefs": ["src/services/abstract/entity.ts"]},
+        {"id": "实体管理:Entity", "name": "实体数据", "kind": "model", "layer": "model", "public": true, "description": "用 ID、组件、创建时间和存活标记描述一个实体。", "sourceRefs": ["src/models/ecs.ts"]},
+        {"id": "实体管理:Component", "name": "组件约定", "kind": "contract", "layer": "model", "public": true, "description": "每个组件用 type 标识自身的类型。", "sourceRefs": ["src/models/ecs.ts"]}
+      ],
+      "relations": [
+        {"from": "实体管理:EntityService", "to": "实体管理:Entity", "kind": "manages"},
+        {"from": "实体管理:Entity", "to": "实体管理:Component", "kind": "contains"}
+      ],
+      "features": [
+        {"id": "实体管理:create", "name": "创建实体", "purpose": "创建带唯一 ID 的实体，之后可以向它添加组件。", "abstractionIds": ["实体管理:EntityService"], "sourceRefs": ["src/services/abstract/entity.ts"]}
+      ],
+      "dataFlows": []
+    },
+    {
+      "schemaVersion": 1,
+      "roleId": "主循环",
+      "revision": 1,
+      "updatedAt": "2026-09-29",
+      "summary": "测量帧时长，计算固定更新步数，协调更新和渲染回调。",
+      "abstractions": [
+        {"id": "主循环:GameLoop", "name": "主循环约定", "kind": "contract", "layer": "pipeline", "public": true, "description": "组合计时和固定时间步长计算，管理开始、停止、暂停和恢复。", "sourceRefs": ["src/pipelines/gameloop/game.loop.ts"]},
+        {"id": "主循环:Timer", "name": "计时约定", "kind": "contract", "layer": "service", "public": true, "description": "提供帧时长、累计时间和帧数。时间值使用秒。", "sourceRefs": ["src/services/abstract/timer.ts"]},
+        {"id": "主循环:FixedTimestep", "name": "固定步长计算", "kind": "module", "layer": "pipeline", "public": false, "description": "将帧时长换算为更新步数和渲染插值。", "sourceRefs": ["src/pipelines/gameloop/fixed.timestep.ts"]}
+      ],
+      "relations": [
+        {"from": "主循环:GameLoop", "to": "主循环:Timer", "kind": "composes"},
+        {"from": "主循环:GameLoop", "to": "主循环:FixedTimestep", "kind": "composes"},
+        {"from": "主循环:GameLoop", "to": "装配:EngineConfig", "kind": "uses-model"},
+        {"from": "主循环:GameLoop", "to": "装配:FrameTiming", "kind": "uses-model"}
+      ],
+      "features": [
+        {"id": "主循环:frame", "name": "计算一帧的更新步数", "purpose": "根据实际帧时长，算出本帧应进行几次固定步长更新。", "abstractionIds": ["主循环:GameLoop", "主循环:Timer", "主循环:FixedTimestep"], "sourceRefs": ["src/pipelines/gameloop/game.loop.ts"]}
+      ],
+      "dataFlows": [
+        {"id": "主循环:elapsed", "featureId": "主循环:frame", "from": "主循环:Timer", "to": "主循环:GameLoop", "data": "帧时长 deltaTime（秒）", "kind": "return", "sourceRefs": ["src/pipelines/gameloop/game.loop.ts"]},
+        {"id": "主循环:calculate", "featureId": "主循环:frame", "from": "主循环:GameLoop", "to": "主循环:FixedTimestep", "data": "本帧时长 deltaTime", "condition": "deltaTime 大于 0", "sourceRefs": ["src/pipelines/gameloop/game.loop.ts"]},
+        {"id": "主循环:steps", "featureId": "主循环:frame", "from": "主循环:FixedTimestep", "to": "主循环:GameLoop", "data": "更新步数与插值", "kind": "return", "sourceRefs": ["src/pipelines/gameloop/fixed.timestep.ts"]}
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "roleId": "装配",
+      "revision": 1,
+      "updatedAt": "2026-09-29",
+      "summary": "提供引擎入口，接好各子系统并将回调交给主循环。",
+      "abstractions": [
+        {"id": "装配:Engine", "name": "引擎入口约定", "kind": "contract", "layer": "interface", "public": true, "description": "提供初始化、启动、停止、暂停、恢复和销毁入口。这里只展示已核对的部分依赖。", "sourceRefs": ["src/interface/engine.ts"]},
+        {"id": "装配:EngineConfig", "name": "引擎配置", "kind": "model", "layer": "model", "public": true, "description": "记录运行主循环、画布和固定步长需要的配置。", "sourceRefs": ["src/models/engine.ts"]},
+        {"id": "装配:FrameTiming", "name": "帧时序数据", "kind": "model", "layer": "model", "public": true, "description": "用帧时长、累计时间和帧数描述当前帧。", "sourceRefs": ["src/models/engine.ts"]}
+      ],
+      "relations": [
+        {"from": "装配:Engine", "to": "主循环:GameLoop", "kind": "uses"},
+        {"from": "装配:Engine", "to": "装配:EngineConfig", "kind": "uses-model"}
+      ],
+      "features": [
+        {"id": "装配:start", "name": "启动主循环", "purpose": "把固定更新和渲染回调交给主循环，启动帧调度。", "abstractionIds": ["装配:Engine", "主循环:GameLoop"], "sourceRefs": ["src/interface/engine.ts"]}
+      ],
+      "dataFlows": [
+        {"id": "装配:callbacks", "featureId": "装配:start", "from": "装配:Engine", "to": "主循环:GameLoop", "data": "固定更新与渲染回调", "condition": "引擎已初始化且未销毁", "sourceRefs": ["src/interface/engine.ts"]}
+      ]
+    }
+  ]
+}
