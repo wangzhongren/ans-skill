@@ -1,14 +1,14 @@
 # ANS Skill
 
-ANS Skill 帮助 AI 在项目里回答三个问题：**谁可以改哪些文件、代码该放在哪、改完怎么验证**。它用角色卡限定文件范围，用五层规则约束调用方向，并把测试和文档作为交付的一部分。
+让 AI 按角色和文件边界开发，先把方案说清楚，再改代码，最后把项目结构画给你看。
 
-可以只在本地使用。默认用一份本地架构 HTML 查看角色配合、功能数据流和内部抽象；各角色只维护自己的 architecture.json，不再要求重复维护项目理解数据库。旧 Dashboard 和云端工具按需要使用。**云端同步由用户手动触发**，角色开始工作不会自动上传。
+每个角色维护一份 `architecture.json`。技能把这些文件汇总成一个本地 HTML：看角色怎样配合，选择功能看数据流，点击模块看内部抽象。日常使用只需本地文件和绘图程序。
 
-## 安装
+## 安装与更新
 
-需要 Git。运行本地工具或 Dashboard 需要 Python 3.10+；技能规则本身不要求业务项目使用 Python。完整目录必须保留，不能只复制 `SKILL.md`。
+需要 Git。绘图工具使用 Python 3.10+ 标准库，HTML 自带脚本和样式，不需要前端依赖、服务器或账号。业务项目可以使用其他语言。安装时保留整个仓库。
 
-个人安装（macOS / Linux）：
+macOS / Linux：
 
 ```sh
 mkdir -p "$HOME/.agents/skills"
@@ -22,69 +22,99 @@ New-Item -ItemType Directory -Force "$HOME/.agents/skills" | Out-Null
 git clone https://github.com/wangzhongren/ans-skill.git "$HOME/.agents/skills/ans-governed-construction"
 ```
 
-也可以在业务仓库根目录作为子模块安装，让团队使用同一版本：
+团队需要固定技能版本时，可在业务仓库根目录安装为子模块：
 
 ```sh
 git submodule add https://github.com/wangzhongren/ans-skill.git .agents/skills/ans-governed-construction
 git submodule update --init --recursive
 ```
 
-已有安装且工作区干净时，用 `git -C "$HOME/.agents/skills/ans-governed-construction" pull --ff-only` 更新；有本地修改时先处理差异，不要强制覆盖。Windows 若只有 `python` 命令，把下文的 `python3` 换成 `python`。
+通过 Git 安装且没有本地改动时，用下面的命令更新；有改动先保留和处理差异：
 
-## 在项目里使用
+```sh
+git -C "$HOME/.agents/skills/ans-governed-construction" pull --ff-only
+```
 
-在 AI 中调用 `$ans-governed-construction`，说明要开发或修复什么。一个新项目通常按下面的顺序开始：
+安装或更新后，下一轮对话可使用。Windows 只有 `python` 命令时，把下文的 `python3` 换成 `python`。
 
-1. **确定角色、功能点和范围。**治理角色拟定角色卡与 `boundary.md`；角色卡列出这个角色主要负责的系统功能点，每个功能点各有一份当前说明。客户确认后，角色只能改边界第 1 节列出的文件。项目默认角色负责调查、架构设计、任务安排和验收，不直接代写业务源码。
-2. **沿五层设计和排查。**构建时通常按 `Model → Provider → Service → Pipeline → Interface` 思考；运行时只沿 `Interface → Pipeline → Service → Provider` 逐层调用，Model 供各层共享。简单功能不需要每层都新增文件。
-3. **先交文档，再实现。**先写对应的[设计、新增、修改或修复说明](references/documentation.md)，在聊天里简要讲给客户听。客户确认文档并授意按它修改后，执行角色才改自己负责的代码和测试。已确认的同版方案不用反复问；测试通过后才能称为已验证。
-4. **更新角色架构并交付页面。**架构变化后，各角色更新自己的 `architecture.json`；项目角色运行绘图工具并打开生成 HTML。功能文档写清用途、完整流程、分支及结果；图展示核实过的抽象与数据交接。缺失信息保持待补，不另维护 `content.json` 或 `context.sqlite3`。
+## 在项目里怎么用
 
-角色切换和派发必须有客户同意，或符合客户认可的项目预授权配置。角色卡归属本身不等于执行授权。[中文说明](SKILL.zh.md)、[五层架构](references/architecture.md)、[任务操作](references/task-operations.md)和[本地架构图](references/role-architecture-viewer.md)分别说明细节。
+调用 `$ans-governed-construction`，说明要开发、修改或修复的功能。例如：
 
-## 查看本地架构页面（默认）
+> 使用 $ans-governed-construction，调查保存草稿失败的问题，先写修改方案。
 
-每个角色的数据放在 `角色卡/<角色>/architecture.json`。项目角色在已批准的文档输出范围内运行：
+之后按这个顺序处理：
+
+1. **明确谁负责、能改哪里。**角色卡列出负责的系统功能点，boundary.md 列出允许修改的文件。治理角色处理角色和边界变更；项目角色负责调查、设计和协调；开发角色改自己负责的代码。
+2. **先交方案。**文档写清用途、完整流程、具体改动和结果。在聊天里再用大白话缩写。客户确认文档并授意实施后才改代码；同版同范围已确认的，不重复问。
+3. **把必要改动和选装分开。**额外的兼容、兜底或扩展在文档和聊天总结里都列出来，说明好处与代价。默认勾选只表示推荐，客户同意后才加；已经取消的，不重新勾选。
+4. **实现、测试、更新图。**按实际受影响的层修改和验证。架构变化后，各角色更新自己的 JSON，项目角色生成并交付本地 HTML。
+
+代码运行时遵守以下调用方向，Model 是各层共用的数据定义：
+
+```text
+Interface（入口）→ Pipeline（组织流程）→ Service（业务规则）→ Provider（外部资源）
+Model（共享数据定义）
+```
+
+一个功能不需要在每层都新建文件。已有项目沿用实际目录，不为了套模板搬迁代码。角色切换需要客户授权或符合已批准的项目配置；画出的图不扩大文件权限。
+
+## 项目里维护哪些文件
+
+| 文件 | 说明 |
+| --- | --- |
+| `角色卡/<角色>/role-card.md` | 角色负责哪些系统功能、工作时要读什么 |
+| `角色卡/<角色>/boundary.md` | 允许修改哪些文件 |
+| `角色卡/<角色>/architecture.json` | 当前抽象、公开约定、依赖、功能关联和数据交接 |
+| `角色卡/<角色>/features/*.md` | 每个功能怎样使用、完整流程和结果 |
+| 项目或角色文档目录下的 `design/`、`feature/`、`change/`、`fix/` | 带日期的设计、新增、修改和修复说明 |
+| `已有文档根/architecture/index.html` | 程序生成的查看页面，重新生成即可更新 |
+
+每个角色只维护自己的 JSON，共享抽象按 ID 引用。数据字段、请求 URL 和接口含义继续以正式契约、Model 和功能文档为准，不再另行维护 `content.json`、`context.sqlite3` 等重复项目理解索引。
+
+## 生成本地架构页面
+
+项目角色在已批准的输出范围内运行：
 
 ```sh
 python3 /path/to/ans-skill/scripts/render_architecture.py \
-  --root /path/to/project --out doc/architecture/index.html
-```
-
-打开命令打印的 HTML 文件。先看角色之间使用什么约定，再选功能看数据流；点击角色或模块，进入可展开的内部抽象图。模板自带脚本和样式，不需要后端、联网或额外的画图师角色。已有项目使用 `docs/` 时，将输出改成 `docs/architecture/index.html`，不新建第二套文档根。JSON 格式和更新规则见[使用说明](references/role-architecture-viewer.md)。
-
-旧 Dashboard 保留为可选工具；需要查看旧任务记录或已有项目理解数据时，再运行 `scripts/serve_dashboard.py`。不默认启动，也不要求角色填充旧索引。部署和命令仍见 [Dashboard 指南](dashboard/README.md)。
-
-## 手动同步到云端（可选）
-
-先按 [Dashboard 部署与升级说明](dashboard/README.md) 更新服务器、备份状态卷并创建项目 Key。业务项目在本机保存**一个项目 Key**：
-
-```sh
-python3 -m dashboard.local_config init \
-  --project-id orders \
   --root /path/to/project \
-  --server-url https://dashboard.example.com/ans-dashboard
+  --out doc/architecture/index.html
 ```
 
-之后由用户选择动作；命令都在技能目录运行：
+命令打印生成 HTML 的绝对路径，直接在本地浏览器打开：
 
-```sh
-python3 -m dashboard.versioned_sync --root /path/to/project --status     # 看待上传数量和冲突
-python3 -m dashboard.versioned_sync --root /path/to/project --record     # 只把本地改动记入 SQLite
-python3 -m dashboard.versioned_sync --root /path/to/project --pull-only  # 只拉云端版本与消息
-python3 -m dashboard.versioned_sync --root /path/to/project              # 先拉后上传一次
-```
+1. **角色配合图**：哪个角色使用谁提供的什么约定。
+2. **数据流向图**：选一个功能，查看传递的数据、条件和返回结果。
+3. **内部抽象图**：点击角色或模块，展开其核心抽象、组成关系和支撑的功能点。
 
-默认命令运行一次就退出；**不运行就不上传**。云端按项目保存展示快照、角色卡、日期文档的版本和协作消息，不接收业务源码或项目 Key。云端版本与本地改动冲突时会停止覆盖并提示客户选择。拉取的内容先进入本地同步 SQLite，**不会自动改写业务文件或项目理解库**；目前以整份快照判断冲突，尚不支持逐条自动合并。服务器未升级前不要启动新版同步；一个项目也不能同时运行新旧同步器。配置、历史设计查询与冲突处理命令见 [Dashboard 指南](dashboard/README.md)。
+页面是当前 JSON 的快照。改了 JSON 就重新生成；缺少引用或数据流会显示待补，程序不会猜测，也不会运行应用或调度 AI。任务结束时由项目角色提供页面链接，条件允许时打开它，不需要新增画图师或额外模型调用。
 
-## 测试与文档
+输出沿用项目现有文档根：已有 `doc/` 就复用它，使用 `docs/` 的项目改成 `docs/architecture/index.html`。自定义角色目录可加 `--roles <项目相对目录>`。具体字段、示例和更新时机见[架构 JSON 与绘图说明](references/role-architecture-viewer.md)。
 
-修改本技能后，在仓库根目录运行：
+## 可选的旧工具
+
+旧 Dashboard、云端同步、角色消息和历史文档查询仍保留，需要时再用，不默认启动或要求填充旧项目理解数据。云端上传由用户手动决定。
+
+新的架构页面目前在本地生成，尚未接入旧 Dashboard。旧工具的配置、Key、同步、冲突处理和 Docker 部署集中在 [Dashboard 指南](dashboard/README.md)，不属于使用本地架构页面的前置步骤。
+
+## 开发和验证本技能
+
+在技能仓库根目录运行：
 
 ```sh
 python3 -m unittest discover -s scripts/tests -q
 ```
 
-设计与变更记录在 [`doc/`](doc/)；[中文说明](SKILL.zh.md)与[本地架构图说明](references/role-architecture-viewer.md)是当前入口。[旧 Dashboard 总览](doc/guide/2026-09-25_guide_ans-skill-overview.md)供可选旧工具参考；旧角色演示和全项目代码图谱只在明确要求时使用。
+客户端的内存 DOM 交互测试使用 Node.js；HTTP 测试需要允许临时绑定本机端口。测试结果与真实浏览器的视觉检查分别记录。
+
+继续阅读：
+
+- [中文技能说明](SKILL.zh.md)
+- [五层调用规则](references/architecture.md)
+- [角色卡与文件边界](references/role-card.md)
+- [四类文档的写法](references/documentation.md)
+- [跨角色任务操作](references/task-operations.md)
+- [设计与变更记录](doc/)
 
 本项目以 [Apache-2.0 许可证](LICENSE)开源。
