@@ -68,7 +68,7 @@ Rules for deriving the contract:
 - Prefer specific files when the repair locus is known.
 - A directory scope authorizes only changes relevant to the objective; it is not permission for opportunistic cleanup.
 - Tests, fixtures, schemas, lockfiles, snapshots, and generated outputs are separate mutation targets. Include them only when the task requires them.
-- Required design, feature, change, and fix documents are explicit mutation targets; include their dated `docs/` paths and documentation completion in the contract.
+- Required design, feature, change, and fix documents are explicit mutation targets; include stable docs/feature/ paths and applicable dated design/change/fix paths and documentation completion in the contract.
 - Reading a file, depending on a component, or discovering a defect does not add it to the write set.
 - If the user explicitly names an allowed or forbidden target, preserve that boundary.
 

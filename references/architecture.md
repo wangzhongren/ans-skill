@@ -29,7 +29,8 @@ src/
   Supporting directories at project root:
   test/          organized by role: unit tests, shared tests, and a dedicated test role
   resource/      static assets
-  docs/          design, feature, change, fix records
+  Role-owned documents: feature-map.md and existing docs/feature/, docs/design/,
+  docs/change/, docs/fix/. Project management owns the overall docs/architecture.md.
 ```
 
 A capability (e.g., "physics") contributes files to multiple layers — `services/physics/` + `providers/physics/` — rather than owning its own top-level `physics/` directory.

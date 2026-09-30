@@ -76,4 +76,4 @@ Completion requires current verified evidence for all required nodes and integra
 
 ## Optional Live Dashboard
 
-When the user requests it, use [dashboard.md](dashboard.md) to view the same records in the optional local read-only Dashboard. Do not start it by default. The default architecture HTML is generated separately from role JSON and does not claim to display live worker execution. Neither view is a source of permissions or a replacement for acknowledgment and verification.
+When the user requests it, use [dashboard.md](dashboard.md) to view the same records in the optional local read-only Dashboard. Do not start it by default. Current architecture and feature flows live in role-owned Markdown, separate from live execution records. Neither documents nor Dashboard grant permissions or replace acknowledgment and verification.

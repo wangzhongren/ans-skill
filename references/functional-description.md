@@ -1,8 +1,8 @@
 # Functional Description (功能描述)
 
-A companion document to `boundary.md`. It contains architecture diagrams and key code locations — everything that is NOT the mutation whitelist. The role card lists which system features this role owns; each feature's current behavior belongs in a separate [`features/<feature-id>.md`](feature-point.md), not in one large role-level explanation.
+A companion document to `boundary.md` for role-local module notes and key code locations. Link `feature-map.md` for the role's system features; each feature's current behavior and flowchart live only in its stable [`docs/feature/<feature-id>.md`](feature-point.md). Do not duplicate the feature index or full flows here.
 
-The role's current abstractions and relationships live in its architecture JSON and the [generated local HTML](role-architecture-viewer.md). This document explains their design and key code locations for people; link contracts and generated views rather than maintaining another full graph or project-understanding index.
+Project management owns overall architecture and role collaboration in its own docs/architecture.md. This companion explains local implementation context only where useful; link public contracts and feature descriptions rather than maintaining another full architecture or understanding index. No architecture JSON is required.
 
 ## Structure
 
@@ -32,7 +32,7 @@ flowchart LR
 
 ### How the role's modules fit together
 
-Explain the shared architecture and data handoffs here. Link each owned system feature's `features/<feature-id>.md` for its trigger, complete flow, branches and results.
+Explain the shared architecture and data handoffs here. Link each owned system feature's `docs/feature/<feature-id>.md` for its trigger, complete flow, branches and results.
 
 ### Ownership
 
@@ -51,7 +51,7 @@ Coordination points with other roles, shared contracts, and event schemas.
 
 - Updated by the owning role whenever the architecture changes.
 - The assembly role does not need to read this file — it reads `api-spec.md` instead.
-- Link the JSON-based architecture page for the current graph. Add a small Mermaid or ASCII explanation when it helps; do not require a duplicate hand-maintained diagram.
+- Link the project architecture and feature flows as the current diagrams. Add local implementation notes only when they explain something not already covered; do not create a duplicate flowchart or JSON index.
 
 ## See also
 

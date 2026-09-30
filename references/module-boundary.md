@@ -18,14 +18,15 @@ The mutation whitelist. A table listing every file or directory the AI may creat
 | Owned directory | `src/common/<role-id>/` | Only this role's private helpers and framework code |
 | Owned directory | `test/<role-id>/` | This role's assigned tests and test fixtures; no production code |
 | Conditional directory | `docs/` | Task-specific documentation only |
-| Conditional directory | `角色卡/<role>/features/` | Current behavior of this role's owned system features |
-| Single file | `角色卡/<role>/architecture.json` | This role's current abstractions, references and feature data handoffs |
+| Single file | `角色卡/<role>/feature-map.md` | Navigation for owned system features |
+| Conditional directory | `角色卡/<role>/docs/feature/` | Stable feature descriptions, flowcharts and history links |
+| Conditional directory | `角色卡/<role>/docs/` | Owned design/change/fix history; project management also owns its architecture document |
 
 **Files not listed in or covered by an accepted directory in Section 1 are read-only by default.** To mutate an uncovered file, the AI must first propose updating Section 1 — a change subject to the same evidence and acceptance gates as code changes. Directory entries use explicit project-relative paths and responsibilities, not a blanket `src/` or `common/` grant. Ownership must not overlap, including a file grant inside another role's directory.
 
-For the project management role, the common-code directory is `src/common/shared/`, with its corresponding test directory and `<existing-doc-root>/architecture/shared-components.md`. It cannot claim every role's common directory. See [shared-directories.md](shared-directories.md).
+For the project management role, the common-code directory is `src/common/shared/`, with its corresponding test directory and its own `docs/architecture/shared-components.md` and `docs/architecture.md`. It cannot claim every role's common directory. See [shared-directories.md](shared-directories.md).
 
-New role boundaries use the owned architecture JSON and do not require project-understanding SQLite entries. If the user explicitly works with a legacy SQLite store, any existing accepted row scope still covers only that role's rows, not schema changes or peers' records. The new viewer reads JSON and cannot grant permission to write it or the generated HTML.
+New role boundaries use feature-map and existing docs scopes; do not require architecture JSON or project-understanding SQLite entries. If the user explicitly works with a legacy SQLite store, any existing accepted row scope still covers only that role's rows, not schema changes or peers' records. Documents and diagrams do not grant write permissions. Legacy viewers remain opt-in and cannot expand authority.
 
 ### Private abstractions
 
@@ -33,7 +34,7 @@ Within its Section 1 files and accepted private common directory, a role may cre
 
 ### Companion file: `functional-description.md`
 
-Architecture diagrams, key code locations, and ownership tables live in `functional-description.md` — a separate file in the same role directory. Current behavior of each owned system feature lives in `features/<feature-id>.md`; see [feature-point.md](feature-point.md).
+Role-local module notes and key code locations live in `functional-description.md`; it links the feature-map rather than duplicating feature flows. Project management owns overall architecture in its own `docs/architecture.md`. Current behavior and history navigation for each feature live in `docs/feature/<feature-id>.md`; see [feature-point.md](feature-point.md).
 
 ## Governance
 

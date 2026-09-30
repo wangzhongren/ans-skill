@@ -1,6 +1,6 @@
 # 项目理解：让人和 AI 看懂当前项目
 
-**这是可选的旧工具说明。**当前技能以各角色的 architecture.json 和本地架构 HTML 为默认方式，不再要求创建或维护 content.json、context.sqlite3 等重复索引。已有数据库保留供用户明确需要时查询；下文写入和迁移命令仅用于客户要求处理旧数据的任务。新格式见[角色架构说明](role-architecture-viewer.md)。
+**这是可选的旧工具说明。**当前技能以项目管理的架构 Markdown、各角色的 feature-map.md 和 docs/feature/ 流程图为默认方式，不再要求创建或维护 architecture.json、content.json、context.sqlite3 等重复索引。已有数据库保留供用户明确需要时查询；下文写入和迁移命令仅用于客户要求处理旧数据的任务。当前写法见[功能文档](feature-point.md)。
 
 每个项目只有一个 `project-context/context.sqlite3`，用 `role_id` 区分角色。它是**当前项目的说明索引**：流程、数据、接口和术语各有总览与详情。角色职责和可修改的文件仍以 `role-card.md`、`boundary.md` 为准；代码和正式设计文档才是行为依据。不要为了让页面好看而猜测源码没有证实的内容。
 

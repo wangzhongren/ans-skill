@@ -2,6 +2,14 @@
 
 A role card identifies one agent role and its scope boundary. It is the entry point for every task under that role.
 
+## Working Stance for Every Role
+
+Write the role's working stance near the beginning of every project card, including project management, development, assembly and testing. Use the project's language and make it part of the role's identity:
+
+> 你是这个正式项目中所负责部分的长期维护者。你的工作会进入真实的业务流程，被用户持续使用，也会被后续维护者反复修改。理解自己的职责、上下游关系和项目已有的设计，以实际使用和后续维护为出发点作出判断。对自己的交付负责：考虑它能否真正解决问题、与现有系统配合，并让接手的人理解和继续完善。投入与当前需求相称的设计和实现，让每一次修改都成为项目可以继续发展的基础。
+
+This sets the perspective from which the role makes decisions. It adds no technical checklist, approval gate or write authority. Apply it within existing responsibilities, customer authorization and optional-change rules.
+
 ## Format
 
 The implementation template below is for capability and assembly roles. Governance creates the default project card using [project-role.md](project-role.md), with accepted design, shared-code, corresponding test and scheduling scopes. It follows implementation checkpoints for its shared code, not for other roles' business code. Create the fixed test role using [test-role.md](test-role.md).
@@ -13,13 +21,13 @@ The template below is in English for readability. Follow explicit user requireme
 
 <Short description in project language>
 
-## System features owned by this role
+## Working stance
 
-| Feature | Current status | How it works |
-| --- | --- | --- |
-| <System feature a user can trigger> | Planned / implemented / needs verification | `features/<feature-id>.md` (link after creation) |
+You are the long-term maintainer of your part of a real project. Your work will serve actual users, interact with existing components and be changed by future maintainers. Understand that context and take responsibility for a result that works in practice and remains understandable to those who continue the work. Match the design and implementation to the current need, with the project's continued development in mind.
 
-List only current or planned system features for which this role is the primary owner, not role duties such as coding or testing. Mark planned features as planned; use `None yet` when the role owns no system feature. Follow [feature-point.md](feature-point.md). Each feature gets its own current-behavior document after the owning role is accepted; until then show `待补文档` as plain text instead of a broken link. This list does not grant permission to change files.
+## System feature navigation
+
+Read `feature-map.md` for the system features owned by this role, their purpose, status and links to `docs/feature/<feature-id>.md`. Do not duplicate the navigation table here. If it has not been created, say `待补功能导航` without a broken link. Roles without directly owned system features state that fact. Follow [feature-point.md](feature-point.md); navigation grants no file or role authority.
 
 ## Required reading
 
@@ -35,7 +43,7 @@ List only current or planned system features for which this role is the primary 
 5. `references/testing.md` — Per-layer test rules, static and dynamic verification gates.
 6. `references/documentation.md` — Common location, date and timeline rules; when writing a document, also load only its design, feature, change or fix guide.
 7. The canonical inter-role integration designs assigned to this stage, with contract IDs/revisions; implementation reports must reference them.
-8. This role's `architecture.json`, when present, and the task-relevant abstractions or referenced public contracts. Verify them against current code and contracts. Follow [role-architecture-viewer.md](role-architecture-viewer.md). Do not require parallel content.json or SQLite project-understanding records.
+8. This role's `feature-map.md`, relevant feature flowcharts/history and the project management role's task-relevant `docs/architecture.md` sections. Verify descriptions against current code and contracts. No architecture JSON or parallel project-understanding store is required.
 9. The feature-point document for the assigned system feature, when present. Check its current behavior against source and tests before changing it.
 10. `references/shared-directories.md` when using or changing common code; read the task-relevant entries in the project's shared-component document before reusing a shared component.
 
@@ -67,7 +75,7 @@ For the assembly role, additionally read:
 ## Execution checkpoints
 
 1. **Prepare:** Check existing authorization, gather sufficient evidence, choose the smallest effective action. Load all references listed in Required reading. Inspect the requirement and baseline; load affected layers and supporting references before fixing the mutation scope.
-1a. **Explain before coding:** For an application-code or test change, write the appropriate dated document first and show its short summary to the customer. Distinguish task-required changes from optional hardening, compatibility or speculative additions in both places. Default-checked options remain pending until the customer's confirmed implementation scope includes those item IDs or the displayed selection. Wait for confirmation of that document plus instruction to implement it, unless the same version, scope and optional selection have already been confirmed and authorized. A question or silence is not confirmation; read-only investigation and document refinement may continue.
+1a. **Explain before coding:** For an application-code or test change, write the appropriate feature draft or dated design/change/fix proposal first and show its short summary to the customer. Distinguish task-required changes from optional hardening, compatibility or speculative additions in both places. Default-checked options remain pending until the customer's confirmed implementation scope includes those item IDs or the displayed selection. Wait for confirmation of that document plus instruction to implement it, unless the same version, scope and optional selection have already been confirmed and authorized. A question or silence is not confirmation; read-only investigation and document refinement may continue.
 2. **Build:** Design and implement affected work in build order: **Model → Provider → Service → Pipeline → Interface**. Assess abstractions first. Reuse satisfactory existing layers. Investigate from the highest relevant failing entry downward; root startup problems begin at main.
 3. **Test each layer:** Complete each affected layer's required tests before integrating dependent implementation with it; independent preparation against agreed contracts may proceed without claiming integration success. Skipped, unavailable, or unresolved checks do not pass.
 3b. **Verify adjacent-layer compliance:** Inspect every import and constructor call in changed files. Confirm: Interface imports Pipeline only; Pipeline imports Service public entry only; Service imports Provider public entry only. Re-exporting a lower-layer API or handing a lower-layer object to a higher layer counts as a violation. Fix any violation before proceeding.
@@ -77,9 +85,9 @@ For the assembly role, additionally read:
     - **Error handling:** Every `try/catch` must output the error — log it, rethrow, or return an error result. Silent empty catches are forbidden.
     - **Readability:** Ternary operators (`condition ? a : b`) are forbidden — they reduce review readability. Use `if/else` instead.
     - **Test structure:** `test/` mirrors the role structure under `角色卡/`, using the project's language-native test files grouped by owning role where the runner permits. Tests are grouped by role, not by layer.
-4. **Explain the change to a reader.** Write the relevant dated design, feature, change or fix document using that type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. When verified abstractions, public contracts, dependencies or feature data handoffs change, update this role's accepted `architecture.json` and its revision. Notify the project role to regenerate the local HTML; do not write peers' JSON or a second understanding index. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Governance handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
-   If the current behavior of a system feature changed, update its `features/<feature-id>.md` after verification. Keep the dated document as the history of this particular change. If feature ownership or the role-card list must change, request a Governance update; the execution role does not edit its own role card. Follow [feature-point.md](feature-point.md).
-5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. The project role generates the combined architecture HTML from role JSON; do not create a separate viewer for this worker or require a running Dashboard. Do not write the shared project table; wait for the project role to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Scheduler validates the release conditions; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
+4. **Explain the change to a reader.** Maintain the current feature document and write the relevant dated design/change/fix record when applicable, using each type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Update this role's affected feature descriptions, Mermaid flows, history links and feature-map. Notify project management when overall architecture or cross-role handoffs change; do not edit peers' documents or maintain architecture JSON. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Governance handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
+   If current behavior changed, update its stable `docs/feature/<feature-id>.md` after verification and link the dated design/change/fix record in its history; that record links back to the feature. Preserve earlier history. Update navigation within owned scope; ownership or role-card changes still go through Governance. Follow [feature-point.md](feature-point.md).
+5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. Deliver links to the affected feature documents and history. Project management maintains the overall architecture; no JSON, HTML-generation or running Dashboard is required. Do not write the shared project table; wait for the project role to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Scheduler validates the release conditions; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
 6. **Verify acceptance.** Apply evidence invalidation and acceptance rules before the final report. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
 
 `common/`, `resource/`, `test/`, `docs/`, and the root startup file support the five-layer architecture; they do not add operational layers. Routine tasks do not generate or refresh code-atlas artifacts. Use targeted source inspection for dependency questions; atlas tools are explicit opt-in only.
@@ -93,15 +101,15 @@ For the assembly role, additionally read:
 
 ## Deliverables
 
-When implementation is complete, create these documents at the role directory root (same level as `role-card.md`):
+Maintain these deliverables within the accepted scope. Navigation and companion documents live at the role root; feature files live under its existing docs/:
 
 - `changelog.md` — Change history with date, description, and doc reference
-- `functional-description.md` — Architecture diagrams, key code locations, detailed explanation
+- `functional-description.md` — Local module notes and code locations; links to the feature-map and project architecture
 - `api-spec.md` — Actual exports, dependencies, assembly notes, design contract ID/revision, compliance/deviations and test evidence; shared integration design remains project-role-owned
-- `architecture.json` — This role's abstractions, references and feature data handoffs; maintained only within accepted scope, rendered by the project role into shared offline HTML
-- `features/<feature-id>.md` — One current-behavior document for each system feature primarily owned by this role; do not create filler files for roles with no system feature
+- `feature-map.md` — Feature navigation: name, plain-language purpose, status and document link
+- `docs/feature/<feature-id>.md` — One stable current-behavior document per owned system feature: purpose, flowchart and history links; do not invent business features for roles without them
 
-Detailed design, feature, change, and fix records go into `docs/design/`, `docs/feature/`, `docs/change/`, `docs/fix/` respectively.
+Dated design/change/fix history lives in this role's existing `docs/design/`, `docs/change/`, `docs/fix/`. Current feature files live only in `docs/feature/`, without date prefixes. Preserve the existing docs directory; do not add doc/ or a second features/ tree.
 ````
 
 ## Companion file: `changelog.md`
@@ -115,25 +123,24 @@ appointment-booking/
 ├── changelog.md              # 变更日志 ← 角色实现阶段创建（角色根目录）
 ├── functional-description.md # 功能描述: 图 + 代码位置 + 详解 ← 角色实现阶段创建（角色根目录）
 ├── api-spec.md               # API 规范: 导出 + 依赖 + 装配说明 ← 角色实现阶段创建（角色根目录）
-├── architecture.json         # 当前抽象与关系；只维护本角色的数据
-├── features/                 # 本角色负责的系统功能点；一功能一文档（有内容时创建）
-│   └── <feature-id>.md        # 当前怎样触发、运行、分支和结束
+├── feature-map.md            # 功能导航：用途、状态、链接
 └── docs/
     ├── design/               # 详细设计记录
-    ├── feature/              # 功能记录
+    ├── feature/              # 一功能一份稳定文档：用途、流程图、历史链接
+    │   └── <feature-id>.md
     ├── change/               # 变更记录
     └── fix/                  # 修复记录
 ```
 
-Bootstrap creates only the role definition: `role-card.md` and `boundary.md`. It lists planned or source-identified system features in the card, but their current-behavior documents are created by the accepted owning role within its `features/` scope. A planned path may be shown as plain text with `待补文档` until the file exists; do not leave a broken link. The owner writes its architecture JSON after its exact path is accepted, using verified or clearly planned facts. Do not create a parallel project-understanding database. Other role documents are created when grounded in actual project evidence.
+Bootstrap creates the role definition and accepted documentation scopes. Governance records planned ownership; the accepted owner creates `feature-map.md` and grounded current feature files in `docs/feature/`. Pending documents are labeled without broken links. Project management owns its overall `docs/architecture.md`. Do not create architecture JSON or another project-understanding database.
 
 `changelog.md` records every creation, scope update, split, or merge of this role in reverse chronological order. Each entry must index the actual completion document:
 
 ```markdown
 # Changes: <Role name in project language>
 
-- 2026-09-20: Scope expanded — Section 1 adds pipeline files for async processing. Doc: docs/feature/async-pipeline.md
-- 2026-09-18: Created — initial role definition. Doc: docs/design/architecture.md
+- 2026-09-20: Scope expanded — Section 1 adds pipeline files for async processing. Doc: docs/change/2026-09-20_change_async-pipeline.md
+- 2026-09-18: Created — initial role definition. Doc: docs/design/2026-09-18_design_role-setup.md
 ```
 
 The companion file obeys the same evidence and acceptance gates as the role card itself.
