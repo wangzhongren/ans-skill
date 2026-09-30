@@ -4,16 +4,16 @@ Use with [project-role.md](project-role.md) and [scheduler.md](scheduler.md). Th
 
 ## One Task Record, One Writer
 
-Reuse the scheduler's approved task directory:
+Each new task has one approved, Git-readable `docs/scheduling/<task-id>.md` document:
 
-| File | Responsibility |
+| Part of the document | Responsibility |
 | --- | --- |
-| `plan.json` | Stage definitions, owners, prerequisites, outputs and acceptance conditions |
-| `state.json` | Authoritative current state, assigned revisions, latest feedback and next actions |
-| `events.jsonl` | Ordered history of reports and accepted transitions, including failures and invalidations |
-| `board.md` | Generated readable table derived from current plan/state, with links to history and evidence |
+| Task and steps | Requirement/design versions, owners, prerequisites and checks |
+| Current table | Step status and latest feedback, generated from the task record |
+| Change history | Ordered reports, issues, revisions and verification results |
+| Fixed machine block | Exact plan/state and hash-linked events for `task_ops`; users do not edit it |
 
-The project role is the sole writer of these records. Workers send reports through available task communication tools, or write them in their own assigned scope and return the path. They do not edit shared records or one another's reports. Include record paths in the accepted project-role boundary; this reference itself grants no permission. No extra messaging service is required.
+The project role is the sole writer through `task_ops`. Workers send scoped reports; they do not edit shared records or one another's reports. Include the task document in the accepted project-role boundary. This reference grants no permission. Git carries committed plans and history; local locks and full check logs under `.ans/runtime/` do not travel. After moving checkouts, reconcile active workers and rerun missing evidence before dependent dispatch.
 
 ## Table Columns
 
@@ -66,11 +66,11 @@ Each report includes a unique `reportId`, task/node/attempt IDs, role and worker
 
 ## Consistency, Rendering and Resume
 
-Serialize updates through one coordinator instance: validate feedback against current revisions, append an identified event describing the accepted change, atomically replace the materialized state, then regenerate the table. Record plan changes in the same ordered history so interrupted updates cannot silently mix old assignments with new outcomes.
+Serialize updates through one coordinator instance: validate feedback against current revisions, add an identified event and the resulting state, then atomically replace the single task document. Record plan changes in the same ordered history so interrupted updates cannot silently mix old assignments with new outcomes.
 
-Before dispatch/resume, check plan/state revisions and event sequence. If history is ahead of state, reconcile the recorded change first. If records disagree or the log ends with a partial record, hold dispatch and repair from verified records without inventing missing evidence. Use event IDs and `lastEventSeq` to prevent double application. A second coordinator must not write concurrently.
+Before dispatch/resume, check plan/state revisions, event sequence and the generated human section. If Git leaves merge markers or the record is incomplete, hold dispatch and reconcile without inventing missing evidence. Failed atomic replacement leaves the previous complete task document intact. Use event IDs and `lastEventSeq` to prevent double application. A second coordinator must not write concurrently.
 
-Derive `board.md` or the chat table from JSON, displaying `stateRevision` and `lastEventSeq`. Never edit the derived table independently. If rendering fails, retain valid JSON and mark the displayed table stale. Sort deterministically by plan order or node ID, show current status/versions and link detail. The task operations CLI generates board.md after accepted events; do not independently maintain the table.
+The readable table inside the task document is derived from the same validated machine record. Never edit it independently. Display the state revision, latest event, step status and feedback. The tool regenerates it after each accepted change; a different checkout must rerun checks when local evidence is unavailable.
 
 Completion requires current verified evidence for all required nodes and integrated checks where applicable. Table status alone cannot compensate for a stale design, failed test, or missing authorization.
 

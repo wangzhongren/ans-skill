@@ -26,7 +26,9 @@ python3 /path/to/installed-skill/scripts/serve_dashboard.py --root /path/to/proj
 
 Open the printed loopback URL, for example `http://127.0.0.1:<printed-port>`. Stop with Ctrl+C in its terminal. The server runs while that process is alive; this is not a scheduler, background automation, or persistent service installation. Use `--port 0` for an automatically chosen free port if needed.
 
-`--root` is the project root containing role and documentation folders, not automatically `src/`. The server recognizes direct role directories under `角色卡/` or `role-cards/` and task directories under both `docs/scheduling/` and `doc/scheduling/`. Override with `--roles relative/role-directory` and `--scheduling relative/scheduling-directory`; both must resolve within the project. Each task directory contains plan.json, state.json and events.jsonl. No source scan or business program execution is performed.
+`--root` is the project root containing role and documentation folders, not automatically `src/`. The server recognizes direct role directories under `角色卡/` or `role-cards/` and task records under both `docs/scheduling/` and `doc/scheduling/`. New tasks are single `<task-id>.md` files; existing plan/state/events directories remain readable for historical viewing. Override with `--roles relative/role-directory` and `--scheduling relative/scheduling-directory`; both must resolve within the project. No source scan or business program execution is performed.
+
+New local task Markdown requires the installed Skill's `scripts/` reader alongside `dashboard/`. A cloud-only server can still run from a copy of `dashboard/` alone; it receives projections from a local client and does not read the local project task files itself.
 
 Do not modify business records merely to make the dashboard look populated. Role cards without task states display as unreported; missing stage records are not evidence that a role is idle or complete.
 

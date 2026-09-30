@@ -103,7 +103,7 @@ server {
 
 ## 在项目本地同步
 
-同步端需要 `dashboard/` 代码和业务项目的本地读取权限；它不需要部署在云端服务器上。**先备份服务器状态卷并更新服务器 Dashboard，再停止旧版 `dashboard.sync --interval` 进程**，新版默认只在用户运行命令时同步：
+同步端查看新的任务 Markdown 时需要完整安装的技能目录（包含 `dashboard/` 和 `scripts/`）及业务项目的本地读取权限；只部署云端服务时仍可单独复制 `dashboard/`。**先备份服务器状态卷并更新服务器 Dashboard，再停止旧版 `dashboard.sync --interval` 进程**，新版默认只在用户运行命令时同步：
 
 ```sh
 python3 -m dashboard.local_config init \
@@ -167,7 +167,7 @@ python3 -m dashboard.sync \
   --interval 10
 ```
 
-在 `read` 提示时粘贴项目 Key 并回车。也可以由本地机密管理器将 `ANS_DASHBOARD_KEY` 注入进程；不要把 Key 写进命令行参数或 URL。显式 `--project-id` 和 `--server-url` 可覆盖项目配置中的对应值，ID 不一致时会报错。该同步器读取 `角色卡/` 或 `role-cards/`、共享 `project-context/context.sqlite3` 及 `docs/scheduling/` 或 `doc/scheduling/`，整理后发送到 `/p/orders/api/sync`；若 `--server-url` 带 `/ans-dashboard`，则发送到 `/ans-dashboard/p/orders/api/sync`。目录不标准时加 `--roles`、`--scheduling`（必须位于项目根目录内）。同步内容上限 4 MiB；不会递归上传业务源码或角色文档全文。同步请求不跟随重定向，避免项目 Key 被转发。
+在 `read` 提示时粘贴项目 Key 并回车。也可以由本地机密管理器将 `ANS_DASHBOARD_KEY` 注入进程；不要把 Key 写进命令行参数或 URL。显式 `--project-id` 和 `--server-url` 可覆盖项目配置中的对应值，ID 不一致时会报错。该同步器读取 `角色卡/` 或 `role-cards/`、共享 `project-context/context.sqlite3` 及 `docs/scheduling/` 或 `doc/scheduling/`，整理后发送到 `/p/orders/api/sync`；若 `--server-url` 带 `/ans-dashboard`，则发送到 `/ans-dashboard/p/orders/api/sync`。新任务在调度目录中是一份 `<任务 ID>.md`，旧任务目录仍只读展示。目录不标准时加 `--roles`、`--scheduling`（必须位于项目根目录内）。同步内容上限 4 MiB；不会递归上传业务源码或角色文档全文。同步请求不跟随重定向，避免项目 Key 被转发。
 
 默认本地单项目模式仍可使用：
 
@@ -225,7 +225,7 @@ python3 -m dashboard.channel_cli --server-url https://dashboard.example.com/ans-
 {"clientRequestId":"task-1-node-1-attempt-1","taskId":"task-1","nodeId":"node-1","workerId":"worker-1","operation":"implement","writeSet":["src/orders.py"],"planRevision":1,"attemptNumber":1,"requirementRevision":"R1","designRevision":"D1","boundaryRevision":"B1","reason":"需要写入订单导出实现文件。"}
 ```
 
-相同 `clientMessageId` 或 `clientRequestId` 重试只返回原记录；同 ID 的不同内容会被拒绝。申请提交和批准时均检查当前快照版本，旧设计/边界版本不能批准。管理员批准记录一小时有效，拒绝和过期状态保留在审计中。**Dashboard 的批准只是一条协作决定，不是源码写入、角色激活或任务验收授权。**执行前仍需按 [task_ops 协议](../references/task-operations.md) 由可信宿主核对客户同意文件及其已审核哈希，或匹配已审核的项目预授权配置；不能由 AI 自行把 Dashboard 决定转换成批准哈希。
+相同 `clientMessageId` 或 `clientRequestId` 重试只返回原记录；同 ID 的不同内容会被拒绝。申请提交和批准时均检查当前快照版本，旧设计/边界版本不能批准。管理员批准记录一小时有效，拒绝和过期状态保留在审计中。**Dashboard 的批准只是一条协作决定，不是源码写入、角色激活或任务验收授权。**执行前仍需按 [task_ops 协议](../references/task-operations.md) 由可信宿主核对客户同意凭据及已审核哈希，或匹配已审核的项目预授权配置；凭据可通过私有标准输入提供，不必为每次派发建立 JSON 文件。不能由 AI 自行把 Dashboard 决定转换成批准哈希。
 
 共用项目 Key 表示服务器只能确认“来自这个项目”，不能单独证明请求中的角色 ID 是谁。角色应在自己的执行上下文里使用 `--role` 自行发送；对角色切换、任务范围和实际代码写入的严格检查仍由本地角色/任务门禁承担。
 

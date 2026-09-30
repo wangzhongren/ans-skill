@@ -176,8 +176,9 @@ def operate(root, task, command, request):
     store = Store(root,task); root=store.root
     with store.locked():
         if command == 'init':
-            require(not store.journal(), 'Task already initialized')
-            require(not any((store.folder/name).exists() for name in ['plan.json','state.json']), 'Existing unmanaged records must not be overwritten')
+            require(not store.document.exists(), 'Task already initialized')
+            legacy = safe(root, 'docs/scheduling/'+task)
+            require(not any((legacy/name).exists() for name in ['plan.json','state.json','events.jsonl']), 'Existing JSON task records must not be overwritten')
             config_path=request.get('configPath','.ans/project.json');config=read(root,config_path)
             plan=normalize_plan(root,request['plan'],config,config_path,request['approvedConfigSha256'],task)
             states=[{'nodeId':n['nodeId'],'roleId':n['roleId'],'status':'pending','attemptId':None,'active':False,'assignedRevisions':n['revisions'],'acknowledgedRevisions':None,'checkEvidence':{},'attemptNumber':0} for n in plan['nodes']]
@@ -255,13 +256,24 @@ def operate(root, task, command, request):
                 dp,ds=node_pair(bundle,dep);require(ds['status']=='verified','Prerequisite is not verified: '+dep)
                 current_inputs(root,bundle,dp,config)
                 require(ds.get('verifiedCandidate')==candidate(root,bundle,dp),'Prerequisite evidence is stale: '+dep)
+                for evidence in ds.get('checkEvidence', {}).values():
+                    require(file_hash(root, evidence['path']) == evidence['sha256'], 'Prerequisite check evidence is unavailable or changed: '+dep)
             authorization={'kind':'configuration','sha256':bundle['plan']['configHash']}
             if role.get('autoDispatch') is not True:
-                consent_path=request.get('consentPath');require(consent_path,'Customer consent required: automatic dispatch is not authorized')
-                consent=read(root,consent_path);require(file_hash(root,consent_path)==request.get('approvedConsentSha256'),'Consent hash not approved')
+                consent_path=request.get('consentPath')
+                if request.get('consent') is not None:
+                    require(consent_path is None, 'Provide consent inline or by path, not both')
+                    consent=request['consent']
+                    require(isinstance(consent,dict) and sha(encoded(consent))==request.get('approvedConsentSha256'), 'Consent hash not approved')
+                else:
+                    require(consent_path,'Customer consent required: automatic dispatch is not authorized')
+                    consent=read(root,consent_path)
+                    require(file_hash(root,consent_path)==request.get('approvedConsentSha256'),'Consent hash not approved')
                 expected={'taskId':task,'nodeId':node_id,'roleId':planned['roleId'],'workerId':request['workerId'],'operation':planned['operation'],'writeSet':planned['writeSet'],'planRevision':bundle['plan']['planRevision'],'attemptNumber':state['attemptNumber']+1}
                 require(all(consent.get(k)==v for k,v in expected.items()),'Consent does not match this activation')
-                authorization={'kind':'explicit-consent','path':consent_path,'sha256':request['approvedConsentSha256']}
+                authorization={'kind':'explicit-consent','sha256':request['approvedConsentSha256']}
+                if consent_path:
+                    authorization['path']=consent_path
             if state.get('attemptId'):state.setdefault('previousAttempts',[]).append({'attemptId':state['attemptId'],'workerId':state['workerId'],'tokenHash':state['tokenHash']})
             token=secrets.token_urlsafe(32);state['attemptNumber']+=1
             state.update(attemptId=node_id+'-'+str(state['attemptNumber']),workerId=request['workerId'],tokenHash=sha(token.encode()),status='running',active=True,pauseRequested=False,acknowledgedRevisions=None,checkEvidence={},authorization=authorization)
@@ -344,10 +356,10 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,required=True);parser.add_argument('--task',required=True)
     parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','verify'])
-    parser.add_argument('--request',type=Path,help='JSON request file; contains assignment token for worker operations')
+    parser.add_argument('--request',type=Path,help='Request file, or - to read JSON from standard input; keep worker tokens private')
     args=parser.parse_args(argv)
     try:
-        request=json.loads(args.request.read_text()) if args.request else {}
+        request=json.loads(sys.stdin.read() if str(args.request) == '-' else args.request.read_text()) if args.request else {}
         require(args.root.is_dir(),'Project root missing')
         result=operate(args.root,args.task,args.command,request)
         print(json.dumps(result,ensure_ascii=False,indent=2));return 3 if result.get('accepted') is False else 4 if result.get('status')=='check-failed' else 0

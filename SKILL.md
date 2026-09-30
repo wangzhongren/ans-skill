@@ -125,6 +125,8 @@ Activation requires an explicit role switch and loading its scope; merely readin
 
 For coordinated execution, hand off from ANS Governance to the accepted project scheduler after bootstrap acceptance; it dispatches ready stages. Existing accepted definitions can be reused. A standalone single-role task may omit scheduling records, but leaving the default project role to execute it still requires the same consent/configuration gate; workers may not independently spawn or switch roles.
 
+Coordinated tasks use one Git-readable `docs/scheduling/<task-id>.md` record per task. `task_ops` writes its current step table and verifiable event history; each task's prior multi-file JSON records are legacy read-only data. The one approved `.ans/project.json` still defines executable scope. See [task operations](references/task-operations.md) before dispatch or resume.
+
 ### Rules
 
 - **One role per task context.** A single AI agent works under one role at a time. Only an activated, accepted project scheduler dispatches execution agents, each with its own role card, narrowed scope, and ready prerequisites. Workers do not spawn or assign other workers; use explicit sequential role switching when subagent tools are unavailable. See [bootstrap scheduling](references/bootstrap-workflow.md#dependency-aware-scheduling).

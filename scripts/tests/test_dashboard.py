@@ -83,6 +83,30 @@ class DashboardTests(unittest.TestCase):
   (self.folder/'state.json').write_text(json.dumps(s));(self.folder/'events.jsonl').write_text(json.dumps(e))
   self.assertEqual(self.app.snapshot()['tasks'][0]['status'],'inconsistent')
 
+ def test_dashboard_reads_git_task_document_and_rejects_edits(self):
+  from coordination_store import Store
+  store=Store(self.root,'task-2')
+  bundle={'plan':{'schemaVersion':1,'taskId':'task-2','planRevision':1,
+                  'requirement':{'path':'docs/requirement.md','version':'R1'},
+                  'design':{'path':'docs/design.md','version':'D1'},
+                  'nodes':[{'nodeId':'check','roleId':'订单','title':'检查订单','stage':'verification','dependsOn':[]}]},
+          'state':{'schemaVersion':1,'taskId':'task-2','planRevision':1,
+                   'nodes':[{'nodeId':'check','roleId':'订单','status':'verified','attemptNumber':1,
+                             'acknowledgedRevisions':{'design':'D1'},'assignedRevisions':{'design':'D1'}}]}}
+  with store.locked():store.commit(bundle,'verification-passed','订单检查通过','check')
+  snapshot=self.app.snapshot()
+  row=next(row for row in snapshot['tasks'] if row['taskId']=='task-2')
+  self.assertEqual(row['status'],'verified')
+  self.assertEqual(row['source'],'docs/scheduling/task-2.md')
+  self.assertTrue(any(event['taskId']=='task-2' for event in snapshot['events']))
+  from dashboard.sync import projection
+  projected=projection(self.root,'orders')['snapshot']
+  self.assertEqual(next(item for item in projected['tasks'] if item['taskId']=='task-2')['status'],'verified')
+  store.document.write_text(store.document.read_text().replace('| verified |','| pending |'))
+  snapshot=self.app.snapshot()
+  self.assertFalse(any(row['taskId']=='task-2' for row in snapshot['tasks']))
+  self.assertTrue(any(issue['path']=='docs/scheduling/task-2.md' for issue in snapshot['issues']))
+
 class HTTPTests(unittest.TestCase):
  setUp=DashboardTests.setUp
  def test_http_read_only_and_loopback_host(self):

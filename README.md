@@ -175,6 +175,8 @@ git add .agents/skills/ans-governed-construction
 
 ## 可选旧工具与验证
 
+多角色任务使用 `task_ops` 时，新任务写入一份 `docs/scheduling/<任务 ID>.md`，包含计划、步骤状态和事件历史，可以随项目提交到 Git。项目授权配置仍使用一份 `.ans/project.json`；本地锁和检查输出保存在被忽略的 `.ans/runtime/`。换机器后能读历史，但运行中的工作和本地检查证据需重新核对。详见[任务操作说明](references/task-operations.md)。
+
 [旧 JSON 架构 HTML](references/role-architecture-viewer.md)、Dashboard、云端同步、角色消息和历史文档查询按需要保留，不默认启动，也不要求维护旧 JSON 或项目理解索引。本轮没有改造旧工具使其读取新的 Markdown 导航。需要这些工具时，查阅 [Dashboard 指南](dashboard/README.md)；云端上传仍由用户手动决定。
 
 开发本技能时，在技能仓库根目录运行：

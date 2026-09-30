@@ -1,4 +1,4 @@
-"""Crash-recoverable, single-writer coordination records (standard library only)."""
+"""Single-writer, Git-readable task records with a verifiable event history."""
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
@@ -60,17 +60,95 @@ def atomic(path, value):
             os.unlink(name)
 
 
+def task_id_valid(task):
+    return isinstance(task, str) and bool(task) and all(c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in task)
+
+
+def display(value):
+    return str(value).replace('|', '\\|').replace('\n', ' ').replace('\r', ' ').replace('<', '&lt;').replace('>', '&gt;')
+
+
+MARKER = b'\n<!-- ANS-TASK-EVENTS-V1\n'
+END_MARKER = b'\nANS-TASK-EVENTS-END -->\n'
+
+
+def task_page(bundle, events):
+    plan = bundle['plan']; state = bundle['state']; task = plan['taskId']
+    rows = [
+        '# 任务：'+display(task), '',
+        '任务记录由 `task_ops` 生成。修改需求、设计或权限后，使用对应命令更新；不要手工改状态。', '',
+        '需求：`'+display(plan['requirement']['path'])+'`（'+display(plan['requirement']['version'])+'）',
+        '设计：`'+display(plan['design']['path'])+'`（'+display(plan['design']['version'])+'）',
+        '状态版本：'+str(state['stateRevision'])+' · 最新事件：'+str(state['lastEventSeq']), '',
+        '## 步骤', '',
+        '| 步骤 | 负责角色 | 当前状态 | 前置步骤 | 最近反馈 |',
+        '| --- | --- | --- | --- | --- |',
+    ]
+    for planned, current in zip(plan['nodes'], state['nodes']):
+        dependencies = ', '.join(planned.get('dependsOn', [])) or '无'
+        report = current.get('latestReport', {}).get('summary', '')
+        rows.append('| '+' | '.join(display(value) for value in [
+            planned['nodeId'], planned['roleId'], current['status'], dependencies, report,
+        ])+' |')
+    rows.extend(['', '## 变化记录', '', '| 序号 | 时间 | 变化 | 说明 |', '| --- | --- | --- | --- |'])
+    for event in events:
+        rows.append('| '+' | '.join(display(value) for value in [
+            event['seq'], event['receivedAt'], event['kind'], event['summary'],
+        ])+' |')
+    rows.extend(['', '机器记录保存在下面的固定区块，供程序核对事件顺序和版本。', ''])
+    visible = '\n'.join(rows).encode()
+    payload = b'\n'.join(encoded(event).replace(b'-->', b'--\\u003e') for event in events)
+    return visible+MARKER+payload+END_MARKER
+
+
+def read_task_page(path, expected_task=None):
+    # Git may check out text as CRLF on Windows; the event hashes cover data, not line endings.
+    raw = path.read_bytes().replace(b'\r\n', b'\n')
+    if raw.count(MARKER) != 1 or not raw.endswith(END_MARKER):
+        raise Rejected('Task record is incomplete or has merge conflicts: '+str(path))
+    _, encoded_events = raw.split(MARKER, 1)
+    encoded_events = encoded_events[:-len(END_MARKER)]
+    if not encoded_events:
+        raise Rejected('Task record has no events')
+    events = []; previous = None
+    try:
+        for line in encoded_events.split(b'\n'):
+            event = json.loads(line)
+            signature = event.pop('hash', None)
+            if (not isinstance(event, dict) or event.get('seq') != len(events)+1
+                    or (expected_task is not None and event.get('taskId') != expected_task)
+                    or event.get('previousHash') != previous or sha(encoded(event)) != signature):
+                raise Rejected('Invalid task event sequence or hash chain')
+            event['hash'] = signature; events.append(event); previous = signature
+    except (UnicodeError, ValueError, TypeError, AttributeError) as exc:
+        raise Rejected('Invalid task event: '+str(path)) from exc
+    bundle = events[-1].get('after')
+    if not isinstance(bundle, dict) or not isinstance(bundle.get('plan'), dict) or not isinstance(bundle.get('state'), dict):
+        raise Rejected('Task record has no current plan and state')
+    if (bundle['plan'].get('taskId') != events[-1].get('taskId')
+            or bundle['state'].get('taskId') != events[-1].get('taskId')
+            or bundle['state'].get('lastEventSeq') != len(events)):
+        raise Rejected('Task record and event history disagree')
+    if raw != task_page(bundle, events):
+        raise Rejected('Task record was edited outside task_ops or has merge conflicts: '+str(path))
+    return bundle, events
+
+
 class Store:
     def __init__(self, root, task):
         self.root = Path(root).resolve()
-        if not task or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in task):
+        if not task_id_valid(task):
             raise Rejected('Task ID must use letters, digits, hyphens or underscores')
         self.task = task
-        self.folder = safe(self.root, 'docs/scheduling/'+task)
+        self.folder = safe(self.root, '.ans/runtime/'+task)
+        self.document = safe(self.root, 'docs/scheduling/'+task+'.md')
 
     @contextmanager
     def locked(self):
         self.folder.mkdir(parents=True, exist_ok=True)
+        ignore_path = safe(self.root, '.ans/runtime/.gitignore')
+        if not ignore_path.exists():
+            atomic(ignore_path, b'*\n')
         lock_path = safe(self.root, (self.folder/'.lock').relative_to(self.root).as_posix())
         with lock_path.open('a+b') as handle:
             try:
@@ -93,58 +171,23 @@ class Store:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def journal(self):
-        path = safe(self.root, (self.folder/'events.jsonl').relative_to(self.root).as_posix())
-        if not path.exists():
+        safe(self.root, self.document.relative_to(self.root).as_posix())
+        if not self.document.exists():
             return []
-        raw = path.read_bytes()
-        if raw and not raw.endswith(b'\n'):
-            raise Rejected('Partial journal tail: preserve it and repair explicitly; no automatic truncation')
-        events = []
-        previous = None
-        for line in raw.splitlines():
-            event = json.loads(line)
-            signature = event.pop('hash', None)
-            if event.get('seq') != len(events)+1 or event.get('taskId') != self.task or event.get('previousHash') != previous or sha(encoded(event)) != signature:
-                raise Rejected('Invalid journal sequence or hash chain')
-            event['hash'] = signature; events.append(event); previous = signature
+        _, events = read_task_page(self.document, self.task)
         return events
 
     def load(self, recover=False):
-        events = self.journal()
-        if not events:
-            raise Rejected('Task not initialized')
-        bundle = events[-1]['after']
-        for name in ['plan', 'state']:
-            path = safe(self.root,(self.folder/(name+'.json')).relative_to(self.root).as_posix())
-            try:
-                actual = json.loads(path.read_text())
-            except (OSError, ValueError):
-                actual = None
-            if actual != bundle[name] and not recover:
-                raise Rejected('Projection mismatch: use recover before any mutation')
-        if recover:
-            self.materialize(bundle)
-        # Work on a copy, never mutate a previous journal snapshot.
+        safe(self.root, self.document.relative_to(self.root).as_posix())
+        if not self.document.exists():
+            raise Rejected('Task not initialized; older JSON task directories are read-only')
+        bundle, _ = read_task_page(self.document, self.task)
         return json.loads(json.dumps(bundle))
 
-    def materialize(self, bundle):
-        for name in ['plan', 'state']:
-            atomic(self.folder/(name+'.json'), json.dumps(bundle[name], ensure_ascii=False, indent=2).encode()+b'\n')
-        state = bundle['state']
-        def cell(value):
-            return str(value).replace('|', '\\|').replace('\n', ' ').replace('<', '&lt;').replace('>', '&gt;')
-        rows = ['# Task coordination: '+self.task, '', f"stateRevision: {state['stateRevision']} · lastEventSeq: {state['lastEventSeq']}", '',
-                '| Node | Role | Status | Requirement / Design | Feedback | Next action | Evidence |', '| --- | --- | --- | --- | --- | --- | --- |']
-        for node in state['nodes']:
-            versions = node['assignedRevisions']
-            values = [node['nodeId'], node['roleId'], node['status'], versions['requirement']+' / '+versions['design'], node.get('latestReport', {}).get('summary', ''), node.get('nextAction', {}).get('summary', '')]
-            links=[]
-            for check,evidence in node.get('checkEvidence',{}).items():
-                target=safe(self.root,evidence['path'])
-                relative=os.path.relpath(target,self.folder).replace('\\','/')
-                links.append('['+cell(check)+']('+quote(relative,safe='/._-')+')')
-            rows.append('| '+' | '.join(cell(v) for v in values)+' | '+' '.join(links)+' |')
-        atomic(self.folder/'board.md', ('\n'.join(rows)+'\n').encode())
+    def materialize(self, bundle, events=None):
+        if events is None:
+            events = self.journal()
+        atomic(self.document, task_page(bundle, events))
 
     def commit(self, bundle, kind, summary, node=None, extra=None):
         events = self.journal(); seq = len(events)+1
@@ -157,8 +200,6 @@ class Store:
         if extra:
             event['detail'] = extra
         event['hash'] = sha(encoded(event))
-        log_path = safe(self.root, (self.folder/'events.jsonl').relative_to(self.root).as_posix())
-        with log_path.open('ab') as stream:
-            stream.write(encoded(event)+b'\n'); stream.flush(); os.fsync(stream.fileno())
-        self.materialize(bundle)
+        events.append(event)
+        self.materialize(bundle, events)
         return {'status': 'ok', 'stateRevision': seq, 'eventId': event['eventId']}

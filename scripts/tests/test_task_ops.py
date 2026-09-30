@@ -1,11 +1,13 @@
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).parents[1]))
-from coordination_store import Store, Rejected, file_hash
+from coordination_store import Store, Rejected, encoded, file_hash, sha
 from task_ops import operate, roles_valid
 
 class TaskOpsTests(unittest.TestCase):
@@ -58,6 +60,11 @@ class TaskOpsTests(unittest.TestCase):
   self.assertEqual(result['assignment']['roleId'],'a')
   self.op('stop',{**result['assignment'],'summary':'first activation stopped'})
   with self.assertRaises(Rejected):self.op('dispatch',{'nodeId':'a','workerId':'w','retryReason':'retry needs new consent','consentPath':'.ans/consent.json','approvedConsentSha256':file_hash(self.root,'.ans/consent.json')})
+  next_receipt={**receipt,'attemptNumber':2}
+  approved=sha(encoded(next_receipt))
+  result=self.op('dispatch',{'nodeId':'a','workerId':'w','retryReason':'approved retry','consent':next_receipt,'approvedConsentSha256':approved})
+  self.assertEqual(result['assignment']['attemptId'],'a-2')
+  self.assertEqual(self.state()['authorization'],{'kind':'explicit-consent','sha256':approved})
  def test_worker_locked_and_revisions_required(self):
   a=self.op('dispatch',{'nodeId':'a','workerId':'worker'})['assignment']
   with self.assertRaises(Rejected):self.op('run-check',{**a,'checkId':'ok'})
@@ -84,18 +91,20 @@ class TaskOpsTests(unittest.TestCase):
  def test_scope_escape_rejected(self):
   a=self.dispatch();res=self.op('report',{**a,'reportId':'bad','kind':'complete','summary':'bad','changedPaths':['src/b.py']})
   self.assertFalse(res['accepted']);self.assertEqual(self.state()['status'],'running')
- def test_journal_recovery_after_projection_failure(self):
+ def test_atomic_write_failure_preserves_previous_record(self):
   a=self.dispatch()
+  before=(Store(self.root,self.task).document).read_bytes()
   with patch.object(Store,'materialize',side_effect=OSError('simulated interrupted replacement')):
    with self.assertRaises(OSError):self.op('report',{**a,'reportId':'r','kind':'progress','summary':'saved in log'})
-  with self.assertRaises(Rejected):self.op('status')
-  recovered=self.op('recover');self.assertEqual(recovered['state']['nodes'][0]['latestReport']['summary'],'saved in log')
- def test_tamper_partial_log_and_lock(self):
+  self.assertEqual((Store(self.root,self.task).document).read_bytes(),before)
+  recovered=self.op('recover');self.assertEqual(recovered['state']['nodes'][0]['status'],'running')
+  self.assertNotIn('latestReport',recovered['state']['nodes'][0])
+ def test_tamper_partial_record_and_lock(self):
   store=Store(self.root,self.task)
   with store.locked():
    with self.assertRaises(Rejected):
     with Store(self.root,self.task).locked():pass
-  with (store.folder/'events.jsonl').open('ab') as f:f.write(b'{partial')
+  with store.document.open('ab') as f:f.write(b'partial')
   with self.assertRaises(Rejected):self.op('recover')
  def test_rejects_widened_plan_and_cycles(self):
   self.task='invalid';self.plan['taskId']=self.task;self.plan['nodes'][0]['writeSet'].append('src/b.py')
@@ -119,18 +128,98 @@ class TaskOpsTests(unittest.TestCase):
  def test_requirement_revision_needs_its_own_permission(self):
   self.put('docs/requirements.md','R2')
   with self.assertRaises(Rejected):self.op('revise',{'document':'requirement','version':'R2','affected':['a'],'reason':'new intent'})
- def test_generated_log_symlink_rejected(self):
-  store=Store(self.root,self.task);log=store.folder/'events.jsonl';saved=log.read_bytes();log.unlink()
+ def test_generated_document_symlink_rejected(self):
+  store=Store(self.root,self.task);record=store.document;saved=record.read_bytes();record.unlink()
   outside=Path(self.tmp.name).parent/'not-an-existing-ans-log'
-  log.symlink_to(outside)
+  record.symlink_to(outside)
   with self.assertRaises(Rejected):self.op('recover')
-  log.unlink();log.write_bytes(saved)
+  record.unlink();record.write_bytes(saved)
  def test_board_and_dashboard_agree(self):
   from serve_dashboard import Dashboard
   a=self.dispatch();self.complete(a)
   snapshot=Dashboard(self.root).snapshot();self.assertEqual(snapshot['issues'],[])
   self.assertEqual(next(n for n in snapshot['tasks'] if n['nodeId']=='a')['status'],'verified')
-  self.assertIn('| a | a | verified |',(Store(self.root,self.task).folder/'board.md').read_text())
+  document=Store(self.root,self.task).document
+  self.assertIn('| a | a | verified |',document.read_text())
+  self.assertEqual(list((self.root/'docs/scheduling').glob('*.md')),[document])
+  self.assertFalse((self.root/'docs/scheduling/case/plan.json').exists())
+
+ def test_two_tasks_have_separate_git_readable_records(self):
+  first=Store(self.root,self.task).document
+  self.task='second';self.plan['taskId']=self.task;self.initialize()
+  second=Store(self.root,self.task).document
+  self.assertEqual({p.name for p in first.parent.glob('*.md')},{'case.md','second.md'})
+  self.assertIn('## 变化记录',second.read_text())
+  self.assertTrue((self.root/'.ans/runtime/.gitignore').exists())
+  self.assertFalse((self.root/'docs/scheduling/second').exists())
+
+ def test_git_copy_requires_fresh_local_check_evidence(self):
+  assignment=self.dispatch();self.complete(assignment)
+  second_root=Path(self.tmp.name).parent/(Path(self.tmp.name).name+'-git-copy')
+  self.addCleanup(lambda:shutil.rmtree(second_root,ignore_errors=True))
+  shutil.copytree(self.root,second_root,ignore=shutil.ignore_patterns('runtime'))
+  from_second=Store(second_root,self.task)
+  self.assertEqual(from_second.load()['state']['nodes'][0]['status'],'verified')
+  from serve_dashboard import Dashboard
+  snapshot=Dashboard(second_root).snapshot()
+  self.assertEqual(next(row for row in snapshot['tasks'] if row['nodeId']=='a')['status'],'inconsistent')
+  self.assertTrue(any('evidence' in issue['message'] for issue in snapshot['issues']))
+  with self.assertRaisesRegex(Rejected,'evidence is unavailable'):
+   operate(second_root,self.task,'dispatch',{'nodeId':'b','workerId':'other','coordinatorToken':self.coordinator})
+
+ def test_git_merges_different_tasks_and_stops_same_task_conflict(self):
+  def git(root,*args,check=True):
+   result=subprocess.run(['git','-C',str(root),'-c','user.name=ANS Test','-c','user.email=ans-test@example.invalid',*args],text=True,capture_output=True,check=check)
+   return result
+  git(self.root,'init','-q')
+  git(self.root,'add','--','docs','src','.ans/project.json','role-cards')
+  git(self.root,'commit','-qm','initial task')
+  second_root=self.root.parent/(self.root.name+'-git-branch')
+  self.addCleanup(lambda:shutil.rmtree(second_root,ignore_errors=True))
+  subprocess.run(['git','clone','-q',str(self.root),str(second_root)],check=True)
+  self.task='local-task';self.plan['taskId']=self.task;self.initialize()
+  git(self.root,'add','--','docs/scheduling/local-task.md')
+  git(self.root,'commit','-qm','local task')
+  remote_plan=json.loads(json.dumps(self.plan));remote_plan['taskId']='other-task'
+  operate(second_root,'other-task','init',{'configPath':'.ans/project.json','approvedConfigSha256':file_hash(second_root,'.ans/project.json'),'plan':remote_plan})
+  git(second_root,'add','--','docs/scheduling/other-task.md')
+  git(second_root,'commit','-qm','other task')
+  git(second_root,'fetch','-q',str(self.root),'HEAD')
+  git(second_root,'merge','-q','--no-ff','FETCH_HEAD','-m','merge separate tasks')
+  self.assertEqual({p.stem for p in (second_root/'docs/scheduling').glob('*.md')},{'case','local-task','other-task'})
+  self.assertEqual(Store(second_root,'local-task').load()['plan']['taskId'],'local-task')
+
+  first=self.op('dispatch',{'nodeId':'a','workerId':'first'})
+  git(self.root,'add','--','docs/scheduling/local-task.md')
+  git(self.root,'commit','-qm','first assignment')
+  other=operate(second_root,'local-task','dispatch',{'nodeId':'a','workerId':'second','coordinatorToken':self.coordinator})
+  self.assertEqual(other['assignment']['workerId'],'second')
+  git(second_root,'add','--','docs/scheduling/local-task.md')
+  git(second_root,'commit','-qm','competing assignment')
+  git(second_root,'fetch','-q',str(self.root),'HEAD')
+  result=git(second_root,'merge','--no-ff','FETCH_HEAD','-m','must conflict',check=False)
+  self.assertNotEqual(result.returncode,0)
+  with self.assertRaises(Rejected):Store(second_root,'local-task').load()
+
+ def test_manual_change_or_merge_conflict_is_not_accepted(self):
+  document=Store(self.root,self.task).document
+  document.write_text(document.read_text().replace('| pending |','| verified |',1))
+  with self.assertRaises(Rejected):self.op('status')
+  document.write_text('<<<<<<< ours\n'+document.read_text()+'=======\nother\n>>>>>>> theirs\n')
+  with self.assertRaises(Rejected):self.op('status')
+
+ def test_git_checkout_crlf_keeps_the_same_task_history(self):
+  document=Store(self.root,self.task).document
+  document.write_bytes(document.read_bytes().replace(b'\n',b'\r\n'))
+  self.assertEqual(self.op('status')['state']['lastEventSeq'],1)
+  self.dispatch()
+  self.assertEqual(self.state()['status'],'running')
+  self.assertNotIn(b'\r\n',document.read_bytes())
+
+ def test_cli_reads_request_from_standard_input(self):
+  script=Path(__file__).parents[1]/'task_ops.py'
+  result=subprocess.run([sys.executable,str(script),'--root',str(self.root),'--task',self.task,'status','--request','-'],input='{}',text=True,capture_output=True,check=True)
+  self.assertEqual(json.loads(result.stdout)['state']['taskId'],self.task)
 
  def test_common_directory_allows_new_file_without_boundary_rewrite(self):
   self.task='common';self.plan['taskId']=self.task

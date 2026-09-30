@@ -6,7 +6,7 @@ Use [task_ops.py](../scripts/task_ops.py) instead of editing coordination JSON b
 
 1. The customer/operator reviews a project configuration (version 1 uses JSON, usually `.ans/project.json`) and passes its exact SHA-256 when initializing a task. The digest pins reviewed content; computing a digest is not proof of customer consent. An AI must not generate a broader policy and describe its own hash as customer approval. Production integrations must obtain this pin/consent from a trusted host or actual customer approval workflow.
 2. Configuration names each execution role, its card and boundary paths, exact `writeFiles`, permitted `operations`, automatic dispatch permission, and approved check commands. A configured file must either appear as a backtick path in Section 1 table rows or fall inside an accepted common/test subtree written with a trailing `/`, such as `src/common/orders/`, `src/common/shared/` or `test/qa/`. Whole `src/`, `common/` or test-root grants do not qualify. Duplicate or overlapping ownership among configured roles is rejected. Config `writeFiles` and plan `writeSet` still use exact paths, not directory patterns; directory ownership does not widen a running assignment. Governance assigns shared to project management and tests to their proper owners; the CLI checks the accepted paths, not role meaning inferred from names.
-3. A plan's write set can only narrow that role scope. Config or role-definition changes invalidate subsequent operations. Without `autoDispatch: true`, dispatch needs a separately reviewed consent file and pinned hash matching this task, node, role, worker, operation, write set, plan revision and the next attemptNumber. Explicit activation consent cannot be replayed for another attempt.
+3. A plan's write set can only narrow that role scope. Config or role-definition changes invalidate subsequent operations. Without `autoDispatch: true`, dispatch needs a separately reviewed consent receipt and pinned hash matching this task, node, role, worker, operation, write set, plan revision and the next attemptNumber. Pass the receipt inline in a private standard-input request, or use an already approved consent file. A digest supplied by the AI is not customer consent. Explicit activation consent cannot be replayed for another attempt.
 4. The process runs as the local OS user. Anyone able to rewrite trusted inputs and invoke the tool as that operator is outside its security boundary. Actual source writes occur in the worker's tools, not this CLI: use isolated checkouts and filesystem/tool restrictions for prevention. It checks declared changed paths but cannot attribute arbitrary filesystem edits to individual agents sharing the same OS account.
 
 ## Configuration and Plan
@@ -41,19 +41,19 @@ V1 prerequisites require the referenced stage to be verified with a current cand
 
 ## Command Interface
 
-All operations use the same entry point and JSON request files:
+All operations use the same entry point. Read a JSON request from standard input without creating a task request file:
 
 ```sh
-python3 /path/to/skill/scripts/task_ops.py --root /path/to/project --task repair-export init --request /path/to/init.json
+python3 /path/to/skill/scripts/task_ops.py --root /path/to/project --task repair-export init --request -
 python3 /path/to/skill/scripts/task_ops.py --root /path/to/project --task repair-export status
 ```
 
-The init request is `{"configPath":".ans/project.json","approvedConfigSha256":"<customer-reviewed digest>","plan":{...}}`. Initialization also returns a coordinatorToken, distinct from worker tokens. Keep it in the trusted host/private operator storage; do not send it to workers. A host can generate and securely save a random token of at least 32 characters before init and supply it as coordinatorToken to avoid losing the credential if delivery is interrupted. Paths inside configuration/plan are project-relative; the request file itself may be kept in a private external temporary directory.
+The init request is `{"configPath":".ans/project.json","approvedConfigSha256":"<customer-reviewed digest>","plan":{...}}`. Initialization also returns a coordinatorToken, distinct from worker tokens. Keep it in the trusted host/private operator storage; do not send it to workers. A host can generate and securely save a random token of at least 32 characters before init and supply it as coordinatorToken to avoid losing the credential if delivery is interrupted. Paths inside configuration/plan are project-relative. Use `--request -` to read a JSON request from standard input without creating a request file; a private external request file remains possible when the caller needs one.
 
 | Operation | Required request / result |
 | --- | --- |
 | `init` | Reviewed config pin and plan; creates the task only if no managed/unmanaged records would be overwritten; returns coordinatorToken |
-| `dispatch` | coordinatorToken, nodeId, workerId, and when required consentPath/approvedConsentSha256; returns narrowed assignment, attemptId, revisions and a one-time plaintext token |
+| `dispatch` | coordinatorToken, nodeId, workerId, and when required inline `consent` or `consentPath` plus its approvedConsentSha256; returns narrowed assignment, attemptId, revisions and a one-time plaintext token |
 | `ack` | Returned assignment fields; confirms the worker uses the assigned revisions |
 | `run-check` | Assignment fields plus checkId; executes only a configured argv without a shell, within a 1–300 second configured timeout, and records actual output, exit code and candidate hashes |
 | `report` | Assignment fields plus reportId, kind (`progress`, `issue`, `complete`), summary and changedPaths where relevant; rejects stale/out-of-scope feedback and deduplicates identical reports |
@@ -61,7 +61,7 @@ The init request is `{"configPath":".ans/project.json","approvedConfigSha256":"<
 | `revise` | coordinatorToken, document (`design` default or `requirement`), new version, affected node IDs, reason, optional revised dependencies, and unaffectedReason when some nodes are excluded; requires the corresponding pinned policy permission and changed document content |
 | `verify` | coordinatorToken, nodeId; requires a completion report, unchanged candidate, every approved check passing, unchanged evidence files and required outputs present |
 | `status` | No request; returns recorded state with assignment token hashes/history removed |
-| `recover` | coordinatorToken; restores projections from a valid committed journal after interrupted snapshot/board writes |
+| `recover` | coordinatorToken; verifies and returns the last complete task document after an interruption |
 
 Coordinator-only commands (dispatch, revise, verify, recover) require the private coordinator credential. Worker credentials cannot invoke those commands; only token hashes are stored in state/history. Legacy pre-release tasks without coordinator hashes remain readable but require a new initialized task for mutations. No recovery command bypasses a missing credential.
 
@@ -82,11 +82,11 @@ For partial revisions, unaffectedReason documents the semantic judgment. The too
 
 ## Persistence and Recovery
 
-[coordination_store.py](../scripts/coordination_store.py) uses a nonblocking OS file lock (POSIX flock / Windows msvcrt), append-and-fsync event commits, a hash-linked sequence, and atomic replacement of plan/state/board. Each committed event contains its after-state so interruption after journal append is recoverable. The event log is the committed history; JSON state is its materialized current view.
+[coordination_store.py](../scripts/coordination_store.py) writes `docs/scheduling/<task-id>.md`: a readable plan and step table followed by an ordered, hash-linked machine event block in the same file. The program verifies event order, hashes and the rendered human section before any operation. An atomic file replacement commits the entire update; if writing fails before replacement, the previous complete record remains current. `recover` checks that record and reports its current state; it cannot invent an uncommitted event. Hash chaining detects inconsistent edits, not an operator who deliberately rewrites all hashes. The local OS lock and check output live under `.ans/runtime/`; its `.gitignore` keeps temporary files out of Git. Checks run while holding the writer lock; concurrent operations fail fast.
 
-Mutations reject projection mismatch until recover succeeds. Recovery validates the full sequence/hash chain; it does not silently truncate partial logs or fabricate missing evidence. Hash chaining detects accidental/inconsistent edits, not a malicious operator who rewrites the entire history. Checks execute while holding the writer lock in v1; concurrent operations fail fast and can retry after the current operation finishes.
+The Markdown record can be committed with the project. A Git merge conflict or manual edit invalidates its machine section and blocks new work until the project manager reconciles it. Different tasks have different files. A new checkout can read committed plans/history, but running assignments and local test logs are not automatically portable. Before dependent work continues, recheck source and required evidence; unavailable local check evidence blocks downstream dispatch. The trusted host must carry private credentials separately, or start a newly authorized task after reconciling the previous worker. Existing JSON task directories remain visible in the optional Dashboard, not writable by the new task tool.
 
-The dashboard consumes the generated schema directly. Its task view remains read-only and displays stored outcomes, not an independent permission verdict. The optional shared role channel may record messages and administrator decisions in its separate project database tables; these do not change task authorization, state or evidence. Task logs contain complete snapshot events and can grow; use bounded tasks and retain/archive finished runs under project policy rather than treating this as a high-throughput distributed scheduler.
+The dashboard consumes the validated Markdown task record directly and can still display older JSON task directories. Its task view remains read-only and displays stored outcomes, not an independent permission verdict. The optional shared role channel may record messages and administrator decisions in its separate project database tables; these do not change task authorization, state or evidence. Task records contain complete snapshot events and can grow; use bounded tasks and retain/archive finished runs under project policy rather than treating this as a high-throughput distributed scheduler.
 
 ## Verified Case and Limits
 

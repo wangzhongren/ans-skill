@@ -203,15 +203,32 @@ class Dashboard:
             if not base.is_dir() or base.is_symlink() or not base.resolve().is_relative_to(self.root):
                 continue
             for folder in sorted(base.iterdir()):
-                if not folder.is_dir() or folder.is_symlink():
+                if folder.is_symlink():
                     continue
-                plan_path, state_path, log_path = folder/'plan.json', folder/'state.json', folder/'events.jsonl'
+                markdown = folder.is_file() and folder.suffix == '.md'
+                if not markdown and not folder.is_dir():
+                    continue
+                if markdown:
+                    plan_path = state_path = log_path = folder
+                else:
+                    plan_path, state_path, log_path = folder/'plan.json', folder/'state.json', folder/'events.jsonl'
                 if not any(p.exists() for p in [plan_path, state_path, log_path]):
                     continue
                 start_issues = len(result['issues'])
+                record = None
+                if markdown:
+                    try:
+                        # Cloud-only deployments do not ship the local task tool.
+                        from scripts.coordination_store import file_hash, read_task_page
+                        if folder.stat().st_size > MAX_BYTES:
+                            raise ValueError('Task record exceeds 2 MiB limit')
+                        record = read_task_page(folder, folder.stem)
+                    except (OSError, UnicodeError, ValueError) as exc:
+                        issue(folder, exc)
+                        continue
                 plan = state = None
                 try:
-                    plan = read_json(plan_path)
+                    plan = record[0]['plan'] if markdown else read_json(plan_path)
                     plans = node_map(plan.get('nodes'), 'nodeId')
                     task_id = plan.get('taskId')
                     if not isinstance(task_id, str) or not task_id or task_id in seen_tasks:
@@ -222,7 +239,7 @@ class Dashboard:
                     continue
                 states = {}
                 try:
-                    state = read_json(state_path)
+                    state = record[0]['state'] if markdown else read_json(state_path)
                     states = node_map(state.get('nodes'), 'nodeId')
                     if state.get('taskId') != task_id or state.get('planRevision') != plan.get('planRevision'):
                         raise ValueError('Task or plan revision mismatch')
@@ -236,12 +253,12 @@ class Dashboard:
                     issue(state_path, exc)
                 events = []
                 try:
-                    text = self.text(log_path)
+                    lines = record[1] if markdown else self.text(log_path).splitlines()
                     seqs, ids = [], set()
-                    for number, line in enumerate(text.splitlines(), 1):
-                        if not line.strip():
+                    for number, line in enumerate(lines, 1):
+                        if not markdown and not line.strip():
                             continue
-                        event = json.loads(line)
+                        event = line if markdown else json.loads(line)
                         if not isinstance(event, dict) or event.get('taskId') != task_id or type(event.get('seq')) is not int:
                             raise ValueError('Invalid event on line '+str(number))
                         event_id = event.get('eventId')
@@ -276,6 +293,14 @@ class Dashboard:
                     acknowledged = reported.get('acknowledgedRevisions', {})
                     if status in {'running', 'awaiting-verification', 'verified'} and isinstance(assigned, dict) and isinstance(acknowledged, dict) and assigned and acknowledged and assigned != acknowledged:
                         issue(state_path, 'Assigned and acknowledged revisions differ for '+node_id); good = False
+                    if markdown and status == 'verified':
+                        for evidence in reported.get('checkEvidence', {}).values():
+                            try:
+                                if file_hash(self.root, evidence['path']) != evidence['sha256']:
+                                    issue(state_path, 'Local check evidence is unavailable or changed for '+node_id)
+                                    good = False
+                            except (OSError, ValueError, KeyError, TypeError) as exc:
+                                issue(state_path, exc); good = False
                     deps = planned.get('dependsOn', [])
                     if not isinstance(deps, list):
                         issue(plan_path, 'dependsOn must be an array'); deps = []; good = False

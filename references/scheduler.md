@@ -24,10 +24,7 @@ If a shared Dashboard role channel is enabled, each worker may send its own scop
 
 | Operable location | Allowed use |
 | --- | --- |
-| `docs/scheduling/<task-id>/plan.json` | Maintain the stage-task dependency graph within existing task authorization |
-| `docs/scheduling/<task-id>/state.json` | Record node state, assignments, evidence references, and execution attempts |
-| `docs/scheduling/<task-id>/events.jsonl` | Append dispatch, completion, failure, invalidation, and recovery events |
-| `docs/scheduling/<task-id>/board.md` | Generate the coordination table from plan/state; never maintain independent status here |
+| `docs/scheduling/<task-id>.md` | Keep one Git-readable plan, current step table and ordered task history; `task_ops` is its only writer |
 
 These paths are suggested entries, not a built-in whitelist. Governance must resolve them into the project scheduler's accepted Section 1 (a bounded conditional scheduling directory is allowed). These are the scheduling portion of the default project role's boundary. Its separately accepted design paths are defined under project-role.md; ownership policy and role definitions remain Governance-owned. Map `docs/` to the existing documentation root and record the resolved paths in the accepted boundary before writing. Use a stable, path-safe task ID and reuse its records on resume. Scheduling permissions do not grant source permissions. Only the project role's separately accepted `common/shared/`, corresponding test and document scopes permit shared implementation. Do not edit other roles' application code/tests, build configuration, role cards, boundaries or skill rules. Shared implementation and design still need the applicable document confirmation and task authorization. Read them as needed; reading another role card does not activate it or grant its scope.
 
