@@ -13,7 +13,7 @@
 
 ## JSON 格式
 
-角色 ID 等于角色文件夹名。节点、功能和数据流 ID 使用“角色ID:稳定名称”，改显示名称时保留 ID。一个抽象只由所属角色定义，其他角色按 ID 引用。
+角色 ID 等于角色文件夹名。节点、功能和数据流 ID 使用“角色ID:稳定名称”，改显示名称时保留 ID。一个抽象只由所属角色定义，其他角色按 ID 引用。`common/shared/` 中的抽象归项目管理角色；各角色的私有 common 代码归自己。测试角色记录实际测试支撑结构，不编造业务功能。
 
 ~~~json
 {
@@ -68,7 +68,7 @@
 | revision、updatedAt | 本角色实际更新后的正整数版本和 YYYY-MM-DD 日期 |
 | abstractions | 稳定概念、模块、接口约定或 Model；不列每个文件、私有函数和临时变量 |
 | kind | concept、contract、model 或 module |
-| layer | interface、pipeline、service、provider 或 model，作为定位标签 |
+| layer | interface、pipeline、service、provider、model；common 表示工具与基础框架的配套代码，不增加第六层 |
 | public | 是否提供给其他角色使用；共享 Model 仍按已有全局共享规则处理 |
 | status | current 表示当前记录，不等于测试通过；planned 表示计划中；needs-review 表示待核实 |
 | relations | contains 组成、manages 管理、composes 组合、uses 使用、uses-model 引用数据、implements 实现约定 |
@@ -80,7 +80,7 @@
 
 组成关系形成思维导图主干，使用关系显示为引用。数据定义引用与能力调用分开标明。缺角色 JSON、引用或数据流时页面显示待补，不由工具推断。非法 JSON、重复 ID 或越权定义其他角色的节点会阻止生成，保留原页面。
 
-只负责协调、没有业务模块的角色可以保留空的抽象列表并写清说明，不为填图编造业务能力。
+项目管理角色有共享组件时，在自己的 JSON 中记录，使用 common 标签。测试角色只记录适合当前格式表达的真实结构；没有需要展示的模块时可以保留空列表并说明，不把测试框架或公共组件硬标成业务层，不为填图编造业务能力。
 
 ## 生成和打开
 

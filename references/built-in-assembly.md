@@ -9,7 +9,7 @@ This reference describes how ANS Governance defines a project's assembly capabil
 | Application or package entry | The actual language/toolchain entry path; do not require `main.ts` or create an executable for a library |
 | Layer-local assembly | Specific Interface/Pipeline wiring files where needed, with no duplicate owner |
 | Build and test setup | Concrete manifest, configuration, and test-runner files needed by this project |
-| Startup verification | Language-native startup/integration tests, assigned to this role |
+| Startup verification | Language-native startup and wiring smoke tests; cross-role, full-flow and regression suites belong to the fixed test role |
 | Usage instructions | The actual README or startup guide path |
 
 Do not copy generic descriptions such as "Project config files" into a whitelist as if they were exact paths. Each source or configuration file must have a resolved owner and task scope.
@@ -38,6 +38,7 @@ For coordinated work, the accepted project scheduler dispatches early setup and 
 2. Wait for agreed API contracts before writing dependent wiring. Work against compatible doubles can support isolated preparation, but does not establish integration success.
 3. Integrate only after participating implementations pass their gates. Unrelated roles need not finish first. Apply [dependency-aware scheduling](bootstrap-workflow.md#dependency-aware-scheduling).
 4. Follow [entrypoint.md](entrypoint.md) for startup, partial-failure cleanup, repeated shutdown, import safety, and the real-start smoke test. Verify cross-layer wiring with actual implementations in an appropriate isolated environment.
+5. Hand the runnable candidate and setup instructions to the [fixed test role](test-role.md), through project management, for independent cross-role, full-flow and regression checks. Assembly smoke checks do not replace those checks. Existing accepted test ownership changes only through Governance; do not take over old suites silently.
 
 ## See also
 

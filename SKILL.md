@@ -42,7 +42,7 @@ Role cards (角色卡) and module boundary documents (模块边界文档) togeth
 
 **Boundary documents** have Section 1 (mutation whitelist); description and ownership details live in the companion `functional-description.md`. Only the built-in Governance reference carries its scope and responsibilities together; project roles, including the scheduler, use boundary.md Section 1 and companion descriptions. **Role cards** describe what the agent does, list must-read docs (including its boundary doc), state the execution principles, and index the **system features this role primarily owns**. Each feature gets one current-behavior document under that role's `features/`; do not confuse a system feature with a role duty or use feature ownership as mutation permission. See [references/module-boundary.md](references/module-boundary.md), [references/role-card.md](references/role-card.md), and [references/feature-point.md](references/feature-point.md).
 
-**Files not listed in Section 1 are read-only by default.** To mutate an unlisted file, the AI must first propose updating the boundary document's Section 1 (Governing Invariant #1).
+**Files not listed in or covered by an accepted directory in Section 1 are read-only by default.** Each role may grow its private `common/<role-id>/` subtree within an approved task. Project management alone owns `common/shared/`. Uncovered files and ownership changes require a Governance boundary update (Governing Invariant #1). See [common-code ownership](references/shared-directories.md).
 
 Each role maintains one `architecture.json` within its accepted scope. Read only the role's task-relevant abstractions and referenced public contracts; the project role uses the [offline architecture viewer](references/role-architecture-viewer.md) to combine these files. Do not require a parallel `content.json`, project-understanding SQLite store or repeated metadata index. Existing project-context tools are optional legacy tools, not mandatory role checkpoints. Source, contracts and feature documents remain the behavior evidence.
 
@@ -62,8 +62,8 @@ On a project with no boundary documents, follow the [bootstrap workflow](referen
 
 ### Governance Rules
 
-- Every role card must reference its module boundary document. Every boundary document must list specific application source files in Section 1, not wildcard directories; supporting and governance locations (`docs/`, role directories, the skill's own `references/`) may use directory-scoped or conditional entries.
-- Adding or removing a file from a capability must update its boundary document's Section 1. A mismatch is a documentation gap — flag or block acceptance.
+- Every role card must reference its boundary document. Section 1 lists exact layer-source files and may grant the role's specific private `common/<role-id>/` subtree, project-owned `common/shared/`, and dedicated role-owned test directories. No blanket source/common root or overlapping ownership is allowed. Supporting and governance locations may use bounded directory entries; see [module-boundary.md](references/module-boundary.md).
+- New or removed files inside an accepted directory do not require a per-file boundary rewrite; the task still records actual changes. New directory permissions, ownership changes and additions/removals of individually listed paths require Governance to update Section 1 before execution. Ordinary edits to already permitted files do not require a boundary rewrite.
 - Role cards grant context, not mutation authority. Only Section 1 of the referenced boundary document does.
 - Boundary documents and role cards obey the same evidence and acceptance gates as code changes.
 - **Shared abstractions** (Model types, event buses, public entry points, cross-module contracts) must have exactly one **primary owner** role. Other roles may reference them as read-only dependencies. A primary owner change invalidates evidence for all referencing roles (Governing Invariant #6).
@@ -84,7 +84,9 @@ Project roles (scheduler, capabilities, and assembly) and their boundary documen
 
 ### Default Project Role
 
-Governance creates the [default project role](references/project-role.md), which owns global investigation, architecture/abstraction design, inter-role integration design documents, and scheduling. It writes only its accepted design documents and execution records, never application source or permission configuration. Keep it active in the main conversation while authorized workers implement their assigned roles. Read [the dispatch protocol](references/scheduler.md) for the scheduling part. The execution graph comes from agreed role contracts and explicit task prerequisites.
+Governance creates the [default project management role](references/project-role.md), which owns investigation, architecture/integration design and all cross-role coordination. It also implements `common/shared/`, its corresponding tests and the shared-component document within accepted scope. It cannot edit other roles' business code, private common code or permissions. Keep it active in the main conversation while authorized workers implement their assigned roles. Read [the dispatch protocol](references/scheduler.md) for scheduling. The execution graph comes from agreed role contracts and explicit task prerequisites.
+
+Governance also creates or reuses a [fixed project test role](references/test-role.md): developers test their own code, project management tests shared code, and the test role independently verifies cross-role integration, complete flows and regressions. Project management arranges repairs and acceptance; the test role does not repair production code. It is project-local, not another built-in role.
 
 ### Default Local Architecture Viewer
 
@@ -111,8 +113,8 @@ Activation requires an explicit role switch and loading its scope; merely readin
 | Current role | Switch to | When |
 |---|---|---|
 | ANS Governance (built-in) | Project scheduler | Role definitions accepted; task requires execution planning or dispatch |
-| Project scheduler | Capability or assembly role | Ready stage dispatched to a worker, or explicit sequential fallback |
-| Capability or assembly role | Project scheduler | Sequential stage returns; report results/dependency requests to the scheduler |
+| Project scheduler | Capability, assembly or test role | Ready stage dispatched to a worker, or explicit sequential fallback |
+| Capability, assembly or test role | Project scheduler | Sequential stage returns; report results/dependency requests to the scheduler |
 | Capability worker | Default project role (handoff) | Return a cross-role request; the worker does not switch identity or acquire another scope |
 | Default project role | ANS Governance (built-in) | Customer-authorized governance change; capability workers return requests instead of self-switching |
 | Project scheduler | ANS Governance (built-in) | Missing role, ownership conflict, or required policy/scope change |
@@ -124,8 +126,8 @@ For coordinated execution, hand off from ANS Governance to the accepted project 
 - **One role per task context.** A single AI agent works under one role at a time. Only an activated, accepted project scheduler dispatches execution agents, each with its own role card, narrowed scope, and ready prerequisites. Workers do not spawn or assign other workers; use explicit sequential role switching when subagent tools are unavailable. See [bootstrap scheduling](references/bootstrap-workflow.md#dependency-aware-scheduling).
 - **Role activation required before mutation.** Before creating or modifying any file, verify the current role. Without an active project role card, only ANS Governance may create governance artifacts. Scheduling records require an accepted project scheduler role card and boundary.
 - **No silent role drift.** When a task crosses role boundaries (e.g., fixing a bug in one capability reveals a governance gap), hold the cross-scope mutation and return it to the project role. A worker remains locked to its assignment; a new role activation requires the consent/configuration gate.
-- **Evidence is role-scoped.** Verification evidence collected under one role is valid only for that role's mutation scope. Switching roles alone does not invalidate evidence. Scheduler may inspect role-produced verification evidence to release a stage, without transferring the owner's responsibility or treating it as final integrated verification.
-- **Assembly role is a capability role.** It follows the same switching rules. It may prepare build/test configuration early. Final integration waits for its actual dependencies and their verification, not every unrelated role. Read the participating roles' `api-spec.md` before wiring; each assembly-owned file still obeys its layer's call rules. See [Assembly](references/built-in-assembly.md).
+- **Evidence records its producer and coverage.** Each role reports the actual candidate, tests and observed results. The test role may verify cross-role behavior through read-only source access and its own tests; this grants no production-write authority. Switching roles alone does not invalidate evidence. Project management checks current role-produced evidence before releasing stages; unit results do not replace required integrated verification.
+- **Assembly and test roles follow the same activation rules.** Assembly prepares build/test configuration and verifies wiring/startup after its actual dependencies pass, without waiting for unrelated roles. It reads participating roles' `api-spec.md` before wiring; each file still obeys its layer. The fixed test role independently checks cross-role and complete-flow behavior. See [Assembly](references/built-in-assembly.md) and [Test role](references/test-role.md).
 
 ## Task Routing
 
@@ -138,9 +140,9 @@ The primary routing table is each role's `boundary.md` Section 1. Every file in 
 ### Routing Process
 
 1. **Extract file evidence.** From the bug report or task description, identify affected files, error locations, stack traces, or user-visible symptoms. Prefer concrete file paths over abstract descriptions.
-2. **Look up the owning role.** Search all `角色卡/*/boundary.md` Section 1 tables for the affected files. The role whose Section 1 lists the file is the owner.
+2. **Look up the owning role.** Search all `角色卡/*/boundary.md` Section 1 tables for exact files or accepted directory coverage. Resolve ownership conflicts before dispatch; a broader directory grant does not override another owner.
    - **File found** → Scheduler assigns a stage to that owner; the worker loads its role card and follows [Role Switching](#role-switching) activation.
-   - **File unlisted** → it is read-only by default. Report the gap and decide: add to an existing role's Section 1, create a new role, or mark as frozen.
+   - **File not covered by an exact or directory entry** → it is read-only by default. Report the gap and decide: add to an existing role's Section 1, create a new role, or mark as frozen.
    - **No file evidence** → start investigation from the highest relevant entry point, following the top-down trace in [Workflow](references/workflow.md). Trace relevant callers and dependencies with targeted source searches and contract inspection.
 3. **Check cross-role impact.** Check the affected file's relevant callers and dependents in source and the agreed integration contracts. If contained within one role, route directly. If it crosses boundaries:
    - Split the task into independent sub-tasks, each routed to its owning role.
@@ -165,7 +167,9 @@ Read only the relevant references, at the stated stage. These are mandatory task
 
 | Reference | Read before / when |
 | --- | --- |
-| [Default project role](references/project-role.md) | Main-conversation investigation, architecture/abstraction/integration design, and role-activation authorization |
+| [Default project role](references/project-role.md) | Investigation, design, shared-code implementation, cross-role coordination and role-activation authorization |
+| [Common code and shared catalog](references/shared-directories.md) | Role-private framework code, cross-role reuse, shared-code ownership and consumer updates |
+| [Fixed project test role](references/test-role.md) | Create/activate the project test role; plan or run cross-role, complete-flow and regression tests |
 | [Legacy role function graphs](references/role-atlas.md) | User explicitly requests a step-by-step source walkthrough or the old role graph |
 | [Offline role architecture viewer](references/role-architecture-viewer.md) | Role architecture changes and task delivery: maintain owned JSON, generate and open the local HTML |
 | [Optional local dashboard](references/dashboard.md) | User explicitly requests legacy role/stage viewing or Dashboard work |

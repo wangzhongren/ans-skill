@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).parents[1]))
 from coordination_store import Store, Rejected, file_hash
-from task_ops import operate
+from task_ops import operate, roles_valid
 
 class TaskOpsTests(unittest.TestCase):
  def setUp(self):
@@ -131,5 +131,63 @@ class TaskOpsTests(unittest.TestCase):
   snapshot=Dashboard(self.root).snapshot();self.assertEqual(snapshot['issues'],[])
   self.assertEqual(next(n for n in snapshot['tasks'] if n['nodeId']=='a')['status'],'verified')
   self.assertIn('| a | a | verified |',(Store(self.root,self.task).folder/'board.md').read_text())
+
+ def test_common_directory_allows_new_file_without_boundary_rewrite(self):
+  self.task='common';self.plan['taskId']=self.task
+  boundary='# Section 1\n| directory | `src/common/a/` | private framework |'
+  self.put('role-cards/a/boundary.md',boundary)
+  path='src/common/a/validation.py'
+  self.config['roles']['a']['writeFiles']=[path]
+  self.plan['nodes'][0]['writeSet']=[path]
+  self.initialize();assignment=self.dispatch()
+  self.put(path,'def valid(value):\n return bool(value)\n')
+  self.op('run-check',{**assignment,'checkId':'ok'})
+  self.op('report',{**assignment,'reportId':'new-helper','kind':'complete','summary':'created helper','changedPaths':[path]})
+  self.op('verify',{'nodeId':'a'})
+  self.assertEqual(self.state()['status'],'verified')
+  self.assertEqual((self.root/'role-cards/a/boundary.md').read_text(),boundary)
+
+ def test_directory_ownership_keeps_task_write_set_exact(self):
+  self.task='narrow';self.plan['taskId']=self.task
+  self.put('role-cards/a/boundary.md','# Section 1\n| directory | `src/common/a/` | private |')
+  path='src/common/a/selected.py';self.put(path,'value=1')
+  self.config['roles']['a']['writeFiles']=[path];self.plan['nodes'][0]['writeSet']=[path]
+  self.initialize();assignment=self.dispatch()
+  report=self.op('report',{**assignment,'reportId':'outside-task','kind':'complete','summary':'unplanned helper','changedPaths':['src/common/a/extra.py']})
+  self.assertFalse(report['accepted'])
+
+ def test_common_and_test_directories_are_supported(self):
+  for directory in ['src/common/shared/', 'common/a/', 'test/test-role/', 'tests/project/shared/']:
+   with self.subTest(directory=directory):
+    self.put('role-cards/a/boundary.md','# Section 1\n| directory | `'+directory+'` | owned |')
+    self.config['roles']['a']['writeFiles']=[directory+'nested/new.py']
+    roles_valid(self.root,self.config)
+
+ def test_directory_grant_does_not_cover_sibling_or_broad_root(self):
+  for directory,path in [('src/common/a/','src/common/ab/file.py'),('src/common/','src/common/a/file.py'),('src/','src/a.py'),('test/','test/a/check.py')]:
+   with self.subTest(directory=directory,path=path):
+    self.put('role-cards/a/boundary.md','# Section 1\n| directory | `'+directory+'` | owned |')
+    self.config['roles']['a']['writeFiles']=[path]
+    with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+
+ def test_overlapping_directory_and_file_ownership_is_rejected(self):
+  self.put('role-cards/a/boundary.md','# Section 1\n| directory | `src/common/a/` | owned |')
+  self.config['roles']['a']['writeFiles']=['src/common/a/one.py']
+  for entry,path in [('src/common/a/nested/','src/common/a/nested/two.py'),('src/common/a/two.py','src/common/a/two.py')]:
+   with self.subTest(entry=entry):
+    self.put('role-cards/b/boundary.md','# Section 1\n| scope | `'+entry+'` | other owner |')
+    self.config['roles']['b']['writeFiles']=[path]
+    with self.assertRaisesRegex(Rejected,'overlapping'):roles_valid(self.root,self.config)
+
+ def test_directory_scope_rejects_traversal_and_symlinks(self):
+  self.put('role-cards/a/boundary.md','# Section 1\n| directory | `src/common/a/` | owned |')
+  for path in ['src/common/a/../b/file.py','src/common/a//file.py']:
+   with self.subTest(path=path):
+    self.config['roles']['a']['writeFiles']=[path]
+    with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+  (self.root/'src/common').mkdir()
+  (self.root/'src/common/a').symlink_to(self.root/'src',target_is_directory=True)
+  self.config['roles']['a']['writeFiles']=['src/common/a/a.py']
+  with self.assertRaises(Rejected):roles_valid(self.root,self.config)
 
 if __name__=='__main__':unittest.main()

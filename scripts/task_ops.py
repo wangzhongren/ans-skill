@@ -25,6 +25,25 @@ def config_for(root, bundle):
     return read(root, path)
 
 
+def owned_code_directory(path):
+    """Recognize bounded common/test subtrees, never a whole source root."""
+    if not path.endswith('/'):
+        return False
+    parts = Path(path).parts
+    if 'common' in parts:
+        return parts.index('common') < len(parts) - 1
+    return len(parts) > 1 and parts[0] in {'test', 'tests'}
+
+
+def claim_scope(ownership, path, role_id):
+    for existing, owner in ownership.items():
+        overlaps = (path == existing
+                    or existing.endswith('/') and path.startswith(existing)
+                    or path.endswith('/') and existing.startswith(path))
+        require(owner == role_id or not overlaps, 'Duplicate or overlapping file owner: '+path)
+    ownership[path] = role_id
+
+
 def roles_valid(root, config):
     require(config.get('schemaVersion') == 1 and isinstance(config.get('roles'), dict), 'Invalid configuration')
     ownership = {}
@@ -34,7 +53,7 @@ def roles_valid(root, config):
             require(file_hash(root, role[key]), 'Missing role '+key)
         require(isinstance(role.get('writeFiles'), list), 'writeFiles must be exact file paths')
         boundary = safe(root, role['boundary']).read_text()
-        # Only backtick paths inside table rows of Section 1 are recognized by v1.
+        # Backtick paths in Section 1 tables include bounded common/test directories.
         lines = boundary.splitlines(); section = []; active = False
         for line in lines:
             if line.lstrip().startswith('#'):
@@ -49,12 +68,18 @@ def roles_valid(root, config):
         import re
         for line in section:
             boundary_paths.update(re.findall(r'`([^`]+)`', line))
+        directories = [path for path in boundary_paths if owned_code_directory(path)]
+        for directory in directories:
+            resolved = safe(root, directory)
+            require(resolved.relative_to(root).as_posix()+'/' == directory, 'Directory scope must use a canonical path')
+            require(not directory.startswith(('.ans/', 'docs/scheduling/', 'role-cards/', '角色卡/')), 'Execution scope cannot include governance/state files')
+            claim_scope(ownership, directory, role_id)
         for path in role['writeFiles']:
-            safe(root, path)
-            require(path in boundary_paths, 'Configured write file is absent from boundary Section 1: '+path)
-            require(path not in ownership, 'Duplicate file owner: '+path)
+            resolved = safe(root, path)
+            require(resolved.relative_to(root).as_posix() == path and not resolved.is_dir(), 'writeFiles must use exact canonical file paths')
+            require(path in boundary_paths or any(path.startswith(directory) for directory in directories), 'Configured write file is absent from boundary Section 1: '+path)
             require(not path.startswith(('.ans/', 'docs/scheduling/', 'role-cards/', '角色卡/')), 'Execution scope cannot include governance/state files')
-            ownership[path] = role_id
+            claim_scope(ownership, path, role_id)
         require(isinstance(role.get('operations'), list), 'Role operations required')
         for check_id, check in role.get('checks', {}).items():
             require(check_id and all(c.isalnum() or c in '-_' for c in check_id), 'Invalid check ID')

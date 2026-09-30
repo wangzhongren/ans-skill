@@ -7,7 +7,8 @@ import json
 from pathlib import Path, PureWindowsPath
 
 
-LAYERS = {"interface", "pipeline", "service", "provider", "model"}
+# common is a supporting-code label, not another operational layer.
+LAYERS = {"interface", "pipeline", "service", "provider", "model", "common"}
 NODE_KINDS = {"concept", "contract", "model", "module"}
 RELATION_KINDS = {"contains", "manages", "composes", "uses", "uses-model", "implements"}
 STATUSES = {"current", "planned", "needs-review"}

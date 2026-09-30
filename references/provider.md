@@ -30,7 +30,7 @@ The designated public entry point explicitly exposes supported API from its own 
 
 ## Implementation Growth and Dependencies
 
-Access only authorized infrastructure. Do not call Service, Pipeline, Interface, or peer Providers as a workaround. Runtime loading of `resource/` assets belongs here; keep effectful helpers local rather than in `utils`. Shared Model and permitted helpers remain available.
+Access only authorized infrastructure. Do not call Service, Pipeline, Interface, or peer Providers as a workaround. Runtime loading of `resource/` assets belongs here; keep effectful helpers in Provider rather than in `common`. Shared Model and permitted helpers remain available.
 
 Grow `impl/` according to the [incremental organization rules](architecture.md): reuse first, add distinct responsibilities or required strategies, and group related files only when useful. Keep private helpers near their implementation. Internal collaboration must be acyclic and cannot conceal cross-component calls. Internal splitting does not automatically expand contracts or public exports.
 

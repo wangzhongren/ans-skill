@@ -4,7 +4,7 @@ A role card identifies one agent role and its scope boundary. It is the entry po
 
 ## Format
 
-The implementation template below is for capability and assembly roles. Governance creates the default project card using [project-role.md](project-role.md), with accepted design and scheduling scopes; do not copy business implementation checkpoints into it.
+The implementation template below is for capability and assembly roles. Governance creates the default project card using [project-role.md](project-role.md), with accepted design, shared-code, corresponding test and scheduling scopes. It follows implementation checkpoints for its shared code, not for other roles' business code. Create the fixed test role using [test-role.md](test-role.md).
 
 The template below is in English for readability. Follow explicit user requirements first, then repository conventions, then language/toolchain conventions. Use OS locale only as a fallback for natural-language prose; never translate identifiers or change filenames solely because of locale.
 
@@ -37,6 +37,7 @@ List only current or planned system features for which this role is the primary 
 7. The canonical inter-role integration designs assigned to this stage, with contract IDs/revisions; implementation reports must reference them.
 8. This role's `architecture.json`, when present, and the task-relevant abstractions or referenced public contracts. Verify them against current code and contracts. Follow [role-architecture-viewer.md](role-architecture-viewer.md). Do not require parallel content.json or SQLite project-understanding records.
 9. The feature-point document for the assigned system feature, when present. Check its current behavior against source and tests before changing it.
+10. `references/shared-directories.md` when using or changing common code; read the task-relevant entries in the project's shared-component document before reusing a shared component.
 
 For the assembly role, additionally read:
 - `references/entrypoint.md` — Application entry and lifecycle rules
@@ -50,8 +51,8 @@ For the assembly role, additionally read:
 
 - Section 1 of the referenced boundary document is the only mutation authority.
 - Modify only what the task requires.
-- Cross-scope changes go back to the client.
-- Default readonly — unlisted files are read-only unless Section 1 says otherwise.
+- Cross-role requests go to project management for design and coordination; permission changes go through Governance with required customer acceptance.
+- Default readonly — files outside exact entries and accepted directory scopes are read-only. Within the approved task, grow your private common directory without seeking per-file boundary edits; do not import peers' private common code or write `common/shared/`. Propose cross-role reuse to project management.
 - **Implementation order** (`Model -> Provider -> Service -> Pipeline -> Interface`) applies to affected work within the role; cross-role work additionally waits for its actual dependencies and agreed contracts.
 - **Execution assignment:** For coordinated work, the accepted project scheduler dispatches this role according to bootstrap-workflow.md and scheduler.md. Do not spawn child agents or independently schedule peers. Return unmet dependencies or scope requests to the scheduler. For a standalone task, the role still requires customer consent or applicable configuration preauthorization. It cannot activate itself, switch to another role, or create workers. Parallel work requires disjoint writes, agreed contracts, ready dependencies, and available authorized agents; otherwise use sequential role switching. Assembly may prepare build/test configuration early and integrates participating implementations after their gates pass.
 
@@ -61,7 +62,7 @@ For the assembly role, additionally read:
 
 **Code quality:** Implemented operations must fulfill their contracts; no unfinished stubs presented as complete. Semantically intentional no-op hooks are allowed under checkpoint 3c. Variable names are descriptive (no single/two-letter abbreviations beyond loop counters). No ternary operators — use `if/else`. Every `try/catch` must output the error. No accessing internal properties from outside the class.
 
-**Testing:** Tests go under the project's language-native test files grouped by owning role where the runner permits. Complete each layer's tests before integrating dependent implementation with it; independent preparation against agreed contracts may proceed without claiming integration success.
+**Testing:** Own and run unit and layer-contract tests for your code; project management does the same for shared code. Complete affected-layer tests before dependent integration. The fixed test role owns cross-role, complete-flow and regression testing, not your unit-test obligations. Send failures and repair requests through project management. Independent preparation does not claim integration success.
 
 ## Execution checkpoints
 
@@ -81,7 +82,7 @@ For the assembly role, additionally read:
 5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. The project role generates the combined architecture HTML from role JSON; do not create a separate viewer for this worker or require a running Dashboard. Do not write the shared project table; wait for the project role to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Scheduler validates the release conditions; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
 6. **Verify acceptance.** Apply evidence invalidation and acceptance rules before the final report. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
 
-`utils/`, `resource/`, `test/`, `docs/`, and the root startup file support the five-layer architecture; they do not add operational layers. Routine tasks do not generate or refresh code-atlas artifacts. Use targeted source inspection for dependency questions; atlas tools are explicit opt-in only.
+`common/`, `resource/`, `test/`, `docs/`, and the root startup file support the five-layer architecture; they do not add operational layers. Routine tasks do not generate or refresh code-atlas artifacts. Use targeted source inspection for dependency questions; atlas tools are explicit opt-in only.
 
 ## Communication
 

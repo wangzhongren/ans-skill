@@ -1,6 +1,6 @@
 # API Specification Format
 
-The default project role owns the canonical inter-role integration design under [project-role.md](project-role.md). Each capability role maintains `api-spec.md` as an implementation report alongside its card and boundary: actual exports, compatibility with the design, and test evidence. It does not independently redefine the shared contract. Assembly reads both the accepted design and these reports, verifying unclear details in source.
+The default project role owns the canonical inter-role integration design under [project-role.md](project-role.md). Each implementation owner, including project management for `common/shared/`, maintains `api-spec.md` as an implementation report alongside its card and boundary: actual exports, compatibility with the design, and test evidence. It does not independently redefine the shared contract. Assembly reads both the accepted design and these reports, verifying unclear details in source.
 
 ## Template
 

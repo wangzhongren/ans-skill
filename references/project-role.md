@@ -1,4 +1,4 @@
-# Default Project Role: Investigation, Design, and Coordination
+# Default Project Management Role: Design, Shared Code, and Coordination
 
 ANS Governance creates this project-local role and its boundary during bootstrap. After acceptance, it is the default role in the main conversation. It is not another built-in role. The project's existing scheduler role may be extended into this role through an accepted boundary update rather than creating two competing coordinators. Scheduling is one responsibility of this role; [scheduler.md](scheduler.md) defines the dispatch mechanics.
 
@@ -9,10 +9,11 @@ Its role card still includes a system-feature ownership list. Usually this list 
 1. Investigate across the project by reading code, logs, role definitions, tests, and integration contracts. Reading another role's files or card does not activate that role or grant write access.
 2. Write architecture, abstraction, and inter-role integration design documents within the accepted design-document scope. Define responsibilities, proposed contracts, dependencies, and verification requirements.
    Each role maintains its own architecture JSON; read the task-relevant definitions and public references rather than requiring another project-understanding index.
-3. Maintain its accepted execution plans and records and dispatch authorized execution roles. Check deliverables and evidence without substituting its own implementation for the assigned owner's work.
-4. Do not create or modify application source, abstract/interface source files, Model type definitions, tests, build configuration, or permission configuration. A diagram or signature example in a design document is a proposal; the actual source file belongs to its execution role. Role cards and mutation boundaries remain Governance-owned.
+3. Arrange all cross-role work: identify owners, agree interfaces, order tasks, dispatch authorized roles and check current evidence. Workers return cross-role needs here rather than assigning or editing each other's work.
+4. Implement and maintain the accepted `common/shared/` directory, its dedicated tests and the shared-component document under [shared-directories.md](shared-directories.md). This is its only application-code scope. Own common abstractions in its architecture JSON and link consumers by ID. Follow the same document confirmation, implementation authorization, testing and evidence requirements as other code owners; coordination authority alone is not implementation approval.
+5. Do not modify other roles' business code, private common code or caller tests, nor layer contract source, Model definitions, build configuration or permission configuration. Arrange those changes with their owners. Role cards and mutation boundaries remain Governance-owned.
 
-Governance must resolve concrete design/documentation paths and bounded scheduling paths into this role's Section 1. Read-only investigation is broad; design-writing permission is local. Do not treat a design assignment as permission to change all project Markdown files.
+Governance must resolve design/documentation paths, bounded scheduling paths, `common/shared/` and its corresponding test directory into this role's Section 1. For example, use `src/common/shared/`, `test/<project-role-id>/shared/` and `<existing-doc-root>/architecture/shared-components.md`. Existing cards do not gain these permissions automatically; Governance first submits the boundary update for acceptance. Do not treat a design assignment as permission to change all project Markdown files.
 
 ## Deliver the Local Architecture Page
 
@@ -39,13 +40,13 @@ Do not invent retry behavior, public APIs, or framework-specific types merely to
 
 ## Design Versus Implementation Evidence
 
-The project role owns the intended cross-role contract. Execution roles own its source implementation and their [api-spec.md](api-spec.md) reports of actual exported behavior and tests. Every participating report links the canonical contract ID/revision and distinguishes implemented, pending, and discrepant behavior. Assembly reads both the accepted design and actual implementation reports before integration.
+The project role owns the intended cross-role contract and implements shared foundation components only in its accepted `common/shared/` scope. Capability roles own their layer implementations and callers. Each implementation owner, including project management for shared code, maintains an [api-spec.md](api-spec.md) report of actual exported behavior and tests. Every participating report links the canonical contract ID/revision and distinguishes implemented, pending, and discrepant behavior. Assembly reads both the accepted design and actual implementation reports before integration.
 
 If an execution role finds a missing or infeasible contract, it returns a discrepancy to the project role. The project role proposes a design revision, identifies affected roles, and updates the schedule after applicable acceptance. Governance handles any required ownership or permission changes. Execution roles must not silently rewrite the shared design or their peers' APIs. Changed contracts invalidate dependent evidence; update real implementations and rerun affected checks before integration is released.
 
 ## Shared Coordination View
 
-Maintain the [project–worker coordination table](coordination.md) as the sole writer of accepted scheduling records. Receive versioned worker reports, acknowledge their disposition, and keep current task state separate from design/requirement change history. Workers report completion for verification; the project role checks current evidence before marking a stage verified.
+Maintain the [project–worker coordination table](coordination.md) as the sole writer of accepted scheduling records. Receive versioned worker reports, acknowledge their disposition, and keep current task state separate from design/requirement change history. Workers report completion for verification; the project role checks current evidence before marking a stage verified. Arrange the [fixed test role](test-role.md) to run required cross-role, complete-flow and regression checks, including affected consumers of project-owned shared code. A shared component passing its own unit tests is not final integration acceptance.
 
 ## Role Activation and Customer Control
 

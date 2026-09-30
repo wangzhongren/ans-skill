@@ -108,6 +108,27 @@ class ArchitectureTests(unittest.TestCase):
             self.assertEqual(len(data["dataFlows"]), 4)
             self.assertTrue(all(flow["resolved"] for flow in data["dataFlows"]))
 
+    def test_shared_common_component_keeps_project_owner_and_consumer_reference(self):
+        project = architecture("project", [abstraction("project:Validation", "通用校验", "common")])
+        self.write_role(project)
+        self.a["relations"].append({"from": "a:Service", "to": "project:Validation", "kind": "uses"})
+        self.write_role(self.a)
+        output = self.root / "doc/architecture/index.html"
+        renderer.render(self.root, output)
+        value = self.page_data(output)
+        node = next(node for node in value["nodes"] if node["id"] == "project:Validation")
+        self.assertEqual(node["roleId"], "project")
+        self.assertEqual(node["layer"], "common")
+        relation = next(item for item in value["relations"] if item["to"] == node["id"])
+        self.assertTrue(relation["resolved"])
+        self.assertEqual(value["issues"], [])
+
+    def test_common_label_does_not_allow_domain_model_misclassification(self):
+        self.a["abstractions"][2]["layer"] = "common"
+        self.write_role(self.a)
+        with self.assertRaisesRegex(ValueError, "Model"):
+            renderer.build(self.root)
+
     def test_client_navigation_and_collapse_with_offline_dom(self):
         node = which("node")
         if node is None:

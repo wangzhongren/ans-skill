@@ -22,9 +22,12 @@ src/
   models/        shared schemas, types, value objects, invariants
                    (may have subdirectories per domain, e.g., models/physics/)
 
+  common/        supporting code, not a sixth layer
+    <role-id>/   private helpers and framework components owned by this role
+    shared/      cross-role components owned by project management
+
   Supporting directories at project root:
-  test/          organized by role: role-owned, language-native test files
-  utils/         shared helpers (no business logic)
+  test/          organized by role: unit tests, shared tests, and a dedicated test role
   resource/      static assets
   docs/          design, feature, change, fix records
 ```
@@ -53,7 +56,7 @@ Keep concrete classes internal. Construction and implementation selection obey t
 
 ### Shared Contract and Public-Export Rules
 
-The layer references linked from [SKILL.md](../SKILL.md) define which directories and entry points are required. Public entry filenames are language-dependent: `index.js` is a JavaScript option, not a cross-language requirement. Use the established package entry or facade mechanism for the project, with internal implementation symbols hidden. If the language cannot literally map these directory names (for example a reserved keyword), preserve the responsibilities using valid names and document the mapping. Do not create JavaScript files in another language solely to satisfy this convention. Internal subdivisions and supporting `utils/` and `resource/` folders do not add architectural layers. Folder conventions do not authorize unrelated repository migrations; include necessary moves and import changes in the Mutation Contract.
+The layer references linked from [SKILL.md](../SKILL.md) define which directories and entry points are required. Public entry filenames are language-dependent: `index.js` is a JavaScript option, not a cross-language requirement. Use the established package entry or facade mechanism for the project, with internal implementation symbols hidden. If the language cannot literally map these directory names (for example a reserved keyword), preserve the responsibilities using valid names and document the mapping. Do not create JavaScript files in another language solely to satisfy this convention. Internal subdivisions and supporting `common/` and `resource/` folders do not add architectural layers. Folder conventions do not authorize unrelated repository migrations; include necessary moves and import changes in the Mutation Contract.
 
 - Express contracts using appropriate language mechanisms such as interfaces, protocols, abstract base classes, or callable types. Specify inputs, outputs, errors, and relevant behavioral guarantees. Keep concrete infrastructure access and business execution out of abstractions. Multiple implementations may share a contract; do not create an abstract class for every file or private helper.
 - Implementations import their own contracts directly from `abstract/`. Abstractions must not import implementations, facades, or root entry points, including through re-exports. Internal modules must not loop back through their own facade.
@@ -100,7 +103,7 @@ Grow Provider and Service `impl/` modules according to current responsibilities 
 - Inspect existing contracts, implementations, helpers, and callers first. Reuse a compatible implementation; add a module only for a distinct responsibility or an implementation strategy required by the task.
 - Start with individual files. Introduce a purpose-named subdirectory when an implementation has several related files that benefit from being maintained together. Do not pre-create empty trees or organize modules by task number or development round.
 - Before adding or changing dependency edges, identify the affected modules, their direct dependencies, and callers. Keep the affected module dependency graph directed and acyclic; directory nesting alone does not establish a valid dependency direction. Do not introduce cycles through imports, re-exports, public factories, or shared helpers. Existing cycles do not authorize an unrelated rewrite; report a blocking cycle and apply scope-expansion rules when necessary.
-- Keep private helpers near the implementation they support. Move functions with a clear general-purpose use into `utils` according to its reuse rules. Do not move business orchestration into helpers to disguise a dependency between peer Services.
+- Keep one-off private helpers near their implementation. Put a role's reusable helpers and framework support in its owned `common/<role-id>/`; cross-role foundation reuse goes through project management and `common/shared/`. Follow [common-code rules](shared-directories.md). Do not move business orchestration into helpers to disguise a dependency between peer Services.
 - Internal modules may collaborate within one component's responsibility. Cross-component dependencies must use permitted contracts and public entry points where defined, rather than importing another component's implementation internals. Composition of Services remains in Pipeline-equivalent code and all cross-layer calls obey the strict adjacent-layer rule.
 - Adding or splitting an implementation does not automatically add a public capability. Reuse an existing contract when it fits; update `abstract/` and public exports only when the requested outcome requires a contract or exposure change, under the existing authorization rules.
 - Include new files, moves, and necessary caller changes in the Mutation Contract. Implement and validate dependencies before their affected callers where practical, then verify affected execution paths and refresh invalidated evidence. Do not create a persistent dependency registry unless the repository already requires one.

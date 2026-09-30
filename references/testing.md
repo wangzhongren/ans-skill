@@ -2,6 +2,10 @@
 
 Use with role-card.md's Required reading. These rules retain the global mutation and architectural boundaries.
 
+### Who Owns Tests
+
+Development roles own and run their unit and layer-contract tests. The project management role owns the tests for `common/shared/`. The assembly role owns runner setup and startup/wiring smoke checks. The project's [fixed test role](test-role.md) owns cross-role integration, complete user-flow and regression tests. Project management arranges repairs and acceptance; the test role reports defects instead of editing another role's code. Passing unit tests does not replace required integrated tests, and a dedicated test role does not remove per-layer verification.
+
 ### Layer Tests in `test`
 
 Use a root `test/` directory organized by role — `test/<role>/<language-native test file>` — mirroring the role structure under `角色卡/`. It is supporting verification infrastructure, not an operational layer:
@@ -43,7 +47,7 @@ Run the checks appropriate to the repository and risk. The static gate must veri
 - Verify the global adjacent-layer rule for imports and runtime calls, including factories, injection, callbacks, and re-exports. Model remains globally shared without operational-layer dependencies.
 - Check that affected module dependencies are acyclic, added directories serve the task, and internal splitting does not silently expand public contracts.
 - Verify shared contract and public-export rules, including public-entry-only external imports where required and no import-time resource initialization.
-- Verify `utils` and `resource` rules: helpers do not proxy forbidden calls, resource references and packaging are valid, and runtime loading belongs to Provider.
+- Verify [common and resource rules](shared-directories.md): private role directories have no foreign consumers; shared code is project-role-owned, cataloged and tested; common code does not proxy forbidden calls. Resource references and packaging must be valid, and runtime loading belongs to Provider.
 
 ### Contract compatibility
 
