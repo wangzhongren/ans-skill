@@ -19,7 +19,7 @@ This is the boundary document for the built-in governance role. It defines the s
 - Create and maintain governance artifacts (role cards, module boundary documents).
 - Bootstrap new projects with initial role structure, create a project scheduler role when coordination is needed, then hand accepted definitions to that project role for execution.
 - Expand or split capabilities as the project evolves.
-- Update governance rules in SKILL.md. Do not dispatch execution agents or edit active Scheduler records while in Governance; explicitly hand off or switch to Scheduler.
+- Update governance rules in SKILL.md. Do not dispatch execution agents or edit active Scheduler records while in Governance. Prepare a scoped handoff for a separate Scheduler context; this context remains Governance for its entire lifetime.
 - Maintain the governance change log with chronological entries for every artifact change.
 
 ## Governance

@@ -15,7 +15,7 @@ AI may propose a change. The user and the execution environment decide what may 
 
 Every project role approaches its work as the long-term maintainer of its responsibility in a real, evolving project. Actual use, collaboration with existing components and future maintenance guide its judgment. Express this [working stance](references/role-card.md#working-stance-for-every-role) near the start of each role card. Existing scope and authorization still apply.
 
-When first invoked, you work under the **ANS Governance** built-in role — no separate role card or boundary document is needed to begin. See [Built-in Role: ANS Governance](#built-in-role-ans-governance).
+On bootstrap or a governance task, bind the context to the **ANS Governance** built-in role — no separate role card is needed. For an existing accepted project assignment, bind a fresh context directly to its authorized project role instead. Never activate Governance first and then switch that same context to a project role. See [Role Binding and Handoff](#role-binding-and-handoff).
 
 ## Governing Invariants
 
@@ -28,6 +28,7 @@ Maintain these invariants throughout the task:
 5. **Protect frozen files.** Do not change them during an ordinary downstream fix; change them only when the task authorizes it.
 6. **Retest callers after changing a dependency.** Earlier test results for affected code are no longer current.
 7. **Do not make a failing change look successful.** Never delete tests, loosen assertions, widen permissions, or hide errors just to make it pass unless the user explicitly changes that rule.
+8. **One context, one fixed role.** Once bound, a context cannot activate another role. Cross-role work requires a separate context; neither authorization nor unavailable subagent tools permits an in-place switch.
 
 ### Adjacent-Layer Call Direction
 
@@ -100,39 +101,43 @@ Cloud synchronization remains manual. One project Key stays in private project c
 
 The shared Dashboard may also host an opt-in [role channel](dashboard/README.md#role-channel): each role sends its own task messages and exact permission requests using the project's shared Key and declaring its active role ID. The server checks project scope but does not independently authenticate each role behind that shared Key. Only an administrator login records decisions. A Dashboard decision is not dispatch or mutation authority: continue to enforce customer consent or approved configuration through `task_ops` before any worker activation.
 
-## Role Switching
+## Role Binding and Handoff
 
-Each agent context has exactly one active role at a time; concurrent agents may hold different roles. Switching roles changes mutation authority, required reading, and execution context.
+Each conversation or agent context binds to exactly one role before role work begins, and keeps that role for its entire lifetime. Binding survives new turns, task completion, resume and context compaction. Reading another role's card or reports for reference does not activate that role or grant its authority. Do not combine role identities or alternate them through prompts, task labels, or approval.
+
+For another role, start a fresh independent context with only its assigned role, accepted boundary, task authorization, required inputs/contracts and deliverables. Do not fork or replay the coordinator's full role-bearing history as a way to change roles. A reused worker context may receive more work only for its original role and authorized scope.
 
 ### Activation
 
 1. **Load the target role card** from `角色卡/<role>/role-card.md`. The role-directory root name follows the project language (`角色卡/` in Chinese projects, e.g. `role-cards/` in English ones); examples use the Chinese form.
 2. **Load boundary.md Section 1** — this becomes the only mutation authority.
-3. **Verify authorization and activation:** Obtain customer consent for the role activation/task scope or match a preauthorized rule in the designated customer-approved project configuration, as specified in [project-role.md](references/project-role.md). This applies equally to subagent dispatch and in-place switching. Explicitly state the target role and confirm its loaded Section 1 is the active whitelist. Writing application code without an active role card is a governance violation (Governing Invariant #1).
+3. **Verify authorization and binding:** Confirm the context is unbound or already bound to this same role. Obtain customer consent for the role assignment/task scope or match a preauthorized rule in the designated customer-approved project configuration, as specified in [project-role.md](references/project-role.md). State the role and confirm its loaded Section 1 is the active whitelist. A different role requires a separate context even with customer consent. Writing application code without an active role card is a governance violation (Governing Invariant #1).
 
-Activation requires an explicit role switch and loading its scope; merely reading a card to route or schedule work does not activate it. Only ANS Governance uses its built-in reference Section 1; the project scheduler must load its own accepted card and boundary. The active role persists until another explicit activation or task end.
+Activation is the initial binding, not a role switch. Only ANS Governance uses its built-in reference Section 1; the project scheduler loads its own accepted card and boundary. A cross-role request transfers the task and evidence, never the sender's identity or write authority.
 
-### When to Switch
+### When to Hand Off to a Separate Context
 
-| Current role | Switch to | When |
+| Current role | Receiving role in a separate context | When |
 |---|---|---|
 | ANS Governance (built-in) | Project scheduler | Role definitions accepted; task requires execution planning or dispatch |
-| Project scheduler | Capability, assembly or test role | Ready stage dispatched to a worker, or explicit sequential fallback |
-| Capability, assembly or test role | Project scheduler | Sequential stage returns; report results/dependency requests to the scheduler |
+| Project scheduler | Capability, assembly or test role | Ready stage dispatched to a worker with its own fixed role |
+| Capability, assembly or test role | Project scheduler | Report results/dependency requests to the existing scheduler context |
 | Capability worker | Default project role (handoff) | Return a cross-role request; the worker does not switch identity or acquire another scope |
-| Default project role | ANS Governance (built-in) | Customer-authorized governance change; capability workers return requests instead of self-switching |
+| Default project role | ANS Governance (built-in) | Customer-authorized governance change; capability workers return requests instead of changing roles |
 | Project scheduler | ANS Governance (built-in) | Missing role, ownership conflict, or required policy/scope change |
 
-For coordinated execution, hand off from ANS Governance to the accepted project scheduler after bootstrap acceptance; it dispatches ready stages. Existing accepted definitions can be reused. A standalone single-role task may omit scheduling records, but leaving the default project role to execute it still requires the same consent/configuration gate; workers may not independently spawn or switch roles.
+After bootstrap acceptance, Governance prepares a handoff for a separate project-management context and remains Governance. It does not dispatch application workers. The accepted project scheduler, bound in that separate context, dispatches ready stages. Existing accepted definitions can be reused. A standalone single-role task may omit scheduling records but must run in a context bound to its authorized owner; workers may not independently spawn workers or change roles.
+
+Without subagent tools or capacity, run separate role contexts sequentially and exchange scoped handoffs. If a separate context cannot be started, prepare the handoff, report the pending work, and continue only work belonging to the current role. Never use in-place role switching as a fallback.
 
 Coordinated tasks use one Git-readable `docs/scheduling/<task-id>.md` record per task. `task_ops` writes its current step table and verifiable event history; each task's prior multi-file JSON records are legacy read-only data. The one approved `.ans/project.json` still defines executable scope. See [task operations](references/task-operations.md) before dispatch or resume.
 
 ### Rules
 
-- **One role per task context.** A single AI agent works under one role at a time. Only an activated, accepted project scheduler dispatches execution agents, each with its own role card, narrowed scope, and ready prerequisites. Workers do not spawn or assign other workers; use explicit sequential role switching when subagent tools are unavailable. See [bootstrap scheduling](references/bootstrap-workflow.md#dependency-aware-scheduling).
+- **One fixed role per context.** Only an activated, accepted project scheduler dispatches execution agents, each in a separate context with its own role card, narrowed scope, and ready prerequisites. Workers do not spawn or assign other workers. Sequential execution uses separate role contexts, never role switching in one context. See [bootstrap scheduling](references/bootstrap-workflow.md#dependency-aware-scheduling).
 - **Role activation required before mutation.** Before creating or modifying any file, verify the current role. Without an active project role card, only ANS Governance may create governance artifacts. Scheduling records require an accepted project scheduler role card and boundary.
-- **No silent role drift.** When a task crosses role boundaries (e.g., fixing a bug in one capability reveals a governance gap), hold the cross-scope mutation and return it to the project role. A worker remains locked to its assignment; a new role activation requires the consent/configuration gate.
-- **Evidence records its producer and coverage.** Each role reports the actual candidate, tests and observed results. The test role may verify cross-role behavior through read-only source access and its own tests; this grants no production-write authority. Switching roles alone does not invalidate evidence. Project management checks current role-produced evidence before releasing stages; unit results do not replace required integrated verification.
+- **No role drift.** When a task crosses role boundaries (e.g., fixing a bug in one capability reveals a governance gap), hold the cross-scope mutation and return it to project management. The current context remains locked to its role; the other role acts in a separate authorized context.
+- **Evidence records its producer and coverage.** Each role reports the actual candidate, tests and observed results. The test role may verify cross-role behavior through read-only source access and its own tests; this grants no production-write authority. A handoff alone does not invalidate evidence; changed inputs or dependencies do. Project management checks current role-produced evidence before releasing stages; unit results do not replace required integrated verification.
 - **Assembly and test roles follow the same activation rules.** Assembly prepares build/test configuration and verifies wiring/startup after its actual dependencies pass, without waiting for unrelated roles. It reads participating roles' `api-spec.md` before wiring; each file still obeys its layer. The fixed test role independently checks cross-role and complete-flow behavior. See [Assembly](references/built-in-assembly.md) and [Test role](references/test-role.md).
 
 ## Task Routing
@@ -147,7 +152,7 @@ The primary routing table is each role's `boundary.md` Section 1. Every file in 
 
 1. **Extract file evidence.** From the bug report or task description, identify affected files, error locations, stack traces, or user-visible symptoms. Prefer concrete file paths over abstract descriptions.
 2. **Look up the owning role.** Search all `角色卡/*/boundary.md` Section 1 tables for exact files or accepted directory coverage. Resolve ownership conflicts before dispatch; a broader directory grant does not override another owner.
-   - **File found** → Scheduler assigns a stage to that owner; the worker loads its role card and follows [Role Switching](#role-switching) activation.
+   - **File found** → Scheduler assigns a stage to that owner in a separate worker context; the worker loads its role card and follows [Role Binding and Handoff](#role-binding-and-handoff).
    - **File not covered by an exact or directory entry** → it is read-only by default. Report the gap and decide: add to an existing role's Section 1, create a new role, or mark as frozen.
    - **No file evidence** → start investigation from the highest relevant entry point, following the top-down trace in [Workflow](references/workflow.md). Trace relevant callers and dependencies with targeted source searches and contract inspection.
 3. **Check cross-role impact.** Check the affected file's relevant callers and dependents in source and the agreed integration contracts. If contained within one role, route directly. If it crosses boundaries:
