@@ -179,6 +179,7 @@ Read only the relevant references, at the stated stage. These are mandatory task
 | Reference | Read before / when |
 | --- | --- |
 | [Default project role](references/project-role.md) | Investigation, design, shared-code implementation, cross-role coordination and role-activation authorization |
+| [Meeting](references/meeting.md) | Customer requests a meeting, cross-role discussion or joint review: agenda, independent role contributions, bounded rounds and minutes |
 | [Common code and shared catalog](references/shared-directories.md) | Role-private framework code, cross-role reuse, shared-code ownership and consumer updates |
 | [Fixed project test role](references/test-role.md) | Create/activate the project test role; plan or run cross-role, complete-flow and regression tests |
 | [Legacy role function graphs](references/role-atlas.md) | User explicitly requests a step-by-step source walkthrough or the old role graph |
@@ -197,6 +198,10 @@ Read only the relevant references, at the stated stage. These are mandatory task
 | [System feature-point document](references/feature-point.md) | When assigning a system feature to a role or writing/updating that feature's current-behavior document |
 
 Map repository names to the five responsibilities; naming differences do not relax dependencies. Report existing conflicts and scope the necessary repair rather than silently adding exceptions or migrating unrelated code. Filenames and export mechanisms follow the project language; `main.js` and `index.js` are not universal requirements.
+
+## Meeting
+
+When requested, the accepted project management role hosts a [meeting](references/meeting.md) to collect independent role views, discuss specific disagreements and produce minutes in its authorized `docs/meetings/` scope. Each participant stays in its own fixed-role context; the host never acts out the other roles. Default to two rounds unless the customer specifies another limit. Record recommendations, unresolved issues, proposed follow-up owners and actual customer decisions separately. Meeting consensus does not grant write permissions or replace proposal confirmation and implementation authorization. This is a skill workflow, not a new CLI command or role.
 
 ## Optional Code Atlas
 

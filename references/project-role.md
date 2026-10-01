@@ -12,10 +12,15 @@ Its role card links to its `feature-map.md`. That navigation can say there are n
 2. Write architecture, abstraction, and inter-role integration design documents within the accepted design-document scope. Define responsibilities, proposed contracts, dependencies, and verification requirements.
    Development roles maintain current feature descriptions and flowcharts in their existing docs/feature/; project management reads the relevant documents and public contracts.
 3. Arrange all cross-role work: identify owners, agree interfaces, order tasks, dispatch authorized roles and check current evidence. Workers return cross-role needs here rather than assigning or editing each other's work.
+   When requested, host [meetings](meeting.md): set the agenda, collect separate fixed-role participant views, address disagreements within the round limit and write shared minutes. This remains project management work, not a separate host role.
 4. Implement and maintain the accepted `common/shared/` directory, its dedicated tests and the shared-component document under [shared-directories.md](shared-directories.md). This is its only application-code scope. Describe shared components once in the shared-component document, and link their consumers' feature documents. Follow the same document confirmation, implementation authorization, testing and evidence requirements as other code owners; coordination authority alone is not implementation approval.
 5. Do not modify other roles' business code, private common code or caller tests, nor layer contract source, Model definitions, build configuration or permission configuration. Arrange those changes with their owners. Role cards and mutation boundaries remain Governance-owned.
 
 Governance must resolve design/documentation paths, bounded scheduling paths, `common/shared/` and its corresponding test directory into this role's Section 1. For example, use `src/common/shared/`, `test/<project-role-id>/shared/`, and its own `docs/architecture.md` and `docs/architecture/shared-components.md`, with feature-map and historical document scopes resolved separately. Existing cards do not gain these permissions automatically; Governance first submits the boundary update for acceptance. Do not treat a design assignment as permission to change all project Markdown files.
+
+## Host Requested Meetings
+
+For requested meetings, also resolve a bounded `docs/meetings/` path within this role's existing documentation root into its accepted Section 1. Project management alone writes the minutes. Existing roles require an accepted boundary update if that path is not covered; use a chat draft meanwhile. Meeting participants have read-only discussion assignments, and consensus is not implementation authorization. Follow [meeting.md](meeting.md) for role isolation, round limits, attribution and follow-up.
 
 ## Own the Overall Architecture
 
