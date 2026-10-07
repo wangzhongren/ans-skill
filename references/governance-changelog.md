@@ -1,5 +1,9 @@
 # Governance Rule Changes
 
+## 2026-10-07 — Substantive proposal review and customer brief
+
+Added `proposal-review.md` and integrated it into the main skill, project-management responsibilities, owner role-card template, scheduler, meeting workflow and Chinese documentation. Management now evaluates requirement/architecture fit, reuse, cross-role impact and material alternatives before presenting a concise customer approval brief. Affected owners review in independent contexts, proposal revisions stay with their owner, and management recommendation remains separate from customer implementation authorization and runtime verification. Valid same-version approvals remain valid; material changes trigger review of the changed decision. No runtime CLI enforcement is added.
+
 ## 2026-10-01 — Requested cross-role meetings
 
 Added `meeting.md` and discovery links in the main skill, Chinese guide, README and project-management responsibilities. Meetings use a fixed project-management host, independent read-only role participants, a default two-round limit, attributed minutes in the host's accepted documentation scope and explicit unresolved/customer-decision records. Consensus remains a proposal; it does not authorize implementation or broaden boundaries. This adds a skill workflow without a CLI command or runtime code changes.

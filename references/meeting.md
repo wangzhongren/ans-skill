@@ -40,6 +40,8 @@ Write for someone who did not attend. Summarize rather than copying full transcr
 
 ## Discussion Is Not Implementation Approval
 
+After discussion, project management applies [proposal-review.md](proposal-review.md) to the resulting concrete proposal/version: assess the evidence and alternatives, record its own review recommendation, return revisions to the owner and prepare the customer's concise approval brief. Meeting agreement supplies review input; it does not replace this evaluation or automatically mark a proposal ready.
+
 A consensus is a recommendation, not customer acceptance, a permission change, or verified behavior. Link conclusions into the appropriate design/change/fix proposal within the owner's authorized scope. Application code and tests still require the customer's confirmation of that concrete document/version and instruction to implement it; previously valid same-version authorization remains valid. Governance handles ownership/boundary changes. The scheduler dispatches implementation separately under [scheduler.md](scheduler.md), and required tests establish actual results.
 
 ## Invocation Example
