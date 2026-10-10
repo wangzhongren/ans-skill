@@ -43,7 +43,7 @@ Read `feature-map.md` for the system features owned by this role, their purpose,
 5. `references/testing.md` — Per-layer test rules, static and dynamic verification gates.
 6. `references/documentation.md` — Common location, date and timeline rules; when writing a document, also load only its design, feature, change or fix guide.
 7. The canonical inter-role integration designs assigned to this stage, with contract IDs/revisions; implementation reports must reference them.
-8. This role's `feature-map.md`, relevant feature flowcharts/history and the project management role's task-relevant `docs/architecture.md` sections. Verify descriptions against current code and contracts. No architecture JSON or parallel project-understanding store is required.
+8. This role's `memo.md`, the project management role's current `docs/project-rules.md` (check relevant rules and their status), `feature-map.md`, relevant feature flowcharts/history and the project management role's task-relevant `docs/architecture.md` sections. Verify descriptions against current code and contracts. No architecture JSON or parallel project-understanding store is required.
 9. The feature-point document for the assigned system feature, when present. Check its current behavior against source and tests before changing it.
 10. `references/shared-directories.md` when using or changing common code; read the task-relevant entries in the project's shared-component document before reusing a shared component.
 
@@ -106,6 +106,7 @@ Maintain these deliverables within the accepted scope. Navigation and companion 
 - `changelog.md` — Change history with date, description, and doc reference
 - `functional-description.md` — Local module notes and code locations; links to the feature-map and project architecture
 - `api-spec.md` — Actual exports, dependencies, assembly notes, design contract ID/revision, compliance/deviations and test evidence; shared integration design remains project-role-owned
+- `memo.md` — This role's concise, dated, sourced facts and continuation clues; maintained by the role itself
 - `feature-map.md` — Feature navigation: name, plain-language purpose, status and document link
 - `docs/feature/<feature-id>.md` — One stable current-behavior document per owned system feature: purpose, flowchart and history links; do not invent business features for roles without them
 
@@ -120,6 +121,7 @@ Each role is a directory under `角色卡/` (project root — the directory root
 appointment-booking/
 ├── role-card.md              # 角色卡 ← bootstrap 创建
 ├── boundary.md               # 边界文档: Section 1 白名单 ← bootstrap 创建
+├── memo.md                   # 本角色的简短事实与续接线索
 ├── changelog.md              # 变更日志 ← 角色实现阶段创建（角色根目录）
 ├── functional-description.md # 功能描述: 图 + 代码位置 + 详解 ← 角色实现阶段创建（角色根目录）
 ├── api-spec.md               # API 规范: 导出 + 依赖 + 装配说明 ← 角色实现阶段创建（角色根目录）
@@ -132,7 +134,7 @@ appointment-booking/
     └── fix/                  # 修复记录
 ```
 
-Bootstrap creates the role definition and accepted documentation scopes. Governance records planned ownership; the accepted owner creates `feature-map.md` and grounded current feature files in `docs/feature/`. Pending documents are labeled without broken links. Project management owns its overall `docs/architecture.md`. Do not create architecture JSON or another project-understanding database.
+Each role maintains its own `memo.md` for dated, sourced work clues; it does not replace project rules or task status. Read the project management role's shared `docs/project-rules.md` when present and check relevant rules. Bootstrap creates the role definition and accepted documentation scopes. Governance records planned ownership; the accepted owner creates `feature-map.md` and grounded current feature files in `docs/feature/`. Pending documents are labeled without broken links. Project management owns its overall `docs/architecture.md`. Do not create architecture JSON or another project-understanding database.
 
 `changelog.md` records every creation, scope update, split, or merge of this role in reverse chronological order. Each entry must index the actual completion document:
 

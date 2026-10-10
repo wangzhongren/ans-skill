@@ -34,7 +34,7 @@ Within its Section 1 files and accepted private common directory, a role may cre
 
 ### Companion file: `functional-description.md`
 
-Role-local module notes and key code locations live in `functional-description.md`; it links the feature-map rather than duplicating feature flows. Project management owns overall architecture in its own `docs/architecture.md`. Current behavior and history navigation for each feature live in `docs/feature/<feature-id>.md`; see [feature-point.md](feature-point.md).
+Role-local module notes and key code locations live in `functional-description.md`; each role's private work clues live in its own `memo.md`. Project-wide engineering constraints belong in project management's `docs/project-rules.md` and require an explicit Section 1 path. The companion description links the feature-map rather than duplicating feature flows. Project management owns overall architecture in its own `docs/architecture.md`. Current behavior and history navigation for each feature live in `docs/feature/<feature-id>.md`; see [feature-point.md](feature-point.md).
 
 ## Governance
 

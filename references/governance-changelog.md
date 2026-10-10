@@ -1,5 +1,9 @@
 # Governance Rule Changes
 
+## 2026-10-10 — Project engineering rules and role memos
+
+Added shared guidance for one project-wide engineering rules document maintained by project management and private, concise work memos maintained by each role. Integrated the shared file and role memo into task reading, bootstrap sequencing, proposal review, testing, templates, and navigation. Project-specific rules require actual evidence and confirmation; examples do not automatically apply. Missing rules do not block bootstrap, and the new documentation paths do not grant mutation authority.
+
 ## 2026-10-07 — Substantive proposal review and customer brief
 
 Added `proposal-review.md` and integrated it into the main skill, project-management responsibilities, owner role-card template, scheduler, meeting workflow and Chinese documentation. Management now evaluates requirement/architecture fit, reuse, cross-role impact and material alternatives before presenting a concise customer approval brief. Affected owners review in independent contexts, proposal revisions stay with their owner, and management recommendation remains separate from customer implementation authorization and runtime verification. Valid same-version approvals remain valid; material changes trigger review of the changed decision. No runtime CLI enforcement is added.

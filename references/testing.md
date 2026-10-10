@@ -30,6 +30,8 @@ Create actual test files as layers are implemented; empty directories do not cou
 
 ## Gate 1: Static Structural Verification
 
+Check implementation against relevant, confirmed entries in the project management role's `docs/project-rules.md` when available. Report the rule identifier and concrete evidence. A missing file, draft entry or rule without a check method is a documented gap, not a pass or a blocker to unrelated verification. Do not claim a project-specific thread, resource or performance rule was tested unless the corresponding behavior was actually checked.
+
 Run the checks appropriate to the repository and risk. The static gate must verify, at minimum:
 
 ### Mutation authority

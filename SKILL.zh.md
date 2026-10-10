@@ -64,7 +64,7 @@ description: 按角色的文件范围开发和修复代码，遵守五层调用�
 
 不要按 50 个按钮名称一次性生成 50 段套话；只检查当前任务相关的入口、业务代码和测试，核实后逐条补。其余保持待补充。
 
-项目管理角色在自己的 `docs/architecture.md` 管整体架构，各开发角色管自己的功能流程。不再要求维护 architecture.json、content.json、context.sqlite3。正式接口与 Model 仍是行为依据；旧查询工具只在用户明确需要时使用。
+项目管理角色在自己的 `docs/architecture.md` 管整体架构，各开发角色管自己的功能流程。项目管理还在已授权路径维护所有角色共用的 `docs/project-rules.md`；每个角色在自己的 `memo.md` 记续接线索。启动时先建立项目管理角色和边界，再按实际项目整理法案；缺少法案不会阻止初始化。详见[工程法案](references/project-rules.md)和[角色备忘录](references/role-memo.md)。不再要求维护 architecture.json、content.json、context.sqlite3。正式接口与 Model 仍是行为依据；旧查询工具只在用户明确需要时使用。
 
 角色卡链接 `feature-map.md`，导航里列出本角色负责的系统功能，例如“保存草稿”“提交工单”。每个功能在已有的 `docs/feature/` 中只保留一份稳定文件：上面讲用途，下面讲流程图和具体步骤，末尾按时间链接 docs/design、docs/change、docs/fix；这些历史文档再反向链接功能。没有证据标“待核实”，未实施方案不提前写进当前流程。功能点归属不扩大文件权限。详见[功能点文档写法](references/feature-point.md)。
 

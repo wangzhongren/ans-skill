@@ -4,6 +4,8 @@ ANS Governance defines and changes roles, ownership, and policy. The [default pr
 
 ## Create the Project Role
 
+The initial project role and accepted boundary come before the project rules file. Do not block role creation or authorized setup while waiting for a project-specific engineering rules document. Once authorized paths exist, project management gathers evidence and confirms rules; each worker then reads the same current file and its own memo.
+
 When coordinated execution is required, ANS Governance creates a role directory using the project's naming convention, for example:
 
 ```text
