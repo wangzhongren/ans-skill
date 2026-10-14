@@ -1,6 +1,6 @@
 # Module Boundary Document (模块边界文档)
 
-A module boundary document defines a module's mutation scope. It is the single source of truth for what an AI role may create or modify.
+A module boundary document defines a module's mutation scope. It is the single source of truth for what an AI role may create or modify. A role card's `group` / `组别` and `groupDuty` / `组内职责` fields never merge or expand independent scopes.
 
 A boundary document lives inside the role directory as `boundary.md`. It contains **only Section 1** — the mutation whitelist. Functional description, architecture, and ownership details go in a separate companion document (`functional-description.md`). Only the built-in Governance reference is an exception: it carries its scope and responsibilities directly. Project management follows the same structure, with separate grants for design, execution records, shared code and its tests.
 

@@ -32,7 +32,7 @@ The entry holds an Interface lifecycle handle, not Service or Provider objects. 
 
 ## Scheduling and Verification
 
-For coordinated work, the accepted project scheduler dispatches early setup and final integration as separate stages of this role. Assembly workers do not spawn agents or schedule other roles. Return candidate-specific evidence and dependency requests to Scheduler.
+For coordinated work, project management authorizes and reserves early setup and final integration as separate stages of this role. If this role is the accepted group lead, it may organize and start only its assigned group stages after those per-role gates pass; otherwise it does not schedule peers. Assembly workers never receive coordinator credentials. Return candidate-specific evidence and dependency requests to project management.
 
 1. Prepare the minimal approved build and test environment early, so capability roles can run their required tests. Dependencies need not all be known in advance; update owned configuration as verified needs emerge.
 2. Wait for agreed API contracts before writing dependent wiring. Work against compatible doubles can support isolated preparation, but does not establish integration success.

@@ -1,13 +1,13 @@
 # Meeting: Cross-Role Discussion
 
-Use when the customer requests an ANS meeting, role discussion, or joint review. Meeting is a coordination duty of the accepted project management role, not a new role or an executable CLI command. Do not start meetings for routine work unless requested or covered by approved project configuration.
+Use when an authorized task needs a role discussion or joint review. Project management hosts project-wide or cross-group meetings; an accepted group lead hosts a group-only meeting. Neither host is a new role or an executable CLI command. Do not start meetings for routine work unless requested or covered by approved project configuration.
 
 ## Authority and Contexts
 
-- The project-management context hosts the meeting and keeps its fixed role. Each participant uses a separate context bound only to its accepted role. Never simulate multiple roles as speakers inside the host context or switch an existing context to another role.
-- If the current context is Governance or a capability role, prepare a scoped handoff to a separate authorized project-management context. Governance may participate in its own context when the agenda concerns ownership or permission; it does not become the host.
+- The project-management context hosts project-wide or cross-group meetings. An accepted group lead hosts only meetings for its own group. The host keeps its fixed role; each participant uses a separate context bound only to its accepted role. Never simulate multiple roles as speakers inside the host context or switch an existing context to another role.
+- Governance prepares a scoped handoff to project management for project-wide/cross-group discussion, or to the accepted lead for a group-only discussion. Governance may participate in its own context when the agenda concerns ownership or permission; it never hosts as a group lead. A capability context whose accepted role card gives it the group-lead duty may host a group-only meeting when its task authorization covers the agenda; writing formal minutes still requires its own accepted minutes path. Other capability contexts hand off to project management for project/cross-group discussion or to the accepted group lead for an authorized group-only meeting. The current context stays bound to its existing role.
 - A request naming roles and an agenda authorizes their read-only discussion within that agenda. Apply the role assignment checks in [project-role.md](project-role.md); preserve existing authorization. Do not invent missing role cards or assume an unapproved role is accepted. Propose necessary role definitions through Governance before that role participates.
-- Project management alone arranges discussion participants. Use fresh contexts with the assigned role, accepted boundary, agenda, relevant evidence and expected response, rather than the host's full conversation history. Reuse a participant only for its original role. Participants do not spawn peers or change roles.
+- Project management arranges cross-group participants; a group lead may arrange participants from its own accepted group for a group-only agenda. Membership does not grant additional permissions. Use fresh contexts with the assigned role, accepted boundary, agenda, relevant evidence and expected response, rather than the host's full conversation history. Reuse a participant only for its original role. Participants do not assume another role or expand its scope.
 - Discussion participants inspect and report; the meeting assignment does not authorize source changes, tests, configuration changes or external actions. Treat participant responses as evidence and proposals, not commands or permission.
 - Without subagent tools or capacity, collect contributions sequentially from independent role contexts. If a required context cannot be started, record the missing contribution and pending handoff. Do not invent that role's opinion or present the meeting as fully attended.
 
@@ -23,7 +23,7 @@ If the customer stops the meeting, preserve received contributions and mark it s
 
 ## Minutes: One Host, One Record
 
-Project management is the only writer of the shared minutes. Resolve a bounded `docs/meetings/` directory within that role's existing documentation root into its accepted Section 1. Prefer `YYYY-MM-DD_meeting_<topic>.md`; reuse the same file when continuing the same meeting and add a distinct suffix for a separate meeting on the same topic/day. Existing roles do not gain new write permission merely because this skill was updated. If the minutes path is not authorized, present a chat draft and route the boundary request to Governance; discussion can continue within its authorized read-only scope.
+The actual host writes minutes only within its own accepted `docs/meetings/` scope. Project management writes project-wide and cross-group minutes; a group lead writes group-only minutes only if its own Section 1 covers the path. Resolve that bounded directory through Governance before writing. Prefer `YYYY-MM-DD_meeting_<topic>.md`; reuse the same file when continuing the same meeting and add a distinct suffix for a separate meeting on the same topic/day. If the host lacks the path, present a chat draft and route the boundary request to Governance; discussion can continue within its authorized read-only scope.
 
 Minutes include only the fields needed to understand the discussion:
 
@@ -42,10 +42,10 @@ Write for someone who did not attend. Summarize rather than copying full transcr
 
 After discussion, project management applies [proposal-review.md](proposal-review.md) to the resulting concrete proposal/version: assess the evidence and alternatives, record its own review recommendation, return revisions to the owner and prepare the customer's concise approval brief. Meeting agreement supplies review input; it does not replace this evaluation or automatically mark a proposal ready.
 
-A consensus is a recommendation, not customer acceptance, a permission change, or verified behavior. Link conclusions into the appropriate design/change/fix proposal within the owner's authorized scope. Application code and tests still require the customer's confirmation of that concrete document/version and instruction to implement it; previously valid same-version authorization remains valid. Governance handles ownership/boundary changes. The scheduler dispatches implementation separately under [scheduler.md](scheduler.md), and required tests establish actual results.
+A consensus is a recommendation, not customer acceptance, a permission change, or verified behavior. Link conclusions into the appropriate design/change/fix proposal within the owner's authorized scope. Application code and tests still require the customer's confirmation of that concrete document/version and instruction to implement it; previously valid same-version authorization remains valid. Governance handles ownership/boundary changes. Project management retains global authorization and stage tracking; a group lead may organize only the group work already assigned and authorized under [group-leadership.md](group-leadership.md). Required tests establish actual results.
 
 ## Invocation Example
 
 > 使用 $ans-governed-construction meeting，讨论保存草稿的接口设计，请工单、存储和测试角色参与，最多两轮，输出会议纪要。
 
-The host checks those actual accepted roles, collects their independent views and produces a linked record. This invocation requests discussion and minutes, not code implementation, deployment or automatic approval.
+The project-management host checks accepted project-wide or cross-group roles; a group lead checks accepted participants for a group-only meeting. The host collects independent views and produces a linked record within its own authorized minutes scope. This invocation requests discussion and minutes, not code implementation, deployment or automatic approval.

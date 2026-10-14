@@ -69,7 +69,7 @@ On a project with no boundary documents, follow the [bootstrap workflow](referen
 
 - Every role card must reference its boundary document. Section 1 lists exact layer-source files and may grant the role's specific private `common/<role-id>/` subtree, project-owned `common/shared/`, and dedicated role-owned test directories. No blanket source/common root or overlapping ownership is allowed. Supporting and governance locations may use bounded directory entries; see [module-boundary.md](references/module-boundary.md).
 - New or removed files inside an accepted directory do not require a per-file boundary rewrite; the task still records actual changes. New directory permissions, ownership changes and additions/removals of individually listed paths require Governance to update Section 1 before execution. Ordinary edits to already permitted files do not require a boundary rewrite.
-- Role cards grant context, not mutation authority. Only Section 1 of the referenced boundary document does.
+- Role cards grant context, not mutation authority. Only Section 1 of the referenced boundary document does. Each card also records `group` / `组别` and `groupDuty` / `组内职责`; a group lead is an added duty of an existing role. See [group leadership](references/group-leadership.md).
 - Boundary documents and role cards obey the same evidence and acceptance gates as code changes.
 - **Shared abstractions** (Model types, event buses, public entry points, cross-module contracts) must have exactly one **primary owner** role. Other roles may reference them as read-only dependencies. A primary owner change invalidates evidence for all referencing roles (Governing Invariant #6).
 - **Role activation required:** Before creating or modifying any file, verify the current role. Without an active project role card, only ANS Governance may create governance artifacts. Scheduling records require an accepted project scheduler role card and boundary. Application code requires a loaded role card and its boundary doc Section 1. Writing application code without an active role is a governance violation.
@@ -89,7 +89,7 @@ Project roles (management/scheduler, capabilities, assembly and testing) and the
 
 ### Default Project Role
 
-Governance creates the [default project management role](references/project-role.md), which owns investigation, architecture/integration design and all cross-role coordination. It also implements `common/shared/`, its corresponding tests and the shared-component document within accepted scope. It cannot edit other roles' business code, private common code or permissions. Keep it active in the main conversation while authorized workers implement their assigned roles. Read [the dispatch protocol](references/scheduler.md) for scheduling. The execution graph comes from agreed role contracts and explicit task prerequisites.
+Governance creates the [default project management role](references/project-role.md), which owns investigation, architecture/integration design and project-wide/cross-group coordination. It also implements `common/shared/`, its corresponding tests and the shared-component document within accepted scope. It cannot edit other roles' business code, private common code or permissions. Keep it active in the main conversation while authorized workers implement their assigned roles. Read [the dispatch protocol](references/scheduler.md) for scheduling. The execution graph comes from agreed role contracts and explicit task prerequisites.
 
 Governance also creates or reuses a [fixed project test role](references/test-role.md): developers test their own code, project management tests shared code, and the test role independently verifies cross-role integration, complete flows and regressions. Project management arranges repairs and acceptance; the test role does not repair production code. It is project-local, not another built-in role.
 
@@ -107,7 +107,7 @@ The shared Dashboard may also host an opt-in [role channel](dashboard/README.md#
 
 Each conversation or agent context binds to exactly one role before role work begins, and keeps that role for its entire lifetime. Binding survives new turns, task completion, resume and context compaction. Reading another role's card or reports for reference does not activate that role or grant its authority. Do not combine role identities or alternate them through prompts, task labels, or approval.
 
-For another role, start a fresh independent context with only its assigned role, accepted boundary, task authorization, required inputs/contracts and deliverables. Do not fork or replay the coordinator's full role-bearing history as a way to change roles. A reused worker context may receive more work only for its original role and authorized scope.
+For another role, start a fresh independent context with only its assigned role, accepted boundary, task authorization, required inputs/contracts and deliverables. Do not fork or replay the coordinator's full role-bearing history as a way to change roles. A reused worker context may receive more work only for its original role and authorized scope. An accepted group lead may start a member context only for the group's already assigned work, after PM or a trusted operator completes that role's authorization and scope reservation; see [group leadership](references/group-leadership.md).
 
 ### Activation
 
@@ -122,13 +122,15 @@ Activation is the initial binding, not a role switch. Only ANS Governance uses i
 | Current role | Receiving role in a separate context | When |
 |---|---|---|
 | ANS Governance (built-in) | Project scheduler | Role definitions accepted; task requires execution planning or dispatch |
-| Project scheduler | Capability, assembly or test role | Ready stage dispatched to a worker with its own fixed role |
+| Project scheduler | Existing role with group-lead duty | Project-wide stage assigned; the lead organizes only its group's authorized work |
+| Existing role with group-lead duty | Accepted group member | Specific group stage is authorized and reserved for that member's `roleId` |
+| Group member | Existing role with group-lead duty | Return progress, blockers and original evidence for group coordination |
 | Capability, assembly or test role | Project scheduler | Report results/dependency requests to the existing scheduler context |
 | Capability worker | Default project role (handoff) | Return a cross-role request; the worker does not switch identity or acquire another scope |
 | Default project role | ANS Governance (built-in) | Customer-authorized governance change; capability workers return requests instead of changing roles |
 | Project scheduler | ANS Governance (built-in) | Missing role, ownership conflict, or required policy/scope change |
 
-After bootstrap acceptance, Governance prepares a handoff for a separate project-management context and remains Governance. It does not dispatch application workers. The accepted project scheduler, bound in that separate context, dispatches ready stages. Existing accepted definitions can be reused. A standalone single-role task may omit scheduling records but must run in a context bound to its authorized owner; workers may not independently spawn workers or change roles.
+After bootstrap acceptance, Governance prepares a handoff for a separate project-management context and remains Governance. Project management owns the project-wide plan, per-role authorization/reservation, and global records. An accepted group lead may organize or start only its assigned group stages through the two-level flow in [group-leadership.md](references/group-leadership.md); it does not receive coordinator credentials or change global records. Existing accepted definitions can be reused. A standalone single-role task may omit scheduling records but must run in a context bound to its authorized owner. Ordinary members do not dispatch peers, and no role may change its bound identity.
 
 Without subagent tools or capacity, run separate role contexts sequentially and exchange scoped handoffs. If a separate context cannot be started, prepare the handoff, report the pending work, and continue only work belonging to the current role. Never use in-place role switching as a fallback.
 
@@ -136,7 +138,7 @@ Coordinated tasks use one Git-readable `docs/scheduling/<task-id>.md` record per
 
 ### Rules
 
-- **One fixed role per context.** Only an activated, accepted project scheduler dispatches execution agents, each in a separate context with its own role card, narrowed scope, and ready prerequisites. Workers do not spawn or assign other workers. Sequential execution uses separate role contexts, never role switching in one context. See [bootstrap scheduling](references/bootstrap-workflow.md#dependency-aware-scheduling).
+- **One fixed role per context.** Project management controls the project-wide task graph and authorization. An accepted group lead may organize only its group's assigned work and start a named member context after per-role authorization, scope reservation, implementation confirmation, dependency, and conflict checks pass. Ordinary members do not assign peers. Each worker uses a separate context bound to its own role. See [group leadership](references/group-leadership.md) and [bootstrap scheduling](references/bootstrap-workflow.md#dependency-aware-scheduling).
 - **Role activation required before mutation.** Before creating or modifying any file, verify the current role. Without an active project role card, only ANS Governance may create governance artifacts. Scheduling records require an accepted project scheduler role card and boundary.
 - **No role drift.** When a task crosses role boundaries (e.g., fixing a bug in one capability reveals a governance gap), hold the cross-scope mutation and return it to project management. The current context remains locked to its role; the other role acts in a separate authorized context.
 - **Evidence records its producer and coverage.** Each role reports the actual candidate, tests and observed results. The test role may verify cross-role behavior through read-only source access and its own tests; this grants no production-write authority. A handoff alone does not invalidate evidence; changed inputs or dependencies do. Project management checks current role-produced evidence before releasing stages; unit results do not replace required integrated verification.
@@ -144,7 +146,7 @@ Coordinated tasks use one Git-readable `docs/scheduling/<task-id>.md` record per
 
 ## Task Routing
 
-The project scheduler routes coordinated execution to the correct accepted role before dispatch. A standalone single-role task can activate its owner only after the customer-consent/configuration check. Missing roles or ownership changes return to ANS Governance.
+Project management routes project-wide work to accepted roles and assesses affected groups' workload with their leads. A group lead organizes only its group's assigned stages after project management or the trusted operator has authorized and reserved each specific role. A standalone single-role task still needs the customer-consent/configuration check. Missing roles or ownership changes return to ANS Governance.
 
 ### Routing Sources
 
@@ -154,7 +156,7 @@ The primary routing table is each role's `boundary.md` Section 1. Every file in 
 
 1. **Extract file evidence.** From the bug report or task description, identify affected files, error locations, stack traces, or user-visible symptoms. Prefer concrete file paths over abstract descriptions.
 2. **Look up the owning role.** Search all `角色卡/*/boundary.md` Section 1 tables for exact files or accepted directory coverage. Resolve ownership conflicts before dispatch; a broader directory grant does not override another owner.
-   - **File found** → Scheduler assigns a stage to that owner in a separate worker context; the worker loads its role card and follows [Role Binding and Handoff](#role-binding-and-handoff).
+   - **File found** → Project management assigns the owner and required scope; an accepted group lead may start that specific group member only after authorization and reservation. The worker loads its own role card and follows [Role Binding and Handoff](#role-binding-and-handoff).
    - **File not covered by an exact or directory entry** → it is read-only by default. Report the gap and decide: add to an existing role's Section 1, create a new role, or mark as frozen.
    - **No file evidence** → start investigation from the highest relevant entry point, following the top-down trace in [Workflow](references/workflow.md). Trace relevant callers and dependencies with targeted source searches and contract inspection.
 3. **Check cross-role impact.** Check the affected file's relevant callers and dependents in source and the agreed integration contracts. If contained within one role, route directly. If it crosses boundaries:
@@ -204,7 +206,7 @@ Map repository names to the five responsibilities; naming differences do not rel
 
 ## Meeting
 
-When requested, the accepted project management role hosts a [meeting](references/meeting.md) to collect independent role views, discuss specific disagreements and produce minutes in its authorized `docs/meetings/` scope. Each participant stays in its own fixed-role context; the host never acts out the other roles. Default to two rounds unless the customer specifies another limit. Record recommendations, unresolved issues, proposed follow-up owners and actual customer decisions separately. Meeting consensus does not grant write permissions or replace proposal confirmation and implementation authorization. This is a skill workflow, not a new CLI command or role.
+Project-wide and cross-group [meetings](references/meeting.md) are hosted by project management; group-only meetings may be hosted by the accepted group lead when its task authorization covers the agenda. The actual host writes minutes only in its own authorized `docs/meetings/` scope. Each participant stays in its own fixed-role context; the host never acts out the other roles. Default to two rounds unless the customer specifies another limit. Record recommendations, unresolved issues, proposed follow-up owners and actual customer decisions separately. Meeting consensus does not grant write permissions or replace proposal confirmation and implementation authorization. This is a skill workflow, not a new CLI command or role.
 
 ## Optional Code Atlas
 

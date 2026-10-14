@@ -13,7 +13,7 @@ Each new task has one approved, Git-readable `docs/scheduling/<task-id>.md` docu
 | Change history | Ordered reports, issues, revisions and verification results |
 | Fixed machine block | Exact plan/state and hash-linked events for `task_ops`; users do not edit it |
 
-The project role is the sole writer through `task_ops`. Workers send scoped reports; they do not edit shared records or one another's reports. Include the task document in the accepted project-role boundary. This reference grants no permission. Git carries committed plans and history; local locks and full check logs under `.ans/runtime/` do not travel. After moving checkouts, reconcile active workers and rerun missing evidence before dependent dispatch.
+Project management is the sole writer of global records through `task_ops`. Group members send actual progress, blockers and original evidence to their group lead; the lead forwards the evidence with a concise summary to project management. Leads and members do not edit the global record or one another's reports. Include the task document in the accepted project-role boundary. This reference grants no permission. Git carries committed plans and history; local locks and full check logs under `.ans/runtime/` do not travel. After moving checkouts, reconcile active workers and rerun missing evidence before dependent dispatch.
 
 ## Table Columns
 
@@ -55,7 +55,7 @@ Each report includes a unique `reportId`, task/node/attempt IDs, role and worker
 1. Check assignment identity, authority, attempt, revisions and actual artifacts before applying feedback. A repeated report ID is acknowledged without duplicating the state change. A delayed old-attempt or old-design report remains historical and cannot overwrite the current row or mark it complete.
 2. An eligible implementation-completion report moves the node to `awaiting-verification`. Only the project role records `verified`, after inspecting required evidence for the current candidate. An issue may mean blocked or failed; it never itself grants a scope change.
 3. Acknowledge accepted or rejected feedback with report ID, resulting state revision, current assignment revisions and next action. The worker does not assume a sent message or proposed change was accepted. If acknowledgment is missing, query/resend the same report ID instead of inventing a new completion event.
-4. Report meaningful milestones, blocks, design discrepancies and handoffs. Routine tool calls do not require updates. The project role gives the user concise summaries of meaningful changes rather than exposing every worker message.
+4. Members report meaningful milestones, blocks, design discrepancies and handoffs to their group lead. The lead forwards the original evidence and concise group status to project management. Routine tool calls do not require updates. Project management gives the user concise project-wide summaries rather than exposing every worker message.
 
 ## Requirement and Design Revision Flow
 

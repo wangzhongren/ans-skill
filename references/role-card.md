@@ -1,6 +1,6 @@
 # Role Card (角色卡)
 
-A role card identifies one agent role and its scope boundary. It is the entry point for every task under that role.
+A role card identifies one agent role, its collaboration group and its scope boundary. Roles remain flat: a group describes collaboration only; it is not a role, manager or permission set. The card is the entry point for every task under that role.
 
 ## Working Stance for Every Role
 
@@ -10,9 +10,19 @@ Write the role's working stance near the beginning of every project card, includ
 
 This sets the perspective from which the role makes decisions. It adds no technical checklist, approval gate or write authority. Apply it within existing responsibilities, customer authorization and optional-change rules.
 
+## Group Field and Flat Roles
+
+Every role card includes `group` / `组别` and ordinary Markdown `groupDuty` / `组内职责：组长／组员` near its role name and description. These describe collaboration and an added duty; they are not CLI authorization fields. See [group leadership](group-leadership.md) for defaults, coordination and dispatch rules.
+
+All roles remain peers. A group lead is an added duty of an existing role, not a separate leader role or parent/child relationship. Groups do not create shared role files, permission inheritance or group-wide write access. It cannot authorize a task, widen a role's write set, create a role, or dispatch work. Each role's own `boundary.md` Section 1 remains the sole mutation whitelist. Do not move role directories to match groups or create a separate group permissions file.
+
+Governance creates and maintains role cards and boundaries. When an existing role joins or changes groups, Governance updates that role's card; it does not create a duplicate card or boundary, and permissions stay the same. When the project needs a new role, Governance first checks whether effective customer authorization or explicitly approved configuration covers that exact role definition and boundary. If covered, Governance creates a new peer role with its own card and boundary under that authorization; otherwise request the needed authorization before creating it. Development roles must not edit cards to add themselves or expand their scope. Old cards without the field do not block an already authorized task: continue under the existing authorization, and Governance fills the field the next time it maintains that card.
+
+The role context stays fixed. Project management coordinates project-wide work; an accepted group lead may coordinate assigned work within its own group under [group-leadership.md](group-leadership.md). Group membership and `groupDuty` are not tool authorization fields; tools continue to use the specific `roleId` and its independent boundary.
+
 ## Format
 
-The implementation template below is for capability and assembly roles. Governance creates the default project card using [project-role.md](project-role.md), with accepted design, shared-code, corresponding test and scheduling scopes. It follows implementation checkpoints for its shared code, not for other roles' business code. Create the fixed test role using [test-role.md](test-role.md).
+The implementation template below is for capability and assembly roles. Include both `group` / `组别` and `groupDuty` / `组内职责` fields on every project role card, including project management and fixed test cards created from their dedicated guides. A single-role group defaults to that accepted role as lead; count accepted role definitions rather than running contexts. Governance creates the default project card using [project-role.md](project-role.md), with accepted design, shared-code, corresponding test and scheduling scopes. It follows implementation checkpoints for its shared code, not for other roles' business code. Create the fixed test role using [test-role.md](test-role.md).
 
 The template below is in English for readability. Follow explicit user requirements first, then repository conventions, then language/toolchain conventions. Use OS locale only as a fallback for natural-language prose; never translate identifiers or change filenames solely because of locale.
 
@@ -20,6 +30,9 @@ The template below is in English for readability. Follow explicit user requireme
 # <Role name in project language>
 
 <Short description in project language>
+
+**Group (`group` / 组别):** <project-defined collaboration group>
+**Group duty (`groupDuty` / 组内职责):** <组长 or 组员>
 
 ## Working stance
 
@@ -62,7 +75,7 @@ For the assembly role, additionally read:
 - Cross-role requests go to project management for design and coordination; permission changes go through Governance with required customer acceptance.
 - Default readonly — files outside exact entries and accepted directory scopes are read-only. Within the approved task, grow your private common directory without seeking per-file boundary edits; do not import peers' private common code or write `common/shared/`. Propose cross-role reuse to project management.
 - **Implementation order** (`Model -> Provider -> Service -> Pipeline -> Interface`) applies to affected work within the role; cross-role work additionally waits for its actual dependencies and agreed contracts.
-- **Execution assignment:** For coordinated work, the accepted project scheduler dispatches this role according to bootstrap-workflow.md and scheduler.md. Bind this context only to its assigned role for its entire lifetime, including later turns, resume and compaction. Do not spawn child agents or independently schedule peers. Return unmet dependencies or scope requests to the scheduler. For a standalone task, initial binding still requires customer consent or applicable configuration preauthorization. Reading another role's card grants no authority to act as it. Parallel work requires disjoint writes, agreed contracts, ready dependencies, and available authorized agents; otherwise run separate role contexts sequentially. If none can be started, report the pending handoff rather than switch roles. Assembly may prepare build/test configuration early and integrates participating implementations after their gates pass.
+- **Execution assignment:** For project-wide work, the accepted project scheduler assigns and authorizes stages. An accepted group lead may organize its group's assigned work and start specifically authorized member contexts only after the per-role authorization and scope reservation checks in [group-leadership.md](group-leadership.md). Ordinary members do not schedule peers. Bind each context only to its assigned role for its entire lifetime, including later turns, resume and compaction. Return unmet dependencies or scope requests to project management. For a standalone task, initial binding still requires customer consent or applicable configuration preauthorization. Reading another role's card grants no authority to act as it. Parallel work requires disjoint writes, agreed contracts, ready dependencies, and available authorized agents; otherwise run separate role contexts sequentially. If none can be started, report the pending handoff rather than switch roles. Assembly may prepare build/test configuration early and integrates participating implementations after their gates pass.
 
 ## Quality constraints
 
