@@ -248,4 +248,4 @@ Wang, Zhongren. 2026. *Role-First Software Governance: Asymmetric Authority Boun
 - [跨角色任务操作](references/task-operations.md)
 - [设计与变更记录](doc/)
 
-本项目以 [Apache-2.0 许可证](LICENSE)开源。
+本项目以 [MIT 许可证](LICENSE)开源。
