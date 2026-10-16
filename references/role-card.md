@@ -44,7 +44,7 @@ Read `feature-map.md` for the system features owned by this role, their purpose,
 
 ## Required reading
 
-1. `<boundary-doc in project language>` — Section 1 is the mutation whitelist.
+1. `<boundary-doc in project language>` — Section 1 of its Markdown file is the mutation whitelist. A same-name YAML file is only a synchronized copy, not a second authority.
 2. `ans-governed-construction` skill — governance rules and quality constraints.
 3. `references/architecture.md` — Five-layer structure, contracts, dependency rules, public export rules.
 4. Layer references matching this role's scope — load the corresponding `references/<layer>.md` for each layer this role touches (model, provider, service, pipeline, interface):
@@ -133,7 +133,8 @@ Each role is a directory under `角色卡/` (project root — the directory root
 ```
 appointment-booking/
 ├── role-card.md              # 角色卡 ← bootstrap 创建
-├── boundary.md               # 边界文档: Section 1 白名单 ← bootstrap 创建
+├── boundary.md               # 边界文档: Section 1 白名单，唯一授权源
+├── boundary.yaml             # 同名 YAML 同步副本，不单独授权
 ├── memo.md                   # 本角色的简短事实与续接线索
 ├── changelog.md              # 变更日志 ← 角色实现阶段创建（角色根目录）
 ├── functional-description.md # 功能描述: 图 + 代码位置 + 详解 ← 角色实现阶段创建（角色根目录）

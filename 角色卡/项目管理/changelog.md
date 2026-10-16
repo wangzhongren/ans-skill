@@ -1,5 +1,7 @@
 # 项目管理角色变更记录
 
+- 2026-10-16：按用户要求补充同名 boundary.yaml 同步副本，角色卡引用双格式；增加本轮方案路径，业务和代码权限不变。Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
+
 - 2026-10-14：按客户确认的组长方案，标明项目协作组组长职责，补充新需求的各组工作量评估和增员提议职责；新增本轮方案单文件及本角色会议纪要范围。代码权限不变，不能代改组员文件。Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)。
 
 - 2026-10-14：按客户确认的扁平角色分组方案，角色卡增加“组别：项目协作组”，添加本轮方案评审文档的单文件白名单。组别不带上下级关系，也不扩大调度或代码权限。Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)。

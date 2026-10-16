@@ -1,0 +1,103 @@
+---
+source: boundary.md
+section1:
+  entries:
+  - type: 单文件
+    path: SKILL.md
+    purpose: 英文技能入口规范
+  - type: 单文件
+    path: SKILL.zh.md
+    purpose: 中文技能入口规范
+  - type: 单文件
+    path: README.md
+    purpose: 项目说明与导航
+  - type: 单文件
+    path: references/role-card.md
+    purpose: 角色卡格式与使用规则
+  - type: 单文件
+    path: references/project-role.md
+    purpose: 项目管理角色规则
+  - type: 单文件
+    path: references/bootstrap-workflow.md
+    purpose: 初始化与角色建立流程
+  - type: 单文件
+    path: references/module-boundary.md
+    purpose: 模块边界格式与授权规则
+  - type: 单文件
+    path: references/built-in-boundary.md
+    purpose: 内置治理边界参考的双格式说明
+  - type: 单文件
+    path: references/built-in-boundary.yaml
+    purpose: 内置治理边界参考的同步 YAML 副本
+  - type: 单文件
+    path: references/documentation.md
+    purpose: 文档通用规则
+  - type: 单文件
+    path: references/proposal-review.md
+    purpose: 提案评审流程
+  - type: 单文件
+    path: references/testing.md
+    purpose: 测试通用规则
+  - type: 单文件
+    path: references/test-role.md
+    purpose: 固定测试角色规则
+  - type: 单文件
+    path: references/scheduler.md
+    purpose: 项目角色调度规则
+  - type: 单文件
+    path: references/group-leadership.md
+    purpose: 组长职责、组内会议与调度、工作量评估及增员指南
+  - type: 单文件
+    path: references/meeting.md
+    purpose: 项目管理和组长的会议主持规则
+  - type: 单文件
+    path: references/task-operations.md
+    purpose: 两级调度复用逐角色工具授权的说明
+  - type: 单文件
+    path: references/coordination.md
+    purpose: 组员、组长与项目管理的反馈分工
+  - type: 单文件
+    path: references/built-in-assembly.md
+    purpose: 装配角色兼任组长时的调度约束
+  - type: 单文件
+    path: references/governance-changelog.md
+    purpose: 治理变更记录规则
+  - type: 待新增单文件
+    path: references/project-rules.md
+    purpose: 项目工程法案指南，接入后方可创建
+  - type: 待新增单文件
+    path: references/role-memo.md
+    purpose: 角色备忘录指南，接入后方可创建
+  - type: 单文件
+    path: 角色卡/技能规范/memo.md
+    purpose: 技能规范角色的工作备忘录
+  - type: 单文件
+    path: 角色卡/技能规范/feature-map.md
+    purpose: 本角色功能导航
+  - type: 单文件
+    path: 角色卡/技能规范/docs/feature/project-rules-memo.md
+    purpose: 法案与 memo 规范的当前功能说明
+  - type: 单文件
+    path: 角色卡/技能规范/docs/change/2026-10-10_change_project-rules-memo.md
+    purpose: 本次技能规范变更记录
+  - type: 单文件
+    path: 角色卡/技能规范/docs/feature/role-groups.md
+    purpose: 平级角色组别的当前功能说明
+  - type: 单文件
+    path: 角色卡/技能规范/docs/change/2026-10-14_change_role-groups.md
+    purpose: 本轮组别规则修改记录
+  - type: 单文件
+    path: 角色卡/技能规范/docs/change/2026-10-14_change_group-leadership.md
+    purpose: 组长与工作量评估机制修改记录
+  - type: 单文件
+    path: 角色卡/技能规范/docs/feature/boundary-yaml.md
+    purpose: 边界文档双格式的当前功能说明
+  - type: 单文件
+    path: 角色卡/技能规范/docs/change/2026-10-16_change_boundary-yaml.md
+    purpose: 本轮边界 YAML 支持修改记录
+  - type: 条件目录
+    path: 角色卡/技能规范/docs/meetings/
+    purpose: 已获准的技能维护组会议纪要，不包含其他角色文档
+  notes:
+  - 白名单路径以仓库根目录为基准。待新增文件只有在技能规范角色任务且指南接入方案获授权后才可创建。其他文件和目录默认只读；角色卡与边界由 ANS Governance
+    唯一维护。

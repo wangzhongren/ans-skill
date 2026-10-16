@@ -17,6 +17,7 @@ For projects with no source code yet:
     角色卡/<role>/
     ├── role-card.md
     ├── boundary.md
+    ├── boundary.yaml
     ├── memo.md
     └── docs/
         ├── design/
@@ -27,7 +28,7 @@ For projects with no source code yet:
 
     **Section 1 requirements:** List layer business source by exact file. Grant each capability's private `src/common/<role-id>/` and dedicated tests as explicit, non-overlapping directory scopes when needed. Project management alone owns `src/common/shared/`, its tests and the shared-component document. Supporting/governance directories follow module-boundary.md. For Service and Provider capabilities, account for required contract, public-entry, and implementation files across the ownership map; a shared public entry has one owner and is read-only for other roles, rather than being duplicated in every whitelist.
 
-    Reuse the role's existing `docs/`. Grant `feature-map.md` and bounded docs/feature/, docs/design/, docs/change/ and docs/fix/ paths. After acceptance, the owner writes its feature navigation and current functional flows under [feature-point.md](feature-point.md). Do not create a second doc/ or features/ directory, architecture JSON or a project-understanding database.
+    Reuse the role's existing `docs/`. Grant `feature-map.md` and bounded docs/feature/, docs/design/, docs/change/ and docs/fix/ paths. After acceptance, the owner writes its feature navigation and current functional flows under [feature-point.md](feature-point.md). For each newly created or adjusted boundary, Governance delivers its synchronized same-name YAML copy with the Markdown source. Do not create a second doc/ or features/ directory, architecture JSON or a project-understanding database.
 
 4. **Identify shared abstractions:** Assign shared foundation components under `common/shared/` to project management and record them in the shared-component document. Models, layer contracts and business capabilities keep their appropriate layer and owner; do not move them into common merely because multiple roles use them. Find every Model and cross-module contract (event bus, shared types, utility classes, public entry points). Assign each to exactly one role as **primary owner**. That role's Section 1 includes the shared file; other roles reference it as read-only. Record the planned contracts and owner dependencies in governance documents only. After acceptance, the activated owning role creates and verifies shared Model or contract source files before dependent implementation relies on them.
 5. **Create a fixed test role** using [test-role.md](test-role.md), with its own accepted test and report scope for cross-role integration, complete flows and regression. Development owners still own their unit tests.
@@ -44,7 +45,7 @@ For projects with no source code yet:
 For projects with existing source code that needs role mapping:
 
 1. **Scan the full source tree.** List every file. Classify each by responsibility and architecture layer (I/P/S/Pv/M). Identify which existing capabilities exist based on actual code, not a desired design (#2).
-2. For each capability, draft a module boundary document. **Section 1 lists the existing files this role owns** — not files to create. Describe the current architecture in the companion `functional-description.md`, not extra sections in the capability boundary document.
+2. For each capability, Governance creates a module boundary pair. `boundary.md` Section 1 lists the existing files this role owns — not files to create — and the adjacent same-name `boundary.yaml` mirrors it. Create or update both in the same governance delivery; the Markdown remains the only authorization source. Describe current architecture in `functional-description.md`, not extra sections in the capability boundary.
 3. **Identify shared abstractions:** Find cross-module contracts, shared models, and public entry points used by multiple capabilities. Assign each to exactly one role as **primary owner**. Other roles that already use it become read-only dependents.
 4. Create one peer role card per capability, referencing its boundary and recording `group` / `组别` plus `groupDuty` / `组内职责`. Count accepted role definitions, not running contexts. A single-role group defaults to that role as lead; adding a role keeps the incumbent lead. Governance changes that duty only when effective customer authorization or approved configuration covers it. If a multi-role group has no clear, unique lead, project management resolves the assignment before group coordination begins.
 

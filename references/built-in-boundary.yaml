@@ -1,0 +1,28 @@
+source: built-in-boundary.md
+section1:
+  entries:
+    - type: Single file
+      path: "SKILL.md or SKILL.zh.md"
+      purpose: "Update governance rules, invariants, checkpoints"
+    - type: Conditional directory
+      path: "references/"
+      purpose: "Maintain reference documents for role cards and boundary doc format"
+    - type: Conditional directory
+      path: "docs/"
+      purpose: "Create project docs scaffold during bootstrap: design/, feature/, change/, fix/ subdirectories"
+    - type: Conditional directory
+      path: "Role directories (角色卡/<role>/)"
+      purpose: "Create, update, or restructure a role directory containing role-card.md, boundary.md, and changelog.md"
+    - type: Conditional directory
+      path: "Assembly role entry"
+      purpose: "Create the assembly role during bootstrap: records ownership of the language-appropriate entry file, build/test configuration, and layer-local wiring; does not create those application files"
+  notes:
+    - "This is the boundary document for the built-in governance role. It defines the scope for creating and maintaining governance artifacts only — no application code. The adjacent [built-in-boundary.yaml](built-in-boundary.yaml) is a synchronized copy for structured readers; this Markdown file remains the source and permission authority. Keep the two files aligned in the same product change, following [the boundary copy rules](module-boundary.md#same-name-yaml-copy)."
+    - "Conditional entries apply only when the task explicitly calls for creating or restructuring roles. Routine feature work does not authorize governance artifact changes."
+    - "Create and maintain governance artifacts (role cards, module boundary documents)."
+    - "Bootstrap new projects with initial role structure, create a project scheduler role when coordination is needed, then hand accepted definitions to that project role for execution."
+    - "Expand or split capabilities as the project evolves."
+    - "Update governance rules in SKILL.md. Do not dispatch execution agents or edit active Scheduler records while in Governance. Prepare a scoped handoff for a separate Scheduler context; this context remains Governance for its entire lifetime."
+    - "Maintain the governance change log with chronological entries for every artifact change."
+    - "This boundary document exists as a built-in reference. A project may override Section 1 with its own governance boundary document (e.g., `模块边界文档/全局架构与模块归属.md`), in which case the project-local doc takes precedence."
+    - "All governance rules from [ANS Governed Construction SKILL.md](../SKILL.md) apply. This built-in role is specific to the `ans-governed-construction` skill — it does not apply when invoked under a different skill."

@@ -1,0 +1,37 @@
+---
+source: boundary.md
+section1:
+  entries:
+  - type: 单文件
+    path: doc/design/2026-10-10_design_project-plan-role-memo.md
+    purpose: 本项目法案与 memo 方案设计稿
+  - type: 单文件
+    path: 角色卡/项目管理/docs/design/2026-10-10_design_project-rules-memo-review.md
+    purpose: 本轮项目法案与 memo 方案的治理评审记录
+  - type: 单文件
+    path: 角色卡/项目管理/docs/design/2026-10-14_design_role-groups.md
+    purpose: 已确认的平级角色组别方案与评审记录
+  - type: 单文件
+    path: 角色卡/项目管理/docs/design/2026-10-14_design_group-leadership.md
+    purpose: 已确认的组长与工作量评估方案及评审
+  - type: 单文件
+    path: 角色卡/项目管理/docs/design/2026-10-16_design_boundary-yaml.md
+    purpose: 用户已要求的边界双格式方案与范围评审
+  - type: 条件目录
+    path: 角色卡/项目管理/docs/meetings/
+    purpose: 已获准的项目或项目协作组会议纪要
+  - type: 单文件
+    path: 角色卡/项目管理/docs/project-rules.md
+    purpose: 全项目唯一工程法案
+  - type: 单文件
+    path: 角色卡/项目管理/docs/architecture.md
+    purpose: 项目整体架构及角色协作说明
+  - type: 单文件
+    path: 角色卡/项目管理/memo.md
+    purpose: 项目管理角色的工作备忘录
+  - type: 单文件
+    path: 角色卡/项目管理/feature-map.md
+    purpose: 本角色的功能导航；可说明无直接业务功能
+  notes:
+  - 未列路径默认只读。此边界不授权修改本角色卡、边界、变更记录、技能文件、其他角色资料、业务代码或测试。新增日期文档、目录或其他文件须先由 ANS Governance
+    更新并由用户确认边界。

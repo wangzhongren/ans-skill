@@ -205,7 +205,8 @@ git add .agents/skills/ans-governed-construction
 | 文件 | 用途 |
 | --- | --- |
 | `角色卡/<角色>/role-card.md` | 系统功能归属、角色职责和必读资料 |
-| `角色卡/<角色>/boundary.md` | 允许修改的具体业务文件和明确归属的 common、测试目录 |
+| `角色卡/<角色>/boundary.md` | 唯一授权来源：第 1 节列出允许修改的文件和目录 |
+| `角色卡/<角色>/boundary.yaml` | 与 Markdown 同名同目录的结构化同步副本，不单独授权 |
 | `角色卡/<角色>/memo.md` | 由本角色维护的简短事实、依据与续接线索 |
 | `角色卡/<项目管理>/docs/project-rules.md` | 项目管理维护、所有角色共读的已确认工程约束 |
 | `src/common/<角色>/`、`src/common/shared/` | 角色自己的基础代码，以及项目管理角色维护的共享组件 |
@@ -215,7 +216,7 @@ git add .agents/skills/ans-governed-construction
 | `角色卡/<角色>/docs/feature/<功能名>.md` | 当前用途、流程图、分支和历史链接 |
 | 角色 docs 下的 `design/`、`change/`、`fix/` | 带日期的设计、修改和修复历史 |
 
-数据字段、请求 URL 和接口含义以正式契约、Model 和功能文档为准。不再另行维护 `content.json`、`context.sqlite3` 等重复项目理解索引。
+边界 YAML 只供需要结构化读取的工具使用；当前执行仍按 Markdown Section 1，不表示工具已接入 YAML。数据字段、请求 URL 和接口含义以正式契约、Model 和功能文档为准。不再另行维护 `content.json`、`context.sqlite3` 等重复项目理解索引。
 
 ## 怎么查看
 

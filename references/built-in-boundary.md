@@ -1,6 +1,6 @@
 # Built-in Boundary Document: ANS Governance
 
-This is the boundary document for the built-in governance role. It defines the scope for creating and maintaining governance artifacts only — no application code.
+This is the boundary document for the built-in governance role. It defines the scope for creating and maintaining governance artifacts only — no application code. The adjacent [built-in-boundary.yaml](built-in-boundary.yaml) is a synchronized copy for structured readers; this Markdown file remains the source and permission authority. Keep the two files aligned in the same product change, following [the boundary copy rules](module-boundary.md#same-name-yaml-copy).
 
 ## Section 1: Modifiable files and directories
 

@@ -10,5 +10,6 @@
 | 单文件 | `角色卡/测试/docs/change/2026-10-10_change_project-rules-memo-validation.md` | 本次验证工作记录 |
 | 单文件 | `角色卡/测试/docs/change/2026-10-14_change_role-groups-validation.md` | 本轮角色组别的独立验证记录 |
 | 单文件 | `角色卡/测试/docs/change/2026-10-14_change_group-leadership-validation.md` | 本轮组长与工作量评估的独立验证记录 |
+| 单文件 | `角色卡/测试/docs/change/2026-10-16_change_boundary-yaml-validation.md` | 本轮边界 YAML 一致性验证报告 |
 
 未列路径默认只读。本边界不授予测试源码、业务代码、构建配置、其他角色文档或技能规范的写入权限；角色卡与边界由 ANS Governance 唯一维护。新增路径须先由 Governance 更新边界并取得所需确认。

@@ -1,0 +1,51 @@
+---
+source: governance-boundary.md
+section1:
+  entries:
+  - type: 单文件
+    path: 角色卡/项目管理/role-card.md
+    purpose: 项目管理角色卡
+  - type: 单文件
+    path: 角色卡/项目管理/boundary.md
+    purpose: 项目管理角色边界
+  - type: 单文件
+    path: 角色卡/项目管理/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/项目管理/changelog.md
+    purpose: 项目管理角色治理变更记录
+  - type: 单文件
+    path: 角色卡/技能规范/role-card.md
+    purpose: 技能规范角色卡
+  - type: 单文件
+    path: 角色卡/技能规范/boundary.md
+    purpose: 技能规范角色边界
+  - type: 单文件
+    path: 角色卡/技能规范/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/技能规范/changelog.md
+    purpose: 技能规范角色治理变更记录
+  - type: 单文件
+    path: 角色卡/测试/role-card.md
+    purpose: 测试角色卡
+  - type: 单文件
+    path: 角色卡/测试/boundary.md
+    purpose: 测试角色边界
+  - type: 单文件
+    path: 角色卡/测试/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/测试/changelog.md
+    purpose: 测试角色治理变更记录
+  - type: 单文件
+    path: 角色卡/governance-boundary.md
+    purpose: 本仓库治理边界覆盖自身
+  - type: 单文件
+    path: 角色卡/governance-boundary.yaml
+    purpose: 本治理边界的同名 YAML 副本
+  notes:
+  - 本文件是本仓库本轮明确采用的治理 Section 1 覆盖，取代内置 ANS Governance 默认允许维护产品 `SKILL` 与 `references`
+    的范围。治理上下文固定绑定内置 ANS Governance，必须保持独立，不在同一上下文切换为项目角色。
+  - 本轮候选的其他能力不会自动激活。未来扩大治理范围仍须依据用户授权更新本边界；本覆盖不构成永久或无限授权。
+  - 仅上述文件属于本地治理写入范围。其他路径默认只读；不得借此覆盖项目角色的业务写入范围。

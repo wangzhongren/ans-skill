@@ -8,6 +8,7 @@
 | 单文件 | `角色卡/项目管理/docs/design/2026-10-10_design_project-rules-memo-review.md` | 本轮项目法案与 memo 方案的治理评审记录 |
 | 单文件 | `角色卡/项目管理/docs/design/2026-10-14_design_role-groups.md` | 已确认的平级角色组别方案与评审记录 |
 | 单文件 | `角色卡/项目管理/docs/design/2026-10-14_design_group-leadership.md` | 已确认的组长与工作量评估方案及评审 |
+| 单文件 | `角色卡/项目管理/docs/design/2026-10-16_design_boundary-yaml.md` | 用户已要求的边界双格式方案与范围评审 |
 | 条件目录 | `角色卡/项目管理/docs/meetings/` | 已获准的项目或项目协作组会议纪要 |
 | 单文件 | `角色卡/项目管理/docs/project-rules.md` | 全项目唯一工程法案 |
 | 单文件 | `角色卡/项目管理/docs/architecture.md` | 项目整体架构及角色协作说明 |

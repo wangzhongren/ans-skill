@@ -11,6 +11,8 @@
 | 单文件 | `references/project-role.md` | 项目管理角色规则 |
 | 单文件 | `references/bootstrap-workflow.md` | 初始化与角色建立流程 |
 | 单文件 | `references/module-boundary.md` | 模块边界格式与授权规则 |
+| 单文件 | `references/built-in-boundary.md` | 内置治理边界参考的双格式说明 |
+| 单文件 | `references/built-in-boundary.yaml` | 内置治理边界参考的同步 YAML 副本 |
 | 单文件 | `references/documentation.md` | 文档通用规则 |
 | 单文件 | `references/proposal-review.md` | 提案评审流程 |
 | 单文件 | `references/testing.md` | 测试通用规则 |
@@ -31,6 +33,8 @@
 | 单文件 | `角色卡/技能规范/docs/feature/role-groups.md` | 平级角色组别的当前功能说明 |
 | 单文件 | `角色卡/技能规范/docs/change/2026-10-14_change_role-groups.md` | 本轮组别规则修改记录 |
 | 单文件 | `角色卡/技能规范/docs/change/2026-10-14_change_group-leadership.md` | 组长与工作量评估机制修改记录 |
+| 单文件 | `角色卡/技能规范/docs/feature/boundary-yaml.md` | 边界文档双格式的当前功能说明 |
+| 单文件 | `角色卡/技能规范/docs/change/2026-10-16_change_boundary-yaml.md` | 本轮边界 YAML 支持修改记录 |
 | 条件目录 | `角色卡/技能规范/docs/meetings/` | 已获准的技能维护组会议纪要，不包含其他角色文档 |
 
 白名单路径以仓库根目录为基准。待新增文件只有在技能规范角色任务且指南接入方案获授权后才可创建。其他文件和目录默认只读；角色卡与边界由 ANS Governance 唯一维护。

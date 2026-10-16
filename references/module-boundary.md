@@ -4,6 +4,30 @@ A module boundary document defines a module's mutation scope. It is the single s
 
 A boundary document lives inside the role directory as `boundary.md`. It contains **only Section 1** — the mutation whitelist. Functional description, architecture, and ownership details go in a separate companion document (`functional-description.md`). Only the built-in Governance reference is an exception: it carries its scope and responsibilities directly. Project management follows the same structure, with separate grants for design, execution records, shared code and its tests.
 
+## Same-Name YAML Copy
+
+When Governance creates or adjusts a boundary, it creates or updates a YAML copy beside it with the same basename and `.yaml` extension, for example `boundary.md` and `boundary.yaml`, in the same delivery. Existing boundaries receive a copy at their next authorized Governance maintenance; do not batch-migrate old examples. Markdown is the only maintained and authorized source. YAML is a synchronized copy for readers that need structured data; it is not a second permission source. Do not create YAML copies for other Markdown documents just because they are structured or contain tables.
+
+Use this small structure:
+
+```yaml
+source: built-in-boundary.md
+section1:
+  entries:
+    - type: Conditional directory
+      path: references/
+      purpose: Maintain reference documents for role cards and boundary doc format
+      condition: Conditional entries apply only when the task explicitly calls for creating or restructuring roles.
+  notes:
+    - Conditional entries apply only when the task explicitly calls for creating or restructuring roles. Routine feature work does not authorize governance artifact changes.
+```
+
+`source` is the sibling Markdown filename, relative to the YAML file. `section1.entries` has exactly one item per Section 1 table row, in the same order. Preserve each row's original `type`, `path`, and `purpose` text; remove only backticks used for Markdown presentation. Keep alternatives and descriptive or placeholder paths as written. Do not split an alternative into extra entries, normalize a path into a broader directory, or otherwise widen the scope. `condition` is optional and may contain only a condition stated by the source. If a condition also appears outside the table, preserve its full original sentence in `notes` too.
+
+`notes` is an ordered list of the boundary source's non-table statements that affect permission, scope, or precedence. Preserve their original wording and order rather than summarizing them. This includes statements before the table, such as the role's overall scope, and after the table, such as default read-only rules, conditional-entry limits, ownership restrictions, or override precedence. Include the built-in Governance reference's role scope and responsibilities there. Do not use notes to add a grant that the Markdown does not contain.
+
+When the Markdown and YAML differ, the mismatch must be fixed in the corresponding Governance artifact before the pair is accepted. Existing authorized work continues to use the Markdown boundary. A YAML mismatch never widens access or blocks an already authorized task. `task_ops` currently reads Markdown; do not claim it reads or enforces this YAML. This documentation rule does not add a parser, CLI, configuration system, or program-level permission check.
+
 ## Structure
 
 Follow explicit user requirements first, then repository conventions, then language/toolchain conventions. Use OS locale only as a fallback for natural-language prose; never translate identifiers or change filenames solely because of locale.

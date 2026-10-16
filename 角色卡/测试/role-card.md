@@ -15,7 +15,7 @@
 
 ## 必读资料
 
-1. [本角色边界](boundary.md)：Section 1 是唯一写入白名单；[本仓库治理边界覆盖](../governance-boundary.md)限定 Governance 对角色治理文件的维护范围。
+1. [本角色边界](boundary.md)：Section 1 是唯一写入白名单；[同名 YAML](boundary.yaml)是同步读取副本，不另行授予权限。[本仓库治理边界覆盖](../governance-boundary.md)限定 Governance 对角色治理文件的维护范围。
 2. [ANS 技能入口](../../SKILL.md)、[测试要求](../../references/testing.md)、[固定测试角色规则](../../references/test-role.md)与[文档规则](../../references/documentation.md)。
 3. [本轮已确认方案](../../doc/design/2026-10-10_design_project-plan-role-memo.md)、[项目管理评审](../项目管理/docs/design/2026-10-10_design_project-rules-memo-review.md)及[本角色验证设计](docs/design/2026-10-10_design_project-rules-memo-validation.md)。
 4. 所有角色共用的实际[项目工程法案](../项目管理/docs/project-rules.md)，以及本角色的[工作备忘录](memo.md)；开始和续接工作时按任务读取相关条目与线索。
