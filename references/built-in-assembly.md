@@ -1,6 +1,6 @@
 # Application Assembly Role
 
-This reference describes how ANS Governance defines a project's assembly capability role. It is not a blanket write grant: resolve concrete paths into the project's accepted `boundary.md` Section 1. Keep the instructions below in the role card or companion description, not extra sections in a capability boundary document.
+This reference describes how ANS Team Formation defines a project's assembly capability role. It is not a blanket write grant: resolve concrete paths into the project's accepted `boundary.md` Section 1. Keep the instructions below in the role card or companion description, not extra sections in a capability boundary document.
 
 ## Files to Assign
 
@@ -32,13 +32,13 @@ The entry holds an Interface lifecycle handle, not Service or Provider objects. 
 
 ## Scheduling and Verification
 
-For coordinated work, project management authorizes and reserves early setup and final integration as separate stages of this role. If this role is the accepted group lead, it may organize and start only its assigned group stages after those per-role gates pass; otherwise it does not schedule peers. Assembly workers never receive coordinator credentials. Return candidate-specific evidence and dependency requests to project management.
+For coordinated work, the scheduler authorizes and reserves early setup and final integration as separate stages of this role. This role reports directly to the scheduler and does not schedule peers. Assembly workers never receive scheduler or acceptance credentials. Return candidate-specific evidence and dependency requests to the scheduler; architecture questions go to project management and acceptance judgments to independent acceptance.
 
 1. Prepare the minimal approved build and test environment early, so capability roles can run their required tests. Dependencies need not all be known in advance; update owned configuration as verified needs emerge.
 2. Wait for agreed API contracts before writing dependent wiring. Work against compatible doubles can support isolated preparation, but does not establish integration success.
 3. Integrate only after participating implementations pass their gates. Unrelated roles need not finish first. Apply [dependency-aware scheduling](bootstrap-workflow.md#dependency-aware-scheduling).
 4. Follow [entrypoint.md](entrypoint.md) for startup, partial-failure cleanup, repeated shutdown, import safety, and the real-start smoke test. Verify cross-layer wiring with actual implementations in an appropriate isolated environment.
-5. Hand the runnable candidate and setup instructions to the [fixed test role](test-role.md), through project management, for independent cross-role, full-flow and regression checks. Assembly smoke checks do not replace those checks. Existing accepted test ownership changes only through Governance; do not take over old suites silently.
+5. Hand the runnable candidate and setup instructions to the [fixed test role](test-role.md), through the scheduler, for independent cross-role, full-flow and regression checks. Assembly smoke checks do not replace those checks. Existing accepted test ownership changes only through Team Formation; do not take over old suites silently.
 
 ## See also
 

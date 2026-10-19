@@ -4,7 +4,7 @@ Use with role-card.md's Required reading. These rules retain the global mutation
 
 ### Who Owns Tests
 
-Development roles own and run their unit and layer-contract tests. The project management role owns the tests for `common/shared/`. The assembly role owns runner setup and startup/wiring smoke checks. The project's [fixed test role](test-role.md) owns cross-role integration, complete user-flow and regression tests. Project management arranges repairs and acceptance; the test role reports defects instead of editing another role's code. Passing unit tests does not replace required integrated tests, and a dedicated test role does not remove per-layer verification.
+Development roles own and run their unit and layer-contract tests. The project management role owns the tests for `common/shared/`. The assembly role owns runner setup and startup/wiring smoke checks. The project's [fixed test role](test-role.md) owns cross-role integration, complete user-flow and regression tests. The scheduler arranges repairs and testing; the test role reports actual results instead of editing another role's code. Independent acceptance defines completion criteria and judges pass, rework, or insufficient evidence from current reports. Neither scheduler dispatch nor a self-test is an acceptance verdict. Passing unit tests does not replace required integrated tests, and a dedicated test role does not remove per-layer verification.
 
 ### Layer Tests in `test`
 

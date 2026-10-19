@@ -1,0 +1,14 @@
+source: boundary.md
+section1:
+  entries:
+  - type: 单文件
+    path: 角色卡/策划/feature-map.md
+    purpose: 本角色功能导航；说明无直接负责的已实现业务功能
+  - type: 单文件
+    path: 角色卡/策划/memo.md
+    purpose: 本角色私有工作备忘录
+  - type: 条件目录
+    path: 角色卡/策划/docs/design/
+    purpose: 本角色的用户目标、需求和产品功能流程方案；不包含技术架构与实现设计
+  notes:
+  - 未列路径默认只读。本角色只写用户需求和产品行为方案，不写项目架构、工具接口、源代码、测试、调度状态、验收结论或其他角色文档。`docs/design/` 仅保存本角色按本职责撰写的需求/功能方案；技术设计归项目管理，目录授权不构成方案确认或代码实施授权。

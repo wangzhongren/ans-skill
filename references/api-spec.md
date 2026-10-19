@@ -1,6 +1,6 @@
 # API Specification Format
 
-The default project role owns the canonical inter-role integration design under [project-role.md](project-role.md). Each implementation owner, including project management for `common/shared/`, maintains `api-spec.md` as an implementation report alongside its card and boundary: actual exports, compatibility with the design, and test evidence. It does not independently redefine the shared contract. Assembly reads both the accepted design and these reports, verifying unclear details in source.
+The project management role owns the canonical inter-role integration design under [project-role.md](project-role.md). Each implementation owner, including project management for `common/shared/`, maintains `api-spec.md` as an implementation report alongside its card and boundary: actual exports, compatibility with the design, and test evidence. It does not independently redefine the shared contract. Assembly reads both the accepted design and these reports, verifying unclear details in source.
 
 ## Template
 
@@ -39,7 +39,7 @@ A game project's Pipeline may register steps in a game loop, but that is a proje
 
 ## Rules
 
-- The implementation owner maintains its report within its accepted documentation scope. Propose shared-contract changes to the project role before implementing a deviation; the project role coordinates the design revision and Governance handles any permission changes.
+- The implementation owner maintains its report within its accepted documentation scope. Send shared-contract discrepancies through the scheduler to project management before implementing a deviation; project management owns the design revision and the scheduler arranges affected owner changes and Team Formation handles any permission changes.
 - Assembly reads only the participating API specifications before dependent wiring; access to a specification does not permit cross-layer imports.
 - Incomplete implementations or stale tests must be marked explicitly. Update affected consumers and invalidate evidence when contracts change.
 

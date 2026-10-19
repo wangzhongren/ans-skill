@@ -19,19 +19,33 @@ class TaskOpsTests(unittest.TestCase):
    self.put('role-cards/'+r+'/role-card.md','# '+r)
    self.put('role-cards/'+r+'/boundary.md','# Section 1\n| file | `src/'+r+'.py` | owner |')
    roles[r]={'card':'role-cards/'+r+'/role-card.md','boundary':'role-cards/'+r+'/boundary.md','writeFiles':['src/'+r+'.py'],'operations':['implement'],'autoDispatch':True,'checks':{'ok':{'argv':[sys.executable,'-c','assert True']}}}
+  self.acceptance='isolated-test-acceptance-secret-'+'a'*32
+  self.put('role-cards/acceptance/role-card.md','# independent acceptance')
+  self.put('role-cards/acceptance/boundary.md','# Section 1\n| file | `docs/criteria.md` | criteria |')
+  self.put('docs/criteria.md','C1: current candidate and real check pass')
+  roles['b']['purpose']='independent-test'
   self.config={'schemaVersion':1,'roles':roles,'designFiles':['docs/design.md'],'allowDesignRevision':True}
   self.plan={'schemaVersion':1,'taskId':self.task,'requirement':{'path':'docs/requirements.md','version':'R1'},'design':{'path':'docs/design.md','version':'D1'},'nodes':[{'nodeId':r,'roleId':r,'stage':'implementation','operation':'implement','writeSet':['src/'+r+'.py'],'checks':['ok'],'dependsOn':[] if r=='a' else ['a']} for r in ['a','b']]}
   self.initialize()
  def put(self,path,value):
   p=self.root/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(value);return p
- def initialize(self):
+ def initialize(self, accept=True):
+  self.config['acceptanceAuthority']={'roleId':'acceptance','card':'role-cards/acceptance/role-card.md','boundary':'role-cards/acceptance/boundary.md','cardSha256':file_hash(self.root,'role-cards/acceptance/role-card.md'),'boundarySha256':file_hash(self.root,'role-cards/acceptance/boundary.md'),'credentialHash':sha(self.acceptance.encode()),'criteriaFiles':['docs/criteria.md']}
+  self.plan['nodes'][1]['readSet']=self.plan['nodes'][0]['writeSet']+self.plan['nodes'][0].get('readSet',[])
   self.put('.ans/project.json',json.dumps(self.config))
   self.request={'configPath':'.ans/project.json','approvedConfigSha256':file_hash(self.root,'.ans/project.json'),'plan':self.plan}
-  self.coordinator=self.op('init',self.request)['coordinatorToken']
+  self.scheduler=self.op('init',self.request)['schedulerToken']
+  if accept:self.accept_plan()
  def op(self,command,request=None):
   request=dict(request or {})
-  if command in {'dispatch','revise','verify','recover'}:request['coordinatorToken']=self.coordinator
+  if command in {'dispatch','revise','recover'}:request['schedulerToken']=self.scheduler
+  if command in {'accept-plan','verify'}:request['acceptanceToken']=self.acceptance
+  if command == 'verify':
+   state=self.state(request['nodeId']);approval=self.op('status')['state']['planAcceptance']
+   request={'stateRevision':self.op('status')['state']['stateRevision'],'attemptId':state['attemptId'],'candidate':state['currentCandidate'],'criteriaVersion':approval['criteria']['version'],'criteriaSha256':approval['criteria']['sha256'],'verdict':'pass','summary':'independent stage acceptance','criteriaResults':[{'criterionId':'C1','verdict':'pass','evidence':[{'kind':'report','reportId':state.get('latestReport',{}).get('reportId')}]}],**request}
   return operate(self.root,self.task,command,request)
+ def accept_plan(self):
+  return self.op('accept-plan',{'stateRevision':self.op('status')['state']['stateRevision'],'planRevision':Store(self.root,self.task).load()['plan']['planRevision'],'criteria':{'path':'docs/criteria.md','version':'C1','sha256':file_hash(self.root,'docs/criteria.md'),'criterionIds':['C1']},'customerApproval':{'source':'isolated fixture operator','reference':'explicit unittest fixture scope'},'requiredNodes':['a','b'],'independentTests':[{'nodeId':'b','covers':['a']}]})
  def state(self,n='a'):return next(x for x in self.op('status')['state']['nodes'] if x['nodeId']==n)
  def dispatch(self,n='a'):
   a=self.op('dispatch',{'nodeId':n,'workerId':'worker-'+n})['assignment'];self.op('ack',a);return a
@@ -42,7 +56,7 @@ class TaskOpsTests(unittest.TestCase):
  def test_worker_cannot_self_verify_or_dispatch(self):
   a=self.dispatch();self.op('run-check',{**a,'checkId':'ok'});self.op('report',{**a,'reportId':'r','kind':'complete','summary':'done'})
   with self.assertRaises(Rejected):operate(self.root,self.task,'verify',{'nodeId':'a',**a})
-  with self.assertRaises(Rejected):operate(self.root,self.task,'dispatch',{'nodeId':'b','workerId':'self','coordinatorToken':a['token']})
+  with self.assertRaises(Rejected):operate(self.root,self.task,'dispatch',{'nodeId':'b','workerId':'self','schedulerToken':a['token']})
   self.assertNotIn('coordinatorTokenHash',self.op('status')['state'])
  def test_lifecycle_and_dependency_release(self):
   with self.assertRaises(Rejected):self.dispatch('b')
@@ -83,6 +97,7 @@ class TaskOpsTests(unittest.TestCase):
   res=self.op('report',{**a,'reportId':'old','kind':'complete','summary':'late D1'})
   self.assertFalse(res['accepted']);self.assertNotEqual(self.state()['status'],'verified')
   self.op('stop',{**a,'summary':'Stopped old attempt'})
+  self.accept_plan()
   fresh=self.dispatch();self.assertNotEqual(a['attemptId'],fresh['attemptId']);self.assertEqual(fresh['revisions']['design'],'D2')
  def test_failed_or_stale_evidence_never_verifies(self):
   a=self.dispatch();self.op('run-check',{**a,'checkId':'ok'});self.op('report',{**a,'reportId':'done','kind':'complete','summary':'done'})
@@ -165,7 +180,7 @@ class TaskOpsTests(unittest.TestCase):
   self.assertEqual(next(row for row in snapshot['tasks'] if row['nodeId']=='a')['status'],'inconsistent')
   self.assertTrue(any('evidence' in issue['message'] for issue in snapshot['issues']))
   with self.assertRaisesRegex(Rejected,'evidence is unavailable'):
-   operate(second_root,self.task,'dispatch',{'nodeId':'b','workerId':'other','coordinatorToken':self.coordinator})
+   operate(second_root,self.task,'dispatch',{'nodeId':'b','workerId':'other','schedulerToken':self.scheduler})
 
  def test_git_merges_different_tasks_and_stops_same_task_conflict(self):
   def git(root,*args,check=True):
@@ -192,7 +207,7 @@ class TaskOpsTests(unittest.TestCase):
   first=self.op('dispatch',{'nodeId':'a','workerId':'first'})
   git(self.root,'add','--','docs/scheduling/local-task.md')
   git(self.root,'commit','-qm','first assignment')
-  other=operate(second_root,'local-task','dispatch',{'nodeId':'a','workerId':'second','coordinatorToken':self.coordinator})
+  other=operate(second_root,'local-task','dispatch',{'nodeId':'a','workerId':'second','schedulerToken':self.scheduler})
   self.assertEqual(other['assignment']['workerId'],'second')
   git(second_root,'add','--','docs/scheduling/local-task.md')
   git(second_root,'commit','-qm','competing assignment')
@@ -211,7 +226,7 @@ class TaskOpsTests(unittest.TestCase):
  def test_git_checkout_crlf_keeps_the_same_task_history(self):
   document=Store(self.root,self.task).document
   document.write_bytes(document.read_bytes().replace(b'\n',b'\r\n'))
-  self.assertEqual(self.op('status')['state']['lastEventSeq'],1)
+  self.assertEqual(self.op('status')['state']['lastEventSeq'],2)
   self.dispatch()
   self.assertEqual(self.state()['status'],'running')
   self.assertNotIn(b'\r\n',document.read_bytes())
@@ -278,5 +293,192 @@ class TaskOpsTests(unittest.TestCase):
   (self.root/'src/common/a').symlink_to(self.root/'src',target_is_directory=True)
   self.config['roles']['a']['writeFiles']=['src/common/a/a.py']
   with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+
+ def test_init_requires_pinned_separate_acceptance_authority(self):
+  self.task='new';self.plan['taskId']='new'
+  request={**self.request,'plan':self.plan}
+  for extra in [{'acceptanceAuthority':{}},{'acceptanceToken':self.acceptance},{'coordinatorToken':'x'*64},{'schedulerToken':self.acceptance}]:
+   with self.subTest(extra=list(extra)):
+    with self.assertRaises(Rejected):operate(self.root,self.task,'init',{**request,**extra})
+  config=dict(self.config);config.pop('acceptanceAuthority');self.put('.ans/no-authority.json',json.dumps(config))
+  with self.assertRaisesRegex(Rejected,'acceptanceAuthority'):
+   operate(self.root,self.task,'init',{**request,'configPath':'.ans/no-authority.json','approvedConfigSha256':file_hash(self.root,'.ans/no-authority.json')})
+  raw=Store(self.root,'case').document.read_text()
+  self.assertNotIn('coordinatorTokenHash',raw);self.assertNotIn('tokenHash',raw)
+  self.assertNotIn(self.scheduler,raw);self.assertNotIn(self.acceptance,raw)
+ def test_scheduler_and_worker_cannot_accept_plan_or_verify(self):
+  assignment=self.dispatch()
+  for token in [self.scheduler,assignment['token'],'cloud-project-key','forged']:
+   for command in ['accept-plan','verify']:
+    with self.subTest(command=command):
+     with self.assertRaisesRegex(Rejected,'acceptance credential'):
+      operate(self.root,self.task,command,{'acceptanceToken':token,'roleId':'acceptance','scope':'acceptance','nodeId':'a'})
+  for command in ['dispatch','revise','recover']:
+   with self.assertRaisesRegex(Rejected,'Scheduler credential'):
+    operate(self.root,self.task,command,{'schedulerToken':self.acceptance,'nodeId':'b'})
+ def test_preflight_is_required_and_stale_requests_do_not_commit(self):
+  self.task='unapproved';self.plan['taskId']=self.task;self.initialize(accept=False)
+  seq=self.op('status')['state']['stateRevision']
+  with self.assertRaisesRegex(Rejected,'accept-plan'):self.dispatch()
+  self.accept_plan();a=self.dispatch();self.op('run-check',{**a,'checkId':'ok'})
+  self.op('report',{**a,'reportId':'done','kind':'complete','summary':'done'})
+  seq=self.op('status')['state']['stateRevision']
+  with self.assertRaisesRegex(Rejected,'stateRevision'):self.op('verify',{'nodeId':'a','stateRevision':seq-1})
+  with self.assertRaisesRegex(Rejected,'candidate'):self.op('verify',{'nodeId':'a','candidate':'old'})
+  with self.assertRaisesRegex(Rejected,'criteria'):self.op('verify',{'nodeId':'a','criteriaVersion':'old'})
+  self.assertEqual(self.op('status')['state']['stateRevision'],seq)
+ def test_missing_evidence_and_needs_work_keep_reservations(self):
+  a=self.dispatch();self.op('report',{**a,'reportId':'claim','kind':'complete','summary':'needs checks'})
+  for verdict in ['missing-evidence','needs-work']:
+   self.op('verify',{'nodeId':'a','verdict':verdict,'summary':'C1 incomplete','criteriaResults':[{'criterionId':'C1','verdict':verdict,'summary':'check missing','evidence':[]}]})
+   self.assertTrue(self.state()['active'])
+   self.assertFalse(self.op('status')['state']['taskComplete'])
+   with self.assertRaises(Rejected):self.dispatch('b')
+   if verdict=='missing-evidence':
+    self.assertEqual(self.state()['status'],'awaiting-verification')
+   else:
+    self.assertEqual(self.state()['status'],'blocked')
+  with self.assertRaisesRegex(Rejected,'new authorized attempt'):self.op('run-check',{**a,'checkId':'ok'})
+  with self.assertRaises(Rejected):self.op('report',{**a,'reportId':'claim-again','kind':'complete','summary':'same attempt'})
+  self.op('stop',{**a,'summary':'confirmed stopped'})
+  with self.assertRaisesRegex(Rejected,'Retry'):self.dispatch()
+  fresh=self.op('dispatch',{'nodeId':'a','workerId':'replacement','retryReason':'fixed implementation'})['assignment']
+  self.op('ack',fresh);self.complete(fresh,'retry-complete')
+  self.assertEqual(self.state()['attemptNumber'],2)
+  self.assertNotIn('tokenHash',Store(self.root,self.task).document.read_text())
+ def test_supplement_missing_evidence_in_same_attempt(self):
+  a=self.dispatch();self.op('report',{**a,'reportId':'claim','kind':'complete','summary':'completion awaiting evidence'})
+  self.op('verify',{'nodeId':'a','verdict':'missing-evidence','summary':'no run yet','criteriaResults':[{'criterionId':'C1','verdict':'missing-evidence','summary':'run required check','evidence':[]}]})
+  self.op('run-check',{**a,'checkId':'ok'});self.op('verify',{'nodeId':'a'})
+  self.assertEqual(self.state()['status'],'verified')
+  self.assertEqual([a['verdict'] for a in self.state()['acceptanceHistory']],['missing-evidence','pass'])
+ def test_actual_producer_environment_and_failure_history(self):
+  self.task='history';self.plan['taskId']=self.task
+  self.config['roles']['a']['checks']['ok']['argv']=[sys.executable,'-c','from pathlib import Path;raise SystemExit(0 if Path("marker").exists() else 9)']
+  self.initialize();a=self.dispatch()
+  first=self.op('run-check',{**a,'checkId':'ok','producer':{'roleId':'b'}})
+  self.assertEqual(first['evidence']['exitCode'],9)
+  self.put('marker','ready');last=self.op('run-check',{**a,'checkId':'ok'})
+  evidence=last['evidence'];self.assertEqual(evidence['producer'],{k:a[k] for k in ['roleId','workerId','nodeId','attemptId']})
+  self.assertIn('executableHash',evidence['environment']);self.assertTrue(evidence['startedAt']<=evidence['finishedAt'])
+  self.op('report',{**a,'reportId':'complete','kind':'complete','summary':'actual retry passed'})
+  self.op('verify',{'nodeId':'a'})
+  self.assertEqual([e['exitCode'] for e in self.state()['checkHistory']],[9,0])
+  with patch.dict('os.environ',{'NODE_OPTIONS':'--new-environment'}):
+   self.assertFalse(self.state()['currentAcceptanceValid'])
+ def test_changed_candidate_check_and_timeout_fail(self):
+  for name,code in [('mutate','from pathlib import Path;Path("src/a.py").write_text("changed")'),('timeout','import time;time.sleep(2)')]:
+   with self.subTest(name=name):
+    self.task=name;self.plan['taskId']=name;self.config['roles']['a']['checks']['ok']={'argv':[sys.executable,'-c',code],'timeoutSeconds':1};self.initialize();a=self.dispatch()
+    result=self.op('run-check',{**a,'checkId':'ok'})
+    self.assertEqual(result['status'],'check-failed')
+    if name=='timeout':self.assertEqual(result['evidence']['exitCode'],124)
+    else:self.assertFalse(result['evidence']['candidateUnchanged'])
+ def test_transitive_ancestor_log_loss_invalidates_complete(self):
+  a=self.dispatch();self.complete(a);b=self.dispatch('b');self.complete(b,'b-complete')
+  self.assertTrue(self.op('status')['state']['taskComplete'])
+  evidence=self.state()['checkEvidence']['ok'];(self.root/evidence['path']).unlink()
+  self.assertFalse(self.state('b')['currentAcceptanceValid'])
+  self.assertFalse(self.op('status')['state']['taskComplete'])
+  self.assertEqual(self.state('b')['acceptance']['verdict'],'pass')
+ def test_criteria_and_acceptance_role_change_invalidate_pass(self):
+  a=self.dispatch();self.complete(a)
+  self.put('docs/criteria.md','C2 changed')
+  self.assertFalse(self.state()['currentAcceptanceValid'])
+  with self.assertRaises(Rejected):self.dispatch('b')
+  self.put('docs/criteria.md','C1: current candidate and real check pass')
+  self.put('role-cards/acceptance/role-card.md','changed role')
+  self.assertFalse(self.state()['currentAcceptanceValid'])
+ def test_pass_requires_current_outputs_and_real_evidence_references(self):
+  a=self.dispatch();self.op('run-check',{**a,'checkId':'ok'});self.op('report',{**a,'reportId':'done','kind':'complete','summary':'done'})
+  with self.assertRaises(Rejected):self.op('verify',{'nodeId':'a','criteriaResults':[{'criterionId':'C1','verdict':'pass','evidence':[{'kind':'check','checkId':'ok','sha256':'fake'}]}]})
+  (self.root/'src/a.py').unlink()
+  with self.assertRaises(Rejected):self.op('verify',{'nodeId':'a'})
+ def test_status_redacts_current_and_historical_credentials(self):
+  a=self.dispatch();self.op('stop',{**a,'summary':'stop'})
+  self.op('dispatch',{'nodeId':'a','workerId':'retry','retryReason':'new worker'})
+  data=json.dumps(self.op('status'))
+  for key in ['credentialHash','CredentialHash','tokenHash','TokenHash',self.scheduler,self.acceptance,a['token']]:self.assertNotIn(key,data)
+  raw=Store(self.root,self.task).load()['state']
+  self.assertIn('assignmentCredentialHash',raw['nodes'][0]['previousAttempts'][0])
+ def test_legacy_markdown_and_json_are_read_only(self):
+  original=Store(self.root,self.task).load();legacy=json.loads(json.dumps(original));legacy['plan']['taskId']='old';legacy['state']['taskId']='old';legacy['state']['schemaVersion']=1
+  legacy['state']['coordinatorTokenHash']=sha(b'old-token');legacy['state'].pop('schedulerCredentialHash');legacy['state'].pop('acceptanceAuthority');legacy['state'].pop('planAcceptance')
+  store=Store(self.root,'old');store.commit(legacy,'initialized','legacy fixture')
+  self.assertTrue(operate(self.root,'old','status',{})['state']['legacyReadOnly'])
+  for command in ['dispatch','revise','ack','report','stop','run-check','verify','accept-plan','recover']:
+   with self.assertRaisesRegex(Rejected,'Legacy task is read-only'):operate(self.root,'old',command,{})
+  legacy['plan']['taskId']='json';legacy['state']['taskId']='json'
+  self.put('docs/scheduling/json/plan.json',json.dumps(legacy['plan']));self.put('docs/scheduling/json/state.json',json.dumps(legacy['state']))
+  self.assertTrue(operate(self.root,'json','status',{})['state']['legacyReadOnly'])
+ def test_cross_role_plan_requires_genuine_independent_test_coverage(self):
+  store=Store(self.root,self.task);bundle=store.load();request={'acceptanceToken':self.acceptance,'stateRevision':bundle['state']['stateRevision'],'planRevision':1,'criteria':bundle['state']['planAcceptance']['criteria'],'customerApproval':{'source':'operator','reference':'fixture'},'requiredNodes':['a','b'],'independentTests':[]}
+  with self.assertRaisesRegex(Rejected,'independent test coverage'):operate(self.root,self.task,'accept-plan',request)
+  request['independentTests']=[{'nodeId':'a','covers':['b']}]
+  with self.assertRaisesRegex(Rejected,'independent-test role'):operate(self.root,self.task,'accept-plan',request)
+
+ def test_execution_environment_uses_declared_path_and_root_cwd(self):
+  self.task='path';self.plan['taskId']=self.task
+  executable=self.put('bin/probe','#!/bin/sh\nprintf "actual-declared-path"\n');executable.chmod(0o755)
+  self.config['roles']['a']['checks']['ok']={'argv':['probe'],'env':{'PATH':'bin','PYTHONDONTWRITEBYTECODE':'0'}}
+  self.initialize();a=self.dispatch();result=self.op('run-check',{**a,'checkId':'ok'})
+  self.assertEqual(result['evidence']['exitCode'],0)
+  self.assertEqual(result['evidence']['environment']['executable'],str(executable))
+  self.assertEqual((self.root/result['evidence']['path']).read_text(),'actual-declared-path')
+  self.assertEqual(result['evidence']['environment']['executableHash'],file_hash(self.root,'bin/probe'))
+  self.put('bin/probe','#!/bin/sh\nprintf changed\n')
+  self.op('report',{**a,'reportId':'path-complete','kind':'complete','summary':'completed'})
+  with self.assertRaisesRegex(Rejected,'environment'):self.op('verify',{'nodeId':'a'})
+ def test_formal_missing_evidence_can_record_lost_ancestor_logs(self):
+  a=self.dispatch();self.complete(a);b=self.dispatch('b')
+  self.op('run-check',{**b,'checkId':'ok'});self.op('report',{**b,'reportId':'test-complete','kind':'complete','summary':'test complete'})
+  (self.root/self.state()['checkEvidence']['ok']['path']).unlink()
+  with self.assertRaises(Rejected):self.op('verify',{'nodeId':'b'})
+  result=self.op('verify',{'nodeId':'b','verdict':'missing-evidence','summary':'ancestor log unavailable','criteriaResults':[{'criterionId':'C1','verdict':'missing-evidence','summary':'restore ancestor evidence','evidence':[]}]})
+  self.assertEqual(result['status'],'ok');self.assertTrue(self.state('b')['active'])
+ def test_nonimpact_revision_is_rechecked_by_new_preflight(self):
+  a=self.dispatch();self.complete(a)
+  self.put('docs/design.md','D2 changes test reporting only')
+  self.op('revise',{'version':'D2','affected':['b'],'reason':'test-only reporting contract','unaffectedReason':'developer interface and checks unchanged'})
+  self.assertFalse(self.state()['currentAcceptanceValid'])
+  with self.assertRaises(Rejected):self.dispatch('b')
+  self.accept_plan();self.assertTrue(self.state()['currentAcceptanceValid'])
+  b=self.dispatch('b');self.complete(b,'D2-b')
+  self.assertTrue(self.op('status')['state']['taskComplete'])
+  seq=self.op('status')['state']['stateRevision'];self.assertEqual(self.accept_plan()['status'],'duplicate')
+  self.assertEqual(seq,self.op('status')['state']['stateRevision']);self.assertTrue(self.op('status')['state']['taskComplete'])
+ def test_stale_report_event_records_actual_old_producer(self):
+  a=self.dispatch();self.op('stop',{**a,'summary':'old worker stopped'})
+  self.op('dispatch',{'nodeId':'a','workerId':'fresh','retryReason':'replacement'})
+  self.op('report',{**a,'reportId':'late','kind':'complete','summary':'late feedback'})
+  event=Store(self.root,self.task).journal()[-1]
+  self.assertEqual(event['producer']['workerId'],a['workerId']);self.assertEqual(event['producer']['attemptId'],a['attemptId'])
+ def test_three_stage_ancestor_loss_blocks_current_completion(self):
+  self.task='chain';self.plan['taskId']=self.task
+  self.put('src/c.py','test summary')
+  self.put('role-cards/c/role-card.md','# c')
+  self.put('role-cards/c/boundary.md','# Section 1\n| file | `src/c.py` | owned |')
+  self.config['roles']['c']={**self.config['roles']['b'],'card':'role-cards/c/role-card.md','boundary':'role-cards/c/boundary.md','writeFiles':['src/c.py']}
+  self.plan['nodes'].append({'nodeId':'c','roleId':'c','operation':'implement','writeSet':['src/c.py'],'readSet':['src/a.py','src/b.py'],'checks':['ok'],'dependsOn':['b']})
+  self.initialize(accept=False)
+  state=self.op('status')['state']
+  self.op('accept-plan',{'stateRevision':state['stateRevision'],'planRevision':1,'criteria':{'path':'docs/criteria.md','version':'C1','sha256':file_hash(self.root,'docs/criteria.md'),'criterionIds':['C1']},'customerApproval':{'source':'fixture operator','reference':'three-stage dependency fixture'},'requiredNodes':['a','b','c'],'independentTests':[{'nodeId':'b','covers':['a']},{'nodeId':'c','covers':['a']}]})
+  a=self.dispatch();self.complete(a);b=self.dispatch('b');self.complete(b,'b-done')
+  c=self.dispatch('c');self.complete(c,'c-done')
+  self.assertTrue(self.op('status')['state']['taskComplete'])
+  unchanged=self.state('b')['currentCandidate'];(self.root/self.state()['checkEvidence']['ok']['path']).unlink()
+  self.assertEqual(self.state('b')['currentCandidate'],unchanged)
+  self.assertFalse(self.state('c')['currentAcceptanceValid']);self.assertFalse(self.op('status')['state']['taskComplete'])
+
+ def test_legacy_json_final_file_symlink_is_rejected(self):
+  for filename in ['plan.json','state.json']:
+   with self.subTest(filename=filename):
+    task='legacy-'+filename.split('.')[0]
+    self.put('docs/scheduling/'+task+'/plan.json','{}')
+    self.put('docs/scheduling/'+task+'/state.json','{}')
+    with tempfile.TemporaryDirectory() as outside:
+     target=Path(outside)/filename;target.write_text('{}')
+     path=self.root/'docs/scheduling'/task/filename;path.unlink();path.symlink_to(target)
+     with self.assertRaisesRegex(Rejected,'Symlink'):operate(self.root,task,'status',{})
 
 if __name__=='__main__':unittest.main()

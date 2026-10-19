@@ -1,6 +1,6 @@
 # Project Management Proposal Review
 
-Use before presenting an application-code or test proposal for customer implementation approval. Project management is responsible for judging the proposal's quality and system impact, not merely forwarding it. This is a duty of the existing accepted project management role, not another role or an automatic permission to implement.
+For new product requirements, the scheduler first assigns the product/requirements proposal to the [planning role](planning-role.md). Project management then provides technical architecture, implementation design and technical review. Reuse valid existing proposals and authorization; do not rewrite historical technical proposals as planner work. Use this guide before presenting an application-code or test proposal for customer implementation approval. Project management is responsible for judging the proposal's quality and system impact, not merely forwarding it. This is a duty of the existing accepted project management role, not another role or an automatic permission to implement.
 
 ## Submit and Review
 
@@ -12,11 +12,11 @@ For proposals that touch project engineering constraints, compare them with the 
 4. **Conclude and return revisions.** Record one recommendation: `recommend approval`, `needs revision`, or `not ready`. Support it with findings, affected roles and their responses, material alternatives and unresolved questions. The original owner revises its proposal; management does not edit that owner's files or switch roles. Project management may revise its own integration design within its scope. Recheck material revisions against the affected evidence and update the conclusion for the actual version.
 5. **Present the approval brief.** Once the proposal is ready to recommend, give the customer the short decision brief below with a link to the full proposal and review. If not ready, explain the gap or decision needed; do not present it as a routine ready-to-implement approval. The customer may explicitly decide a documented tradeoff or unresolved risk; retain that decision and its conditions rather than silently relabeling missing evidence as verified.
 
-Management's own shared-code or integration proposal receives the same substantive assessment. Obtain affected owners' feedback where needed and disclose management's authorship; do not invent an independent reviewer or a second project-management role. Scope/ownership changes still go to Governance in its own context.
+Management's own shared-code or integration proposal receives the same substantive assessment. Obtain affected owners' feedback where needed and disclose management's authorship; do not invent an independent reviewer or a second project-management role. Scope/ownership changes still go to Team Formation in its own context.
 
 ## Record and Brief
 
-Write review findings in project management's existing authorized design/change/fix scope, linking the owner's canonical proposal/version rather than copying it. A bounded new review directory is not required. If no review record path is authorized, provide a chat review and route any necessary scope update to Governance; do not expand permission yourself. Keep customer authorization, management recommendation and runtime verification as separate facts. A meeting's minutes may supply review evidence but consensus alone is not a completed review.
+Write review findings in project management's existing authorized design/change/fix scope, linking the owner's canonical proposal/version rather than copying it. A bounded new review directory is not required. If no review record path is authorized, provide a chat review and route any necessary scope update to Team Formation; do not expand permission yourself. Keep customer authorization, management recommendation, actual test results and independent acceptance conclusions as separate facts. A meeting's minutes may supply review evidence but consensus alone is not a completed review.
 
 The customer-facing brief should be understandable without opening all technical records:
 
@@ -30,6 +30,6 @@ Use a short paragraph or compact bullets, scaling detail to the decision. Summar
 
 ## Implementation Gate and Changes
 
-Before implementation dispatch, project management checks that the reviewed proposal version matches the customer's confirmation and instruction to implement, accepted role boundaries and actual task scope. Its recommendation does not grant authority or prove working behavior. Reuse valid same-version, same-scope customer authorization; do not request duplicate approval because review or a later turn occurs.
+Before implementation dispatch, the scheduler checks that the reviewed proposal version matches the customer's confirmation and instruction to implement, accepted role boundaries and actual task scope. Project management's recommendation does not grant authority or prove working behavior. Independent acceptance separately defines completion criteria and judges delivery; the scheduler cannot convert review approval into final acceptance. Reuse valid same-version, same-scope customer authorization; do not request duplicate approval because review or a later turn occurs.
 
 Material changes to behavior, contracts, role impact, implementation scope or optional selection require a revised review and presentation of the affected decision before implementing it. An unchanged proposal does not require repeated review for every stage; recheck only when new evidence undermines the conclusion. Role isolation applies throughout: standalone owners hand off to a separate authorized management context for review, then receive the result in their original context. If no management context can be started, preserve the draft, report the missing review and continue authorized investigation/document preparation instead of self-reviewing as another role.

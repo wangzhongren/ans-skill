@@ -1,5 +1,11 @@
 # 测试角色变更记录
 
+- 2026-10-19：按用户后续决定，移除测试角色卡的组员身份与组长汇报链；`group` 仅作分类，测试结果直接交统筹调度，最终验收仍由独立验收角色负责。Doc: [role-card.md](role-card.md)。
+
+- 2026-10-19：依据用户确认的职责拆分与已确认方案，将独立验收结论交给新验收角色；固定测试角色保留独立跨角色流程和回归职责。本轮只新增 `scripts/tests/test_role_authority_flow.py` 单文件权限，开发单测 `scripts/tests/test_task_ops.py` 明确归任务工具角色。Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
+
+- 2026-10-19：依据用户确认的角色权责拆分，增加一个本轮独立文档验收准备报告的精确白名单；仅文档准备，不开放程序测试文件或 `scripts/tests` 目录。Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
+
 - 2026-10-16：按用户要求补充同名 boundary.yaml 同步副本及角色卡链接，增加本轮一致性验证报告的单文件范围；不授予源码权限。Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
 
 - 2026-10-14：按客户确认的组长方案，标明项目协作组组员身份，新增本轮组长机制验证报告的单文件范围；仍独立验证，组长不能代写报告或把未通过结果改成通过。Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)。

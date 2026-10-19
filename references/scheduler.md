@@ -1,80 +1,57 @@
-# Scheduling Protocol for the Default Project Role
+# 统筹：默认接待、调查和调度
 
-ANS Governance defines and changes roles, ownership, and policy. The [default project role](project-role.md) owns investigation and shared design; this reference defines its scheduling responsibility under accepted definitions. Capability agents implement and unit-test their scoped work. Project management implements shared components and their tests; assembly verifies wiring/startup; the fixed test role verifies cross-role, complete-flow and regression behavior. Scheduler is not built in. ANS Governance creates its project role card and boundary, which must be accepted before activation. This reference is a template, not mutation authority.
+统筹是新请求的默认接待角色：弄清用户要什么、先调查哪里受影响，再把工作交给相应所有者。它是团队组建创建并经确认的项目角色，需要自己的角色卡和边界。团队组建负责[组建团队](team-formation.md)，策划负责[产品/需求方案](planning-role.md)，项目管理负责[技术架构与实现设计](project-role.md)，测试负责真实执行，[独立验收](acceptance-role.md)判是否完成。统筹不兼做这些角色。
 
-## Create the Project Role
+## 创建与默认入口
 
-The initial project role and accepted boundary come before the project rules file. Do not block role creation or authorized setup while waiting for a project-specific engineering rules document. Once authorized paths exist, project management gathers evidence and confirms rules; each worker then reads the same current file and its own memo.
+新项目由团队组建建立统筹、策划、项目管理和独立验收等具体角色定义，再交独立统筹上下文接待后续工作。定义齐备不表示全部角色一直运行，更不表示每个小任务都要开会。已有项目先显式迁移角色、配置和未完任务；不能把旧 PM 上下文改称统筹后继续使用。
 
-When coordinated execution is required, ANS Governance creates a role directory using the project's naming convention, for example:
+例如项目可以使用 `角色卡/统筹/`，含 `role-card.md`、`boundary.md`、同步 YAML、`functional-description.md` 和 `changelog.md`。名称跟随项目约定。角色卡记录必读资料、实际工具、并发限制和交接办法；边界第 1 节写真实路径。模板存在不等于获得写权。
 
-```text
-角色卡/调度/
-  role-card.md
-  boundary.md
-  functional-description.md
-  changelog.md
-```
+统筹可读相关需求、源码、日志、角色定义、方案和证据，定位入口与责任，直接向每个受影响角色了解现有任务、剩余工作、依赖和阻碍。未知工作量标“待评估”，不编造工时或另建工作量数据库。后续新需求的产品问题交策划形成方案，技术架构疑问交项目管理，缺角色或缺权限交团队组建。统筹不修改业务代码、shared、他人报告、角色卡或边界。
 
-Use the project's default role card for investigation, design, and coordination; do not create a second coordinator merely because the directory example says 调度. The card identifies the project-specific responsibility, required reading, available execution tools, concurrency limit, and handoff protocol. Its required reading includes its own boundary, this scheduler reference, the main skill, action policy, and evidence rules. The boundary contains only Section 1; the workflow description belongs in the companion document. Configure paths and available tools from the actual project, not this example. No subagent tool or particular parallel capacity is assumed.
+项目法案缺失不阻止角色建立或已有授权工作。项目管理在自己的获准路径维护法案；所有执行者读取相关已确认条目及自己的 memo。
 
-The project scheduler owns the project-wide plan, authorization/reservation and global evidence release. It reads accepted capability/assembly cards without activating their write permissions. Its own card remains active while coordinating; every worker activates the specific assigned `roleId` and loads that role's own boundary. An accepted group lead may organize work already assigned to its group and start a named member context only after the per-role gates and reservation in [group-leadership.md](group-leadership.md) pass. The lead does not receive coordinator credentials or edit global records. Route by responsibility and accepted ownership, never by group name. A standalone single-role repair may omit graph records, but activating its execution role still needs the customer-consent/configuration check in project-role.md.
+## 边界与记录
 
-If a shared Dashboard role channel is enabled, each worker may send its own scoped messages and exact permission requests using the project's shared Key while declaring its active role ID. The default project role may route questions to other roles, but neither that channel nor an administrator's recorded decision dispatches a worker. Recheck the current task, role boundary, write set and customer consent or approved configuration in `task_ops` before activation.
+可提议在统筹自己的获准范围列出 `docs/scheduling/<task-id>.md`，由 `task_ops` 统一写入全局计划、步骤和事件；调查、会议等文档也只使用其已获准路径。上述路径须经团队组建落实到项目实际边界，不授权整库文档，也不赋予统筹 shared 所有权。
 
-## Suggested Boundary Section 1
+统筹维护全局计划、逐角色授权核对、范围预留、当前进度和依赖放行。统筹直接向具体角色派发并接收原始结果；组别只作分类，不增加派发或汇报层级。执行者不能拿到调度、验收或其他执行者凭据。工作者在各自固定角色上下文执行。任务计划只能缩小已确认边界，不能新增权限。
 
-| Operable location | Allowed use |
-| --- | --- |
-| `docs/scheduling/<task-id>.md` | Keep one Git-readable plan, current step table and ordered task history; `task_ops` is its only writer |
+云端角色消息和管理员决定是信息来源，不自动派发本地工作；仍需检查真实任务、角色边界、写入范围和有效用户授权。
 
-These paths are suggested entries, not a built-in whitelist. Governance must resolve them into the project scheduler's accepted Section 1 (a bounded conditional scheduling directory is allowed). These are the scheduling portion of the default project role's boundary. Its separately accepted design paths are defined under project-role.md; ownership policy and role definitions remain Governance-owned. Map `docs/` to the existing documentation root and record the resolved paths in the accepted boundary before writing. Use a stable, path-safe task ID and reuse its records on resume. Scheduling permissions do not grant source permissions. Only the project role's separately accepted `common/shared/`, corresponding test and document scopes permit shared implementation. Do not edit other roles' application code/tests, build configuration, role cards, boundaries or skill rules. Shared implementation and design still need the applicable document confirmation and task authorization. Read them as needed; reading another role card does not activate it or grant its scope.
+## 用阶段任务表达依赖
 
-A task plan narrows an accepted role's authority; it never grants new permission. Governance policy or ownership changes go to ANS Governance, with required user acceptance. The scheduler does not create roles or act as a second approval authority for their permissions.
+按已确认边界、集成设计、公开契约和必要源码调查建立有向无环图，不要求全项目代码图谱。节点是“角色 + 阶段 + 可观察交付”，不是整个角色或每个源文件。
 
-## Stage-Task Execution Graph
+每个节点记录：
 
-Derive prerequisites from accepted role boundaries, integration designs, API contracts, and targeted source inspection. No whole-project code graph is needed. The scheduler maintains a separate directed acyclic graph whose nodes are **role + stage + observable deliverable**, not entire roles or source files.
+1. 稳定 ID、所有者、阶段、目标、角色卡/边界及其版本或哈希；
+2. 精确写入集合、相关不变输入、预期输出和实际检查命令，均在既有授权内；
+3. 前置节点和具体放行条件，注明所需合同版本或实现候选证据；
+4. 经独立验收核对的完成条件与证据要求，区分合同设计、实现和集成。
 
-Each plan node records:
+合同准备好可以让多个角色独立准备；真实集成必须等相关实现及检查。装配的构建准备可早做，最终接线晚做；shared 实施归项目管理，完整流程测试归测试。若真实先决条件成环，交项目管理理顺设计，不能为了调度删依赖；所有权变化交团队组建。
 
-1. Stable node ID, owning role, stage, objective, and role-card/boundary paths with their version or content hashes.
-2. Exact task write set, required inputs, expected outputs, and checks; the write set must fit the accepted boundary and current user authorization.
-3. Prerequisite node IDs and explicit release conditions: contract established, implementation available, or required verification passed. Identify the actual contract/version or candidate evidence required; a stage name alone is insufficient.
-4. Completion criteria, including evidence required for this stage. All required checks must pass before the node is marked verified. A verified contract-design node does not imply a verified implementation.
+## 调度循环
 
-For example, a shared Model contract can release independent Service preparations; Service implementations can run when their required Provider contracts/implementations are ready; final integration waits for the actual participating implementation gates. Build/test setup can be an early assembly-owned node, shared implementation a project-owned node, and end-to-end verification a later test-role-owned node. Cyclic role references may become acyclic stage tasks; if a real prerequisite cycle remains, block dispatch and clarify the design under the project role; route ownership or permission changes to Governance rather than deleting an edge.
+后续新需求按“策划形成产品方案 → 项目管理技术架构/实现设计与技术评审 → 客户实施授权 → 统筹安排实施”交接；已有有效同版同范围方案和授权直接复用，不为新增岗位重复补造历史。实施前核对[方案审核](proposal-review.md)：实际文档版本、项目管理的架构意见、受影响所有者反馈、待修订项、独立验收标准以及客户确认和实施指令。已有同版同范围授权继续有效；实质变动再处理受影响决策。草案可安排已授权的只读调查，不能当已批准实施方案。
 
-## Dispatch Loop
+1. **查授权和范围。**核对确切角色及任务授权、客户认可配置版本、方案确认和实施指令、已选择选装、边界、唯一文件归属及依赖。默认勾选不是选装授权。未覆盖路径先交团队组建，不派发受影响节点。
+2. **找可以开始的阶段。**依赖必须满足当前记录条件，输入齐备，没有活动写入者冲突；文档、生成文件、公共入口和配置也要检查碰撞。角色名不同不代表写入范围不同。
+3. **逐角色预留再启动。**按[任务操作](task-operations.md)给具体 `roleId` 和范围做授权/预留，再使用可用且已授权的工具开独立上下文。只传该角色、边界、授权、任务输入和检查，不继承统筹完整角色对话。统筹或可信启动端直接启动指定角色，执行者不派发其他角色。工具不是代理启动器。
+4. **接收真实证据。**核对任务/阶段/尝试、改动路径、最终候选版本、产物、实际检查结果和遗留问题。转交独立验收判通过、返工或证据不足。完成报告或进程成功退出都不能代替验收。
+5. **按验收结论更新和放行。**只消费匹配当前候选和标准的有效结论；通过才记录相应完成并释放依赖。返工交原所有者，证据不足安排补证；统筹不能自己改结论。最终装配与测试使用合并后的实际候选，各角色单独通过不表示组合通过。
 
-Before requesting customer implementation approval or dispatching a code/test stage, apply [proposal-review.md](proposal-review.md). Check project management's substantive review of the actual proposal/version, affected owners' assessments where required, any outstanding revision requests or conditions, and the customer approval brief. Management recommendation is separate from customer confirmation and implementation instruction. Reuse current review evidence and valid same-version authorization; material proposal or impact changes require an updated review and affected customer decision. A draft lacking required review can be assigned authorized read-only investigation/refinement, but cannot be treated as a ready implementation proposal.
+按任务选择能可靠完成工作的最低成本可用模型；工具允许且用户未指定时明确设置。摘录、总结和简单检查通常可用低成本低思考；复杂实现或关键审核需要较强模型时说明具体原因。只传必需资料，遵守工具对模型覆盖和上下文继承的限制。
 
-Use [task-operations.md](task-operations.md) and its CLI for plan initialization, authorization/reservation, acknowledgment, checks, feedback, revision and verification. Invoke the actual subagent tool only after dispatch succeeds. The CLI is not itself an agent launcher.
+## 失败、恢复和完成
 
-Choose the lowest-cost available model that can reliably do the assigned task, and specify it explicitly when the tool supports model selection. Summarizing, extracting facts and simple checks normally use a low-cost model with low reasoning effort; do not automatically inherit the main agent's model or full conversation history. Complex implementation or a critical review may need a stronger model; explain the task-specific reason rather than upgrading every worker. Respect a customer-specified model and budget. Only pass the role, boundaries and task-relevant inputs needed by that worker; comply with any tool restrictions on model overrides and history forking.
+阶段状态沿用 `pending`、`ready`、`running`、`awaiting-verification`、`verified`、`failed`、`blocked`、`cancelled`。`ready` 取决于当前依赖；`verified` 是已记录的阶段结论，候选或证据随后可能过期；当前完成须看 `task_ops status` 的 `currentAcceptanceValid` 与 `taskComplete`，不能只看持久化状态。保留每次尝试、执行者、失败证据和变更原因。
 
-Follow [coordination.md](coordination.md) for shared-table fields, versioned worker reports, acknowledgment, single-writer updates, and change reconciliation. Keep execution status separate from requirement/design change events.
+- 失败阻止依赖它的阶段，独立且已授权工作可继续。业务或私有代码归原所有者修，shared 归项目管理修，测试角色复测；统筹安排顺序。重试须有已改变条件或具体返工计划。
+- 合同、边界、源码或相关规则变化使受影响证据失效。安全暂停并核对运行者，再回到待做/返工，不能只改哈希让旧证据冒充当前结果。
+- 恢复前核对真实执行者、当前源码/合同及证据，状态不明时不重复启动写入者。确认停止或完成后才释放预留。尊重停止和取消要求。
+- 无并发工具时按相同授权、依赖和隔离要求顺序交给独立角色上下文。无法创建新上下文就保留待办，不在统筹上下文切换角色。
 
-1. **Validate the plan and authority.** Before a code/test activation or dispatch, identify the relevant feature draft or dated design/change/fix proposal and the customer's confirmation plus instruction to implement that version; do not treat an invitation to ask questions as approval. Include only optional item IDs or the displayed selection actually covered by that authorization; a default checkmark does not approve extra work. Reuse a confirmation already given for the same document, scope and selection. Also check role activation consent or a matching customer-approved project configuration rule and record its version with the assignment; file ownership alone is insufficient. Check accepted roles, unique file ownership, write subsets, prerequisite IDs, acyclic dependencies, and concrete release criteria. Keep contract versions consistent. Route unowned files or changed authority back to Governance before dispatching the affected node.
-2. **Find ready nodes.** A node is ready only when all prerequisites satisfy their recorded conditions against current evidence, its required inputs are present, and no active writer conflicts with its write set. Include supporting documents, generated outputs, shared facades, and configuration in collision checks; different role names do not prove disjoint writes.
-3. **Dispatch within capacity.** Use available subagent tools to start a fresh independent worker context with only the target role card, accepted boundary, narrowed task, input versions, expected deliverables, and checks. Do not inherit the coordinator's full role-bearing history. Reuse a worker only for its original role. Project management alone controls global authorization, task records and `task_ops` dispatch. An accepted group lead may start only the specific members and stages already authorized and reserved for that group. Capability and assembly roles that are not group leads do not assign peers; all roles return cross-group or scope requests to project management. A graph with one ready node runs sequentially in its owner's separate context; isolation is still required without parallelism.
-4. **Validate returns.** Require changed paths, final candidate identity, artifact references, exact check results, and unresolved issues. Compare actual changes to the assigned scope and verify evidence provenance before recording the node as verified. A worker saying “done” or exiting successfully is not acceptance evidence. Missing or failed checks keep the node unverified.
-5. **Release dependents.** Update state and events, then reevaluate ready nodes. Assembly wiring checks and test-role integration/regression checks must use the final combined candidate; individually passing worker results do not prove the combined tree passes. Assign shared cross-role output generation to a single explicitly authorized execution role/stage, never let every worker write it concurrently. Do not add an atlas synchronization stage unless explicitly requested.
-
-The same project management role may dispatch authorized rework without creating a new role. It may implement a separately authorized shared-code stage in its own scope without pretending to switch identity; its tests and affected consumers still need current verification. Other business implementation stays with its assigned owner. Roles that are not accepted group leads do not dispatch peers. A test role that is the group's accepted lead may organize its assigned group stages, while preserving the test role's independent evidence and reporting responsibilities.
-
-## States, Failure, and Resume
-
-Use `pending`, `ready`, `running`, `awaiting-verification`, `verified`, `failed`, `blocked`, and `cancelled` as node states. `ready` is derived from current prerequisites; `verified` is granted only for the recorded stage and candidate. Record each attempt's worker identity and reason for transition; preserve previous failure evidence.
-
-- A failed node blocks its dependent nodes; independent authorized nodes may continue. Fixes belong to the code owner: project management for shared components, the assigned capability role for business/private code. The test role reports reproducible failures to project management and retests fixes. Retry only after identifying a changed condition or a concrete rework plan; do not blindly repeat the same failure or erase evidence.
-- Contract, boundary, or relevant source changes invalidate affected results. Hold downstream dispatch, stop/reconcile affected running workers at a safe boundary, and return invalidated nodes to pending/rework. Never relabel old evidence as current by changing a hash alone.
-- On resume, check actual worker status, current source/contract identities, and recorded artifacts before trusting persisted state. Do not dispatch a duplicate writer because a previous worker is slow or its status is unknown. Do not reclaim its write scope until it is stopped or confirmed finished.
-- Honor user stop/cancel requests and release reservations only when writers are no longer active. Graph edges, scope checks, and evidence gates cannot be waived to make a schedule finish.
-- With no subagent tools or capacity, prepare scoped handoffs and execute the graph sequentially in separate contexts bound to their respective roles, under the same customer-consent/configuration checks. A group lead may coordinate only its assigned group stages; this does not remove authorization, implementation-confirmation, dependency, conflict or isolation checks. Results return to the existing scheduler context for record updates and stage selection. If a separate context cannot be started, keep the stage pending and report the limitation. Never switch the scheduler context into a worker role and back.
-
-## Completion and Responsibility
-
-The scheduler owns dispatch accuracy and stage-release decisions. Each code owner remains responsible for its implementation and unit/contract evidence; assembly owns wiring/startup checks, and the fixed test role owns independent cross-role, full-flow and regression evidence. Project management coordinates repairs and acceptance, including for its own shared-code changes. Governance owns permission/policy changes. None replaces user authorization.
-
-A task is complete only when its required nodes are verified against current artifacts, integrated checks pass where required, and required documentation and coordination records are current. Cancelled or blocked required nodes mean the task is incomplete. Report completed, blocked, and pending work concisely under the role-card communication rules. Graph output remains an execution record, not proof of universal correctness.
+必需阶段都获当前有效验收、组合检查通过且文档/记录齐备后才能报告完成。必需节点取消、阻塞、返工或证据不足都不能算完成。统筹对调度与记录准确负责，代码所有者对实现和自测负责，测试对真实测试负责，独立验收对完成判断负责；任何一方都不能取代用户授权。

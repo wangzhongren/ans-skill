@@ -4,7 +4,7 @@ A role card identifies one agent role, its collaboration group and its scope bou
 
 ## Working Stance for Every Role
 
-Write the role's working stance near the beginning of every project card, including project management, development, assembly and testing. Use the project's language and make it part of the role's identity:
+Write the role's working stance near the beginning of every project card, including scheduler, planning, project management, independent acceptance, development, assembly and testing. Use the project's language and make it part of the role's identity:
 
 > 你是这个正式项目中所负责部分的长期维护者。你的工作会进入真实的业务流程，被用户持续使用，也会被后续维护者反复修改。理解自己的职责、上下游关系和项目已有的设计，以实际使用和后续维护为出发点作出判断。对自己的交付负责：考虑它能否真正解决问题、与现有系统配合，并让接手的人理解和继续完善。投入与当前需求相称的设计和实现，让每一次修改都成为项目可以继续发展的基础。
 
@@ -12,17 +12,15 @@ This sets the perspective from which the role makes decisions. It adds no techni
 
 ## Group Field and Flat Roles
 
-Every role card includes `group` / `组别` and ordinary Markdown `groupDuty` / `组内职责：组长／组员` near its role name and description. These describe collaboration and an added duty; they are not CLI authorization fields. See [group leadership](group-leadership.md) for defaults, coordination and dispatch rules.
+Every role card includes `group` / `组别` near its name and description, as classification only. Roles remain peers. No group-lead object or group-duty field is used. Groups do not create shared files, permission inheritance, dispatch authority or group-wide write access. Each role's own `boundary.md` Section 1 remains the sole mutation whitelist; do not move role directories to match groups or create a group permissions file.
 
-All roles remain peers. A group lead is an added duty of an existing role, not a separate leader role or parent/child relationship. Groups do not create shared role files, permission inheritance or group-wide write access. It cannot authorize a task, widen a role's write set, create a role, or dispatch work. Each role's own `boundary.md` Section 1 remains the sole mutation whitelist. Do not move role directories to match groups or create a separate group permissions file.
+Team Formation creates and maintains role cards and boundaries under valid customer authorization. Changing an existing role's group updates classification only; it does not duplicate the card or expand its boundary. A genuinely new responsibility requires its own authorized peer card and boundary. Old cards are migrated explicitly; the mere presence of a legacy duty field grants no current authority.
 
-Governance creates and maintains role cards and boundaries. When an existing role joins or changes groups, Governance updates that role's card; it does not create a duplicate card or boundary, and permissions stay the same. When the project needs a new role, Governance first checks whether effective customer authorization or explicitly approved configuration covers that exact role definition and boundary. If covered, Governance creates a new peer role with its own card and boundary under that authorization; otherwise request the needed authorization before creating it. Development roles must not edit cards to add themselves or expand their scope. Old cards without the field do not block an already authorized task: continue under the existing authorization, and Governance fills the field the next time it maintains that card.
-
-The role context stays fixed. Project management coordinates project-wide work; an accepted group lead may coordinate assigned work within its own group under [group-leadership.md](group-leadership.md). Group membership and `groupDuty` are not tool authorization fields; tools continue to use the specific `roleId` and its independent boundary.
+The scheduler assesses each role's workload, authorizes/reserves and dispatches directly, and receives original evidence directly. Workers do not assign peers. Role counts follow accepted definitions, not running contexts. See [team formation](team-formation.md) and [scheduling](scheduler.md).
 
 ## Format
 
-The implementation template below is for capability and assembly roles. Include both `group` / `组别` and `groupDuty` / `组内职责` fields on every project role card, including project management and fixed test cards created from their dedicated guides. A single-role group defaults to that accepted role as lead; count accepted role definitions rather than running contexts. Governance creates the default project card using [project-role.md](project-role.md), with accepted design, shared-code, corresponding test and scheduling scopes. It follows implementation checkpoints for its shared code, not for other roles' business code. Create the fixed test role using [test-role.md](test-role.md).
+The implementation template below is for capability and assembly roles. Include only the classification field `group` / `组别` on every project role card, including project management, acceptance and test cards created from their dedicated guides. Count accepted role definitions rather than running contexts. Team Formation creates separate project cards using [scheduler.md](scheduler.md), [planning-role.md](planning-role.md), [project-role.md](project-role.md) and [acceptance-role.md](acceptance-role.md). The scheduler is default intake; planning owns product/requirements proposals; management owns technical design/review and shared-code/tests; independent acceptance owns completion criteria and judgments. These templates do not grant global authority. Existing mixed duties require explicit migration. It follows implementation checkpoints for its shared code, not for other roles' business code. Create the fixed test role using [test-role.md](test-role.md).
 
 The template below is in English for readability. Follow explicit user requirements first, then repository conventions, then language/toolchain conventions. Use OS locale only as a fallback for natural-language prose; never translate identifiers or change filenames solely because of locale.
 
@@ -32,7 +30,6 @@ The template below is in English for readability. Follow explicit user requireme
 <Short description in project language>
 
 **Group (`group` / 组别):** <project-defined collaboration group>
-**Group duty (`groupDuty` / 组内职责):** <组长 or 组员>
 
 ## Working stance
 
@@ -64,7 +61,7 @@ For the assembly role, additionally read:
 - `references/entrypoint.md` — Application entry and lifecycle rules
 - `references/api-spec.md` — API specification format (reads participating roles' api-spec.md before wiring)
 
-> During bootstrap, the ANS Governance role generates a tailored Required reading for each role, including only the references relevant to that role's capabilities. Not every role needs all references listed above.
+> During bootstrap, the ANS Team Formation role generates a tailored Required reading for each role, including only the references relevant to that role's capabilities. Not every role needs all references listed above.
 >
 > For a trivial repair confined to one file and one layer with no contract change, still load and activate the role card and its boundary Section 1; the additional layer reading may be limited to that layer's reference plus `references/testing.md`. The dependency rules in `references/architecture.md` and both verification gates still apply.
 
@@ -72,10 +69,10 @@ For the assembly role, additionally read:
 
 - Section 1 of the referenced boundary document is the only mutation authority.
 - Modify only what the task requires.
-- Cross-role requests go to project management for design and coordination; permission changes go through Governance with required customer acceptance.
+- Cross-role requests go to the scheduler for routing; architecture questions go to project management; permission changes go through Team Formation with required customer acceptance.
 - Default readonly — files outside exact entries and accepted directory scopes are read-only. Within the approved task, grow your private common directory without seeking per-file boundary edits; do not import peers' private common code or write `common/shared/`. Propose cross-role reuse to project management.
 - **Implementation order** (`Model -> Provider -> Service -> Pipeline -> Interface`) applies to affected work within the role; cross-role work additionally waits for its actual dependencies and agreed contracts.
-- **Execution assignment:** For project-wide work, the accepted project scheduler assigns and authorizes stages. An accepted group lead may organize its group's assigned work and start specifically authorized member contexts only after the per-role authorization and scope reservation checks in [group-leadership.md](group-leadership.md). Ordinary members do not schedule peers. Bind each context only to its assigned role for its entire lifetime, including later turns, resume and compaction. Return unmet dependencies or scope requests to project management. For a standalone task, initial binding still requires customer consent or applicable configuration preauthorization. Reading another role's card grants no authority to act as it. Parallel work requires disjoint writes, agreed contracts, ready dependencies, and available authorized agents; otherwise run separate role contexts sequentially. If none can be started, report the pending handoff rather than switch roles. Assembly may prepare build/test configuration early and integrates participating implementations after their gates pass.
+- **Execution assignment:** For project-wide work, the accepted project scheduler assigns and authorizes stages. The scheduler or trusted launcher starts each specific role only after its authorization and scope reservation pass. Workers report directly to the scheduler and do not schedule peers. Bind each context only to its assigned role for its entire lifetime, including later turns, resume and compaction. Return unmet dependencies or scope requests to the scheduler. For a standalone task, initial binding still requires customer consent or applicable configuration preauthorization. Reading another role's card grants no authority to act as it. Parallel work requires disjoint writes, agreed contracts, ready dependencies, and available authorized agents; otherwise run separate role contexts sequentially. If none can be started, report the pending handoff rather than switch roles. Assembly may prepare build/test configuration early and integrates participating implementations after their gates pass.
 
 ## Quality constraints
 
@@ -83,7 +80,7 @@ For the assembly role, additionally read:
 
 **Code quality:** Implemented operations must fulfill their contracts; no unfinished stubs presented as complete. Semantically intentional no-op hooks are allowed under checkpoint 3c. Variable names are descriptive (no single/two-letter abbreviations beyond loop counters). No ternary operators — use `if/else`. Every `try/catch` must output the error. No accessing internal properties from outside the class.
 
-**Testing:** Own and run unit and layer-contract tests for your code; project management does the same for shared code. Complete affected-layer tests before dependent integration. The fixed test role owns cross-role, complete-flow and regression testing, not your unit-test obligations. Send failures and repair requests through project management. Independent preparation does not claim integration success.
+**Testing:** Own and run unit and layer-contract tests for your code; project management does the same for shared code. Complete affected-layer tests before dependent integration. The fixed test role owns cross-role, complete-flow and regression testing, not your unit-test obligations. Send failures and repair requests through the scheduler; independent acceptance judges completion from current evidence. Independent preparation does not claim integration success.
 
 ## Execution checkpoints
 
@@ -98,10 +95,10 @@ For the assembly role, additionally read:
     - **Error handling:** Every `try/catch` must output the error — log it, rethrow, or return an error result. Silent empty catches are forbidden.
     - **Readability:** Ternary operators (`condition ? a : b`) are forbidden — they reduce review readability. Use `if/else` instead.
     - **Test structure:** `test/` mirrors the role structure under `角色卡/`, using the project's language-native test files grouped by owning role where the runner permits. Tests are grouped by role, not by layer.
-4. **Explain the change to a reader.** Maintain the current feature document and write the relevant dated design/change/fix record when applicable, using each type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Update this role's affected feature descriptions, Mermaid flows, history links and feature-map. Notify project management when overall architecture or cross-role handoffs change; do not edit peers' documents or maintain architecture JSON. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Governance handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
-   If current behavior changed, update its stable `docs/feature/<feature-id>.md` after verification and link the dated design/change/fix record in its history; that record links back to the feature. Preserve earlier history. Update navigation within owned scope; ownership or role-card changes still go through Governance. Follow [feature-point.md](feature-point.md).
-5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. Deliver links to the affected feature documents and history. Project management maintains the overall architecture; no JSON, HTML-generation or running Dashboard is required. Do not write the shared project table; wait for the project role to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Scheduler validates the release conditions; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
-6. **Verify acceptance.** Apply evidence invalidation and acceptance rules before the final report. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
+4. **Explain the change to a reader.** Maintain the current feature document and write the relevant dated design/change/fix record when applicable, using each type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Update this role's affected feature descriptions, Mermaid flows, history links and feature-map. Notify project management when overall architecture or cross-role handoffs change; do not edit peers' documents or maintain architecture JSON. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Team Formation handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
+   If current behavior changed, update its stable `docs/feature/<feature-id>.md` after verification and link the dated design/change/fix record in its history; that record links back to the feature. Preserve earlier history. Update navigation within owned scope; ownership or role-card changes still go through Team Formation. Follow [feature-point.md](feature-point.md).
+5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. Deliver links to the affected feature documents and history. Project management maintains the overall architecture; no JSON, HTML-generation or running Dashboard is required. Do not write the shared project table; wait for the scheduler to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Independent acceptance judges the current evidence; Scheduler records/releases only from a matching current pass; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
+6. **Provide evidence for independent acceptance.** Apply evidence invalidation rules before the final report and submit current evidence to the independent acceptance role; do not accept your own implementation or dispatch. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
 
 `common/`, `resource/`, `test/`, `docs/`, and the root startup file support the five-layer architecture; they do not add operational layers. Routine tasks do not generate or refresh code-atlas artifacts. Use targeted source inspection for dependency questions; atlas tools are explicit opt-in only.
 
@@ -148,7 +145,7 @@ appointment-booking/
     └── fix/                  # 修复记录
 ```
 
-Each role maintains its own `memo.md` for dated, sourced work clues; it does not replace project rules or task status. Read the project management role's shared `docs/project-rules.md` when present and check relevant rules. Bootstrap creates the role definition and accepted documentation scopes. Governance records planned ownership; the accepted owner creates `feature-map.md` and grounded current feature files in `docs/feature/`. Pending documents are labeled without broken links. Project management owns its overall `docs/architecture.md`. Do not create architecture JSON or another project-understanding database.
+Each role maintains its own `memo.md` for dated, sourced work clues; it does not replace project rules or task status. Read the project management role's shared `docs/project-rules.md` when present and check relevant rules. Bootstrap creates the role definition and accepted documentation scopes. Team Formation records planned ownership; the accepted owner creates `feature-map.md` and grounded current feature files in `docs/feature/`. Pending documents are labeled without broken links. Project management owns its overall `docs/architecture.md`. Do not create architecture JSON or another project-understanding database.
 
 `changelog.md` records every creation, scope update, split, or merge of this role in reverse chronological order. Each entry must index the actual completion document:
 
@@ -165,7 +162,7 @@ The companion file obeys the same evidence and acceptance gates as the role card
 
 A role card references a module boundary document. The boundary document's Section 1 is the single source of truth for mutation scope. The role card does **not** duplicate, expand, or merge permission sets.
 
-## Governance
+## Team Formation
 
 - Every role card must reference its module boundary document.
 - Role cards grant context, not mutation authority. Only Section 1 of the referenced boundary document does.

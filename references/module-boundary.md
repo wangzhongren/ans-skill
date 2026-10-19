@@ -1,12 +1,12 @@
 # Module Boundary Document (模块边界文档)
 
-A module boundary document defines a module's mutation scope. It is the single source of truth for what an AI role may create or modify. A role card's `group` / `组别` and `groupDuty` / `组内职责` fields never merge or expand independent scopes.
+A module boundary document defines a module's mutation scope. It is the single source of truth for what an AI role may create or modify. A role card's `group` / `组别` is classification only and never merges or expands independent scopes. No group-lead duty grants dispatch or permission authority.
 
-A boundary document lives inside the role directory as `boundary.md`. It contains **only Section 1** — the mutation whitelist. Functional description, architecture, and ownership details go in a separate companion document (`functional-description.md`). Only the built-in Governance reference is an exception: it carries its scope and responsibilities directly. Project management follows the same structure, with separate grants for design, execution records, shared code and its tests.
+A boundary document lives inside the role directory as `boundary.md`. It contains **only Section 1** — the mutation whitelist. Functional description, architecture, and ownership details go in a separate companion document (`functional-description.md`). Only the built-in Team Formation reference is an exception: it carries its scope and responsibilities directly. Scheduler, project management and independent acceptance follow the same structure, each with its own grants: scheduling records; architecture/shared code/tests; or criteria/acceptance reports. A reusable template grants none of these paths automatically.
 
 ## Same-Name YAML Copy
 
-When Governance creates or adjusts a boundary, it creates or updates a YAML copy beside it with the same basename and `.yaml` extension, for example `boundary.md` and `boundary.yaml`, in the same delivery. Existing boundaries receive a copy at their next authorized Governance maintenance; do not batch-migrate old examples. Markdown is the only maintained and authorized source. YAML is a synchronized copy for readers that need structured data; it is not a second permission source. Do not create YAML copies for other Markdown documents just because they are structured or contain tables.
+When Team Formation creates or adjusts a boundary, it creates or updates a YAML copy beside it with the same basename and `.yaml` extension, for example `boundary.md` and `boundary.yaml`, in the same delivery. Existing boundaries receive a copy at their next authorized Team Formation maintenance; do not batch-migrate old examples. Markdown is the only maintained and authorized source. YAML is a synchronized copy for readers that need structured data; it is not a second permission source. Do not create YAML copies for other Markdown documents just because they are structured or contain tables.
 
 Use this small structure:
 
@@ -24,9 +24,9 @@ section1:
 
 `source` is the sibling Markdown filename, relative to the YAML file. `section1.entries` has exactly one item per Section 1 table row, in the same order. Preserve each row's original `type`, `path`, and `purpose` text; remove only backticks used for Markdown presentation. Keep alternatives and descriptive or placeholder paths as written. Do not split an alternative into extra entries, normalize a path into a broader directory, or otherwise widen the scope. `condition` is optional and may contain only a condition stated by the source. If a condition also appears outside the table, preserve its full original sentence in `notes` too.
 
-`notes` is an ordered list of the boundary source's non-table statements that affect permission, scope, or precedence. Preserve their original wording and order rather than summarizing them. This includes statements before the table, such as the role's overall scope, and after the table, such as default read-only rules, conditional-entry limits, ownership restrictions, or override precedence. Include the built-in Governance reference's role scope and responsibilities there. Do not use notes to add a grant that the Markdown does not contain.
+`notes` is an ordered list of the boundary source's non-table statements that affect permission, scope, or precedence. Preserve their original wording and order rather than summarizing them. This includes statements before the table, such as the role's overall scope, and after the table, such as default read-only rules, conditional-entry limits, ownership restrictions, or override precedence. Include the built-in Team Formation reference's role scope and responsibilities there. Do not use notes to add a grant that the Markdown does not contain.
 
-When the Markdown and YAML differ, the mismatch must be fixed in the corresponding Governance artifact before the pair is accepted. Existing authorized work continues to use the Markdown boundary. A YAML mismatch never widens access or blocks an already authorized task. `task_ops` currently reads Markdown; do not claim it reads or enforces this YAML. This documentation rule does not add a parser, CLI, configuration system, or program-level permission check.
+When the Markdown and YAML differ, the mismatch must be fixed in the corresponding Team Formation artifact before the pair is accepted. Existing authorized work continues to use the Markdown boundary. A YAML mismatch never widens access or blocks an already authorized task. `task_ops` currently reads Markdown; do not claim it reads or enforces this YAML. This documentation rule does not add a parser, CLI, configuration system, or program-level permission check.
 
 ## Structure
 
@@ -60,10 +60,10 @@ Within its Section 1 files and accepted private common directory, a role may cre
 
 Role-local module notes and key code locations live in `functional-description.md`; each role's private work clues live in its own `memo.md`. Project-wide engineering constraints belong in project management's `docs/project-rules.md` and require an explicit Section 1 path. The companion description links the feature-map rather than duplicating feature flows. Project management owns overall architecture in its own `docs/architecture.md`. Current behavior and history navigation for each feature live in `docs/feature/<feature-id>.md`; see [feature-point.md](feature-point.md).
 
-## Governance
+## Team Formation
 
 - Layer business source remains listed by exact file. The exception is an explicitly owned `common/<role-id>/` or project-owned `common/shared/` subtree. Dedicated role-owned test directories, including the fixed test role's integration/regression directory, may also be granted explicitly. Supporting and governance locations (`docs/`, role directories, the skill's own `references/`) may use bounded directory entries.
-- Adding or removing files inside an accepted directory does not require a boundary rewrite. Adding a new directory scope, changing an owner or adding/removing individually listed paths requires Governance to update Section 1. Editing the content of an already permitted file does not require a boundary rewrite. Task scope and customer-confirmed designs still apply to both forms of ownership.
+- Adding or removing files inside an accepted directory does not require a boundary rewrite. Adding a new directory scope, changing an owner or adding/removing individually listed paths requires Team Formation to update Section 1. Editing the content of an already permitted file does not require a boundary rewrite. Task scope and customer-confirmed designs still apply to both forms of ownership.
 - The boundary document obeys the same evidence and acceptance gates as code changes.
 
 ## See also

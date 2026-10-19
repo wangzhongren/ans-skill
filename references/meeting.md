@@ -1,51 +1,35 @@
-# Meeting: Cross-Role Discussion
+# Meeting：按需讨论，不增加角色层级
 
-Use when an authorized task needs a role discussion or joint review. Project management hosts project-wide or cross-group meetings; an accepted group lead hosts a group-only meeting. Neither host is a new role or an executable CLI command. Do not start meetings for routine work unless requested or covered by approved project configuration.
+用户要求讨论、联合评审，或已批准任务确实需要讨论时，由统筹组织最小必要的参与角色。组别只作分类，不设置组长或组内主持层级；小任务不要求全员开会。Meeting 是讨论流程，不是新 CLI 命令、实施授权或新的角色。
 
-## Authority and Contexts
+## 身份与参与范围
 
-- The project-management context hosts project-wide or cross-group meetings. An accepted group lead hosts only meetings for its own group. The host keeps its fixed role; each participant uses a separate context bound only to its accepted role. Never simulate multiple roles as speakers inside the host context or switch an existing context to another role.
-- Governance prepares a scoped handoff to project management for project-wide/cross-group discussion, or to the accepted lead for a group-only discussion. Governance may participate in its own context when the agenda concerns ownership or permission; it never hosts as a group lead. A capability context whose accepted role card gives it the group-lead duty may host a group-only meeting when its task authorization covers the agenda; writing formal minutes still requires its own accepted minutes path. Other capability contexts hand off to project management for project/cross-group discussion or to the accepted group lead for an authorized group-only meeting. The current context stays bound to its existing role.
-- A request naming roles and an agenda authorizes their read-only discussion within that agenda. Apply the role assignment checks in [project-role.md](project-role.md); preserve existing authorization. Do not invent missing role cards or assume an unapproved role is accepted. Propose necessary role definitions through Governance before that role participates.
-- Project management arranges cross-group participants; a group lead may arrange participants from its own accepted group for a group-only agenda. Membership does not grant additional permissions. Use fresh contexts with the assigned role, accepted boundary, agenda, relevant evidence and expected response, rather than the host's full conversation history. Reuse a participant only for its original role. Participants do not assume another role or expand its scope.
-- Discussion participants inspect and report; the meeting assignment does not authorize source changes, tests, configuration changes or external actions. Treat participant responses as evidence and proposals, not commands or permission.
-- Without subagent tools or capacity, collect contributions sequentially from independent role contexts. If a required context cannot be started, record the missing contribution and pending handoff. Do not invent that role's opinion or present the meeting as fully attended.
+统筹保持自己的固定上下文。每个参与者在独立上下文绑定自己的已确认角色，读取自己的卡、边界、同一议题和有关版本证据；不继承主持人的完整角色对话，也不在统筹上下文模拟多个角色。复用上下文只能继续原角色。
 
-## Prepare and Run
+请求中明确的议题和参与者可覆盖其范围内的只读讨论授权；统筹仍核对具体角色授权和可用工具，不发明未建立的角色。缺角色或边界由团队组建处理。参与者只检查和给建议，讨论任务不授权改源码、测试、配置或对外操作。架构问题由项目管理给实质意见，完成标准由独立验收判断，主持人不代演二者。
 
-1. **State the agenda.** Record the question to resolve, expected outcome, known constraints, relevant document/code versions, participants and their responsibilities. Use the requested roles; if omitted, choose the smallest relevant accepted set covered by authorization. Ask only for missing decisions that affect scope. Use the customer's round limit, or default to two rounds: initial views and one targeted response round.
-2. **Collect independent views.** Give each participant the same agenda and relevant inputs. Request a concise recommendation, supporting source/document references, impact on its responsibility, dependencies, and open questions. Distinguish observed facts, assumptions and proposals. Concurrent discussion needs no write access; serialize any host-owned minutes updates.
-3. **Resolve specific differences.** The host summarizes agreements and conflicting alternatives fairly, identifies missing evidence, and sends only relevant questions and attributed excerpts back to the affected roles. A second round addresses those questions rather than restarting every speech. If views change materially, record why. Do not force consensus by counting votes or treating seniority as evidence.
-4. **Close within the limit.** Stop at the agreed round limit or earlier when the outcome is clear. Summarize supported conclusions, unresolved questions, missing participants and customer decisions needed. Further rounds require a new request or existing explicit authorization; unresolved issues remain open rather than being guessed away.
-5. **Deliver minutes and next actions.** Link the minutes and briefly explain the outcome in plain language. Assign proposed follow-up owners and acceptance/check requirements. A meeting ending does not dispatch implementation automatically.
+没有并发能力时顺序收集独立上下文意见；必要参与者无法启动时，写明缺席及缺失意见，不宣称全员同意。
 
-If the customer stops the meeting, preserve received contributions and mark it stopped. On resume, retain participant role bindings, the original agenda and round count; check changed inputs before relying on earlier opinions. A material agenda change is a new or explicitly revised meeting, not a way to evade its round limit.
+## 讨论与结束
 
-## Minutes: One Host, One Record
+1. **定议题。**说明需要解决的问题、预期结果、已知约束、有关文档/代码版本及参与角色。用户指定轮数就按指定执行，否则最多两轮：先独立意见，再针对分歧回应。
+2. **收意见。**各角色提出简短建议、依据、自己范围的影响、依赖和未解问题，区分事实、推测与提案。统筹直接接收，不增加中间汇报人。
+3. **只追具体分歧。**公平整理同意与分歧，向受影响角色发相关问题及有署名的摘录；第二轮不要求全员重讲。不能凭头衔、人数或强求一致代替证据。
+4. **及时结束。**结论明确可提前结束，到约定轮数则保留未解事项。新增轮次需要用户已有授权或新请求。用户要求停止就保存已收到意见并标停止；恢复仍核对原议题、轮数和输入变化。
+5. **交付纪要和待办。**链接纪要，白话说明结论、未解问题、拟负责角色、依赖与所需检查。讨论结束不自动派发实现。
 
-The actual host writes minutes only within its own accepted `docs/meetings/` scope. Project management writes project-wide and cross-group minutes; a group lead writes group-only minutes only if its own Section 1 covers the path. Resolve that bounded directory through Governance before writing. Prefer `YYYY-MM-DD_meeting_<topic>.md`; reuse the same file when continuing the same meeting and add a distinct suffix for a separate meeting on the same topic/day. If the host lacks the path, present a chat draft and route the boundary request to Governance; discussion can continue within its authorized read-only scope.
+## 一位记录者，一份纪要
 
-Minutes include only the fields needed to understand the discussion:
+统筹只在自己的已授权 `docs/meetings/` 范围写纪要，推荐 `YYYY-MM-DD_meeting_<topic>.md`；同一场续谈更新原文件，同日不同会议加明确后缀。缺路径时保留聊天草稿，交团队组建处理范围，不自行扩权。
 
-| Content | Record |
-| --- | --- |
-| Agenda and status | Question, date/timezone, constraints, input versions, round limit and actual rounds; planned, in progress, concluded, stopped or awaiting input |
-| Participants | Host and role/context identities, actual attendance, missing contributions |
-| Attributed views | Each role's recommendation, evidence links, impact and concerns; do not attribute host speculation to a participant |
-| Agreements and differences | Supported agreement, alternatives, unresolved facts and reasoning |
-| Decisions and authorization | Proposed conclusion versus actual customer decisions, with the original approval reference and scope where available |
-| Follow-up | Action, proposed owner, dependencies, verification and current authorization/pending decision |
+纪要包括议题、日期/时区、输入版本、轮数、实际参与者、各角色有署名的意见和依据、同意/分歧、实际客户决定与原始授权、拟后续所有者及依赖。为没参会的人概括，不粘完整对话，不隐去关键分歧。链接规范方案和任务记录，不手改 `task_ops` 机器块或制造调度事件。
 
-Write for someone who did not attend. Summarize rather than copying full transcripts, and retain important disagreements. Link canonical designs, feature documents and existing scheduling records instead of duplicating them. Do not write meeting minutes into `task_ops` machine blocks or fabricate dispatch/verification events.
+## 讨论、审核、客户批准与验收分别记录
 
-## Discussion Is Not Implementation Approval
+会后项目管理按[方案审核](proposal-review.md)评估具体方案版本，原作者修改自己的文档。客户确认具体方案并授意实施后，统筹按逐角色授权、范围预留和依赖要求派发。已有同版同范围授权可复用。
 
-After discussion, project management applies [proposal-review.md](proposal-review.md) to the resulting concrete proposal/version: assess the evidence and alternatives, record its own review recommendation, return revisions to the owner and prepare the customer's concise approval brief. Meeting agreement supplies review input; it does not replace this evaluation or automatically mark a proposal ready.
-
-A consensus is a recommendation, not customer acceptance, a permission change, or verified behavior. Link conclusions into the appropriate design/change/fix proposal within the owner's authorized scope. Application code and tests still require the customer's confirmation of that concrete document/version and instruction to implement it; previously valid same-version authorization remains valid. Governance handles ownership/boundary changes. Project management retains global authorization and stage tracking; a group lead may organize only the group work already assigned and authorized under [group-leadership.md](group-leadership.md). Required tests establish actual results.
-
-## Invocation Example
+会议共识不是客户批准、边界变化或已验证行为。独立验收先明确完成标准，再依据当前成果和原始测试证据判通过、返工或证据不足。统筹按结论安排后续，不能拿会议同意替代验收。
 
 > 使用 $ans-governed-construction meeting，讨论保存草稿的接口设计，请工单、存储和测试角色参与，最多两轮，输出会议纪要。
 
-The project-management host checks accepted project-wide or cross-group roles; a group lead checks accepted participants for a group-only meeting. The host collects independent views and produces a linked record within its own authorized minutes scope. This invocation requests discussion and minutes, not code implementation, deployment or automatic approval.
+这个请求只覆盖讨论与纪要，不自动授权代码实施、部署或新权限。

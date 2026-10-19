@@ -39,6 +39,54 @@ section1:
     path: 角色卡/测试/changelog.md
     purpose: 测试角色治理变更记录
   - type: 单文件
+    path: 角色卡/统筹调度/role-card.md
+    purpose: 统筹调度角色卡
+  - type: 单文件
+    path: 角色卡/统筹调度/boundary.md
+    purpose: 统筹调度角色边界
+  - type: 单文件
+    path: 角色卡/统筹调度/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/统筹调度/changelog.md
+    purpose: 统筹调度角色治理变更记录
+  - type: 单文件
+    path: 角色卡/验收/role-card.md
+    purpose: 独立验收角色卡
+  - type: 单文件
+    path: 角色卡/验收/boundary.md
+    purpose: 独立验收角色边界
+  - type: 单文件
+    path: 角色卡/验收/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/验收/changelog.md
+    purpose: 独立验收角色治理变更记录
+  - type: 单文件
+    path: 角色卡/任务工具/role-card.md
+    purpose: 任务工具开发角色卡
+  - type: 单文件
+    path: 角色卡/任务工具/boundary.md
+    purpose: 任务工具开发角色边界
+  - type: 单文件
+    path: 角色卡/任务工具/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/任务工具/changelog.md
+    purpose: 任务工具开发角色治理变更记录
+  - type: 单文件
+    path: 角色卡/策划/role-card.md
+    purpose: 策划角色卡
+  - type: 单文件
+    path: 角色卡/策划/boundary.md
+    purpose: 策划角色边界
+  - type: 单文件
+    path: 角色卡/策划/boundary.yaml
+    purpose: 同名边界的同步 YAML 副本
+  - type: 单文件
+    path: 角色卡/策划/changelog.md
+    purpose: 策划角色治理变更记录
+  - type: 单文件
     path: 角色卡/governance-boundary.md
     purpose: 本仓库治理边界覆盖自身
   - type: 单文件
@@ -49,3 +97,7 @@ section1:
     的范围。治理上下文固定绑定内置 ANS Governance，必须保持独立，不在同一上下文切换为项目角色。
   - 本轮候选的其他能力不会自动激活。未来扩大治理范围仍须依据用户授权更新本边界；本覆盖不构成永久或无限授权。
   - 仅上述文件属于本地治理写入范围。其他路径默认只读；不得借此覆盖项目角色的业务写入范围。
+  - 本轮第一阶段依据用户对角色权责拆分的确认，仅扩展项目管理、技能规范和测试角色各自边界中的定点文档授权；各路径由对应角色负责，Governance 不取得这些工作文档的写入权。项目管理上下文先完成已授权设计，再把协调职责交给新统筹上下文；上下文身份不随交接改变。第一阶段未授予程序测试路径。
+  - 本轮第二阶段依据用户确认的角色职责拆分和已确认方案，只增加统筹调度、验收、任务工具三张角色卡及其边界双格式和治理变更记录的精确维护权限。产品源码与角色工作文档仍由各自边界中的唯一所有者维护；新增源码测试权限仅列在固定测试角色边界中。
+  - 本轮后续新增策划角色，依据用户明确提出的角色职责及主任务确认的方案责任区分，只授权该角色自己的卡片、边界双格式、变更记录、功能导航、memo 与限定的 `docs/design/` 方案目录，并为技能规范角色增加 `references/planning-role.md` 的精确边界路径。策划写用户目标和产品流程方案，项目管理负责技术架构与实现设计，统筹负责派发，测试负责执行，验收负责判断；策划不拥有代码、调度或验收权限。
+  - 用户后续确认团队组建（原 ANS Governance，同一治理岗位）与边界调整由独立的内置角色承担，不属于组长职责。该岗位沿用 ANS Governance 身份与既有治理边界，不创建重叠的内置角色，也不改变固定上下文身份；`group` 仅作角色分类。

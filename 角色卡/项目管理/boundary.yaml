@@ -17,6 +17,9 @@ section1:
   - type: 单文件
     path: 角色卡/项目管理/docs/design/2026-10-16_design_boundary-yaml.md
     purpose: 用户已要求的边界双格式方案与范围评审
+  - type: 单文件
+    path: 角色卡/项目管理/docs/design/2026-10-19_design_role-authority-split.md
+    purpose: 角色权责拆分的架构与工具方案设计稿
   - type: 条件目录
     path: 角色卡/项目管理/docs/meetings/
     purpose: 已获准的项目或项目协作组会议纪要
@@ -35,3 +38,4 @@ section1:
   notes:
   - 未列路径默认只读。此边界不授权修改本角色卡、边界、变更记录、技能文件、其他角色资料、业务代码或测试。新增日期文档、目录或其他文件须先由 ANS Governance
     更新并由用户确认边界。
+  - 本轮设计稿供项目管理角色先行提出详细架构与工具方案；该角色继续承担本轮既有协调职责，迁移须按设计向新统筹上下文交接后实施。

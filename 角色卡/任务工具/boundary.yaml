@@ -1,0 +1,29 @@
+source: boundary.md
+section1:
+  entries:
+  - type: 单文件
+    path: scripts/task_ops.py
+    purpose: 任务操作 CLI、认证和状态门禁
+  - type: 单文件
+    path: scripts/coordination_store.py
+    purpose: 任务记录原子读写、渲染与事件校验
+  - type: 单文件
+    path: scripts/tests/test_task_ops.py
+    purpose: 任务操作 CLI 的开发单元测试
+  - type: 单文件
+    path: scripts/validate_task_flow.py
+    purpose: 实际任务 CLI 的隔离流程回放
+  - type: 单文件
+    path: 角色卡/任务工具/feature-map.md
+    purpose: 本角色功能导航
+  - type: 单文件
+    path: 角色卡/任务工具/memo.md
+    purpose: 本角色私有工作备忘录
+  - type: 单文件
+    path: 角色卡/任务工具/docs/feature/task-authority.md
+    purpose: 任务工具当前行为与状态流程说明
+  - type: 单文件
+    path: 角色卡/任务工具/docs/change/2026-10-19_change_task-authority.md
+    purpose: 本轮任务工具职责与实现变更记录
+  notes:
+  - 未列路径默认只读。本边界不授权其他测试文件、技能规范、调度记录、验收文档、Dashboard 或业务模块。`scripts/tests/test_role_authority_flow.py` 归固定测试角色独占；工具的单元测试不构成独立测试或最终验收。

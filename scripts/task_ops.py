@@ -3,6 +3,8 @@
 import argparse
 import json
 import os
+import platform
+import shutil
 from pathlib import Path
 import secrets
 import subprocess
@@ -83,6 +85,7 @@ def roles_valid(root, config):
         require(isinstance(role.get('operations'), list), 'Role operations required')
         for check_id, check in role.get('checks', {}).items():
             require(check_id and all(c.isalnum() or c in '-_' for c in check_id), 'Invalid check ID')
+            require(isinstance(check.get('env', {}), dict) and all(isinstance(k, str) and isinstance(v, str) for k,v in check.get('env', {}).items()), 'Check env requires string keys and values')
             require(isinstance(check.get('argv'), list) and check['argv'] and all(isinstance(a,str) for a in check['argv']), 'Check requires explicit argv')
     return ownership
 
@@ -143,11 +146,12 @@ def current_inputs(root, bundle, planned, config):
 
 
 def candidate(root, bundle, planned):
-    ids = {planned['nodeId']}; todo = list(planned.get('dependsOn', []))
+    coverage = {test['nodeId']: test['covers'] for test in bundle['state'].get('planAcceptance', {}).get('independentTests', [])}
+    ids = {planned['nodeId']}; todo = list(planned.get('dependsOn', [])) + list(coverage.get(planned['nodeId'], []))
     while todo:
         key = todo.pop()
         if key in ids: continue
-        ids.add(key); n,_ = node_pair(bundle,key);todo.extend(n.get('dependsOn', []))
+        ids.add(key); n,_ = node_pair(bundle,key);todo.extend(n.get('dependsOn', []));todo.extend(coverage.get(key, []))
     paths = set()
     for n in bundle['plan']['nodes']:
         if n['nodeId'] in ids: paths.update(n['writeSet']); paths.update(n.get('readSet',[]))
@@ -157,23 +161,183 @@ def candidate(root, bundle, planned):
 def authenticate(state, request, acknowledged=True):
     require(state.get('attemptId') == request.get('attemptId') and state.get('workerId') == request.get('workerId'), 'Stale attempt or wrong worker')
     token = request.get('token', '')
-    require(isinstance(token,str) and secrets.compare_digest(state.get('tokenHash',''),sha(token.encode())), 'Invalid assignment token')
+    require(isinstance(token,str) and secrets.compare_digest(state.get('assignmentCredentialHash',''),sha(token.encode())), 'Invalid assignment token')
     require(state.get('active'), 'Assignment is not active')
     if acknowledged:
         require(request.get('revisions') == state['assignedRevisions'] == state.get('acknowledgedRevisions'), 'Revision mismatch or missing acknowledgment')
         require(not state.get('pauseRequested'), 'Assignment paused for revision')
 
 
-def status(bundle):
+def authority_valid(root, config):
+    authority = config.get('acceptanceAuthority')
+    require(isinstance(authority, dict), 'Approved acceptanceAuthority required')
+    require(isinstance(authority.get('roleId'), str) and authority['roleId'], 'Acceptance roleId required')
+    require(authority['roleId'] != config.get('schedulerRoleId', 'scheduler') and authority['roleId'] not in config['roles'], 'Acceptance role must be independent of scheduler and executors')
+    for key in ['card', 'boundary']:
+        digest = file_hash(root, authority[key])
+        require(digest and digest == authority.get(key+'Sha256'), 'Approved acceptance '+key+' hash required')
+    digest = authority.get('credentialHash', '')
+    require(isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'Acceptance credentialHash must be SHA-256')
+    require(isinstance(authority.get('criteriaFiles'), list) and authority['criteriaFiles'], 'Allowed criteriaFiles required')
+    for path in authority['criteriaFiles']:
+        safe(root, path)
+    return authority
+
+
+def credential(expected, supplied, message):
+    require(isinstance(supplied, str) and bool(expected) and secrets.compare_digest(expected, sha(supplied.encode())), message)
+
+
+def plan_snapshot(bundle):
+    return sha(encoded(bundle['plan']))
+
+
+def accepted_plan(root, bundle, config):
+    authority = authority_valid(root, config)
+    require(authority == bundle['state']['acceptanceAuthority'], 'Acceptance authority changed; initialize a new reviewed task')
+    approval = bundle['state'].get('planAcceptance')
+    require(approval and approval['planHash'] == plan_snapshot(bundle), 'Current accept-plan required')
+    criteria = approval['criteria']
+    require(file_hash(root, criteria['path']) == criteria['sha256'], 'Acceptance criteria changed')
+    for planned in bundle['plan']['nodes']:
+        current_inputs(root, bundle, planned, config)
+    return approval
+
+
+def execution_environment(check):
+    return {**os.environ, **check.get('env', {}), 'PYTHONDONTWRITEBYTECODE': '1'}
+
+
+def environment(root, check):
+    # Same environment and cwd as subprocess. Undeclared dependencies remain outside this model.
+    actual = execution_environment(check)
+    keys = ['PATH', 'PYTHONPATH', 'NODE_PATH', 'NODE_OPTIONS', 'LANG', 'LC_ALL', 'TZ', 'PYTHONDONTWRITEBYTECODE']
+    values = {key: actual.get(key) for key in keys}
+    values.update({key: actual[key] for key in check.get('env', {})})
+    command = check['argv'][0]
+    if os.path.dirname(command):
+        executable = str((root / command).resolve())
+    else:
+        paths = actual.get('PATH', os.defpath).split(os.pathsep)
+        search_path = os.pathsep.join(str((root / entry).resolve()) for entry in paths)
+        executable = shutil.which(command, path=search_path)
+    return {'platform': platform.platform(), 'python': platform.python_version(),
+            'executable': executable, 'executableHash': sha(Path(executable).read_bytes()) if executable and Path(executable).is_file() else None,
+            'variablesHash': sha(encoded(values)), 'declaredEnvironment': check.get('env', {})}
+
+
+def producer(planned, state):
+    return {key: value for key, value in {'roleId': planned['roleId'], 'nodeId': planned['nodeId'], 'workerId': state['workerId'], 'attemptId': state['attemptId']}.items()}
+
+
+def evidence_valid(root, bundle, planned, state, config):
+    current_inputs(root, bundle, planned, config)
+    current = candidate(root, bundle, planned)
+    for output in planned['requiredOutputs']:
+        require(file_hash(root, output) is not None, 'Missing required output: '+output)
+    report = state.get('latestReport', {})
+    require(report.get('kind') == 'complete' and report.get('candidate') == current and report.get('attemptId') == state['attemptId'], 'Implementation changed after completion report or no current completion report')
+    for check_id in planned['checks']:
+        evidence = state['checkEvidence'].get(check_id)
+        require(evidence is not None, 'Missing required check: '+check_id)
+        require(evidence['producer'] == producer(planned, state), 'Check producer or attempt mismatch')
+        check = config['roles'][planned['roleId']]['checks'][check_id]
+        require(evidence['argv'] == check['argv'] and evidence['environment'] == environment(root, check) and evidence['configHash'] == bundle['plan']['configHash'], 'Check environment or approved command changed')
+        require(evidence['exitCode'] == 0 and not evidence['timedOut'] and evidence['candidateUnchanged'] and evidence.get('environmentUnchanged') and evidence['candidate'] == current, 'Required check failed or evidence is stale')
+        require(file_hash(root, evidence['path']) == evidence['sha256'], 'Check evidence is unavailable or changed')
+    return current
+
+
+def valid_pass(root, bundle, node_id, config, seen=None):
+    seen = set() if seen is None else seen
+    require(node_id not in seen, 'Acceptance dependency cycle')
+    seen = seen | {node_id}
+    approval = accepted_plan(root, bundle, config)
+    planned, state = node_pair(bundle, node_id)
+    require(state['status'] == 'verified', 'Prerequisite is not verified: '+node_id)
+    current = evidence_valid(root, bundle, planned, state, config)
+    acceptance = state.get('acceptance', {})
+    require(acceptance.get('verdict') == 'pass' and acceptance.get('candidate') == current and acceptance.get('attemptId') == state['attemptId'], 'Acceptance candidate or attempt is stale: '+node_id)
+    current_approval = acceptance.get('planAcceptanceHash') == sha(encoded(approval)) or approval.get('carriedAcceptances', {}).get(node_id) == sha(encoded(acceptance))
+    require(current_approval and acceptance.get('reportId') == state['latestReport']['reportId'] and acceptance.get('evidenceHash') == sha(encoded(state['checkEvidence'])), 'Acceptance standards, report or evidence changed: '+node_id)
+    dependencies = set(planned.get('dependsOn', []))
+    for test in approval['independentTests']:
+        if test['nodeId'] == node_id:
+            dependencies.update(test['covers'])
+    for dep in dependencies:
+        valid_pass(root, bundle, dep, config, seen)
+        require(acceptance.get('dependencyAcceptances', {}).get(dep) == sha(encoded(node_pair(bundle, dep)[1]['acceptance'])), 'Ancestor acceptance changed: '+dep)
+    return current
+
+
+def redact(value):
+    if isinstance(value, dict):
+        return {key: redact(item) for key, item in value.items() if not any(word in key.lower() for word in ['token', 'credential'])}
+    if isinstance(value, list):
+        return [redact(item) for item in value]
+    return value
+
+
+def status(root, bundle):
     result = json.loads(json.dumps(bundle['state']))
-    result.pop('coordinatorTokenHash',None)
-    for node in result['nodes']:
-        node.pop('tokenHash',None);node.pop('previousAttempts',None)
-    return {'status':'ok','state':result}
+    result['taskComplete'] = False
+    if result.get('schemaVersion') != 2:
+        result['legacyReadOnly'] = True
+        result['legacyAcceptance'] = 'Original workflow; not independent acceptance'
+    else:
+        valid = []
+        try:
+            config = config_for(root, bundle)
+            roles_valid(root, config)
+            for node in result['nodes']:
+                planned, _ = node_pair(bundle, node['nodeId'])
+                node['currentCandidate'] = candidate(root, bundle, planned)
+                try:
+                    valid_pass(root, bundle, node['nodeId'], config)
+                    node['currentAcceptanceValid'] = True
+                except (Rejected, OSError, KeyError, TypeError) as exc:
+                    node['currentAcceptanceValid'] = False
+                    node['currentAcceptanceReason'] = str(exc)
+                valid.append(node['currentAcceptanceValid'])
+            result['taskComplete'] = bool(valid) and all(valid)
+        except (Rejected, OSError, KeyError, TypeError) as exc:
+            result['currentValidityReason'] = str(exc)
+    return {'status': 'ok', 'state': redact(result)}
+
+
+def acceptance_results(root, bundle, planned, state, request, approval):
+    results = request.get('criteriaResults')
+    require(isinstance(results, list) and len(results) == len(approval['criteria']['criterionIds']), 'Every criterion requires a result')
+    require({r.get('criterionId') for r in results} == set(approval['criteria']['criterionIds']), 'Criteria result IDs mismatch')
+    for result in results:
+        require(result.get('verdict') in {'pass', 'needs-work', 'missing-evidence'}, 'Invalid criterion verdict')
+        references = result.get('evidence')
+        require(isinstance(references, list), 'Criterion evidence references required')
+        if request['verdict'] == 'pass':
+            require(result['verdict'] == 'pass' and references, 'Pass requires evidence for every criterion')
+        else:
+            require(result.get('summary') or references, 'Explain criterion gap or reference evidence')
+        for ref in references:
+            kind = ref.get('kind')
+            if kind == 'output':
+                require(ref.get('path') in set(planned['writeSet']) | set(planned['readSet']), 'Output reference exceeds stage scope')
+                digest = file_hash(root, ref['path'])
+                require(digest and digest == ref.get('sha256'), 'Output evidence changed')
+            elif kind == 'check':
+                evidence = state['checkEvidence'].get(ref.get('checkId'))
+                require(evidence and evidence['sha256'] == ref.get('sha256') and file_hash(root, evidence['path']) == evidence['sha256'], 'Invalid check evidence reference')
+            elif kind == 'report':
+                require(state.get('latestReport', {}).get('reportId') == ref.get('reportId'), 'Invalid report reference')
+            else:
+                raise Rejected('Unknown criterion evidence kind')
+    if request['verdict'] != 'pass':
+        require(any(r['verdict'] == request['verdict'] for r in results), 'Verdict must identify at least one corresponding criterion')
+    return results
 
 
 def operate(root, task, command, request):
     store = Store(root,task); root=store.root
+    store.derive = lambda bundle: status(root, bundle)['state']['taskComplete']
     with store.locked():
         if command == 'init':
             require(not store.document.exists(), 'Task already initialized')
@@ -182,22 +346,96 @@ def operate(root, task, command, request):
             config_path=request.get('configPath','.ans/project.json');config=read(root,config_path)
             plan=normalize_plan(root,request['plan'],config,config_path,request['approvedConfigSha256'],task)
             states=[{'nodeId':n['nodeId'],'roleId':n['roleId'],'status':'pending','attemptId':None,'active':False,'assignedRevisions':n['revisions'],'acknowledgedRevisions':None,'checkEvidence':{},'attemptNumber':0} for n in plan['nodes']]
-            coordinator_token=request.get('coordinatorToken') or secrets.token_urlsafe(32)
-            require(isinstance(coordinator_token,str) and len(coordinator_token)>=32,'Coordinator token must be at least 32 characters')
-            bundle={'plan':plan,'state':{'schemaVersion':1,'taskId':task,'planRevision':1,'nodes':states,'reportReceipts':{},'coordinatorTokenHash':sha(coordinator_token.encode())}}
-            result=store.commit(bundle,'initialized','Reviewed plan and configuration pinned')
-            result['coordinatorToken']=coordinator_token
+            require(not any(key in request for key in ['coordinatorToken', 'acceptanceToken', 'acceptanceAuthority', 'credentialHash']), 'Init cannot override or mint acceptance credentials; use schedulerToken')
+            authority = authority_valid(root, config)
+            scheduler_token = request.get('schedulerToken') or secrets.token_urlsafe(32)
+            require(isinstance(scheduler_token, str) and len(scheduler_token) >= 32, 'Scheduler token must be at least 32 characters')
+            require(sha(scheduler_token.encode()) != authority['credentialHash'], 'Scheduler and acceptance credentials must be different')
+            bundle={'plan':plan,'state':{'schemaVersion':2,'taskId':task,'planRevision':1,'nodes':states,'reportReceipts':{},'schedulerCredentialHash':sha(scheduler_token.encode()),'acceptanceAuthority':authority}}
+            store.producer = {'roleId': config.get('schedulerRoleId', 'scheduler'), 'kind': 'scheduler'}
+            result=store.commit(bundle,'initialized','Reviewed plan and independent authority pinned')
+            result['schedulerToken']=scheduler_token
             return result
-        if command in {'dispatch','revise','verify','recover'}:
-            history=store.journal();require(history,'Task not initialized')
-            expected=history[-1]['after']['state'].get('coordinatorTokenHash')
-            require(expected is not None,'Legacy task is read-only; initialize a new task with coordinator credentials')
-            supplied=request.get('coordinatorToken','')
-            require(isinstance(supplied,str) and secrets.compare_digest(expected,sha(supplied.encode())),'Coordinator credential required')
         bundle=store.load(recover=command=='recover')
-        if command in {'status','recover'}:return status(bundle)
+        if command == 'status':
+            return status(root, bundle)
+        require(bundle['state'].get('schemaVersion') == 2, 'Legacy task is read-only; initialize a new reviewed v2 task')
+        if command in {'dispatch','revise','recover'}:
+            credential(bundle['state'].get('schedulerCredentialHash'), request.get('schedulerToken'), 'Scheduler credential required')
+            store.producer = {'roleId': 'scheduler', 'kind': 'scheduler'}
+        if command == 'recover':
+            return status(root, bundle)
         config=config_for(root,bundle); roles_valid(root,config)
         node_id=request.get('nodeId')
+        if command in {'accept-plan', 'verify'}:
+            authority = authority_valid(root, config)
+            require(authority == bundle['state']['acceptanceAuthority'], 'Acceptance authority changed')
+            credential(authority['credentialHash'], request.get('acceptanceToken'), 'Independent acceptance credential required')
+            require(type(request.get('stateRevision')) is int and request['stateRevision'] == bundle['state']['stateRevision'], 'Stale stateRevision')
+            store.producer = {'roleId': authority['roleId'], 'kind': 'acceptance'}
+        elif command in {'dispatch', 'revise'}:
+            store.producer = {'roleId': config.get('schedulerRoleId', 'scheduler'), 'kind': 'scheduler'}
+        if command == 'accept-plan':
+            require(request.get('planRevision') == bundle['plan']['planRevision'], 'Stale planRevision')
+            authority = authority_valid(root, config)
+            criteria = request.get('criteria', {})
+            require(criteria.get('path') in authority['criteriaFiles'], 'Criteria path is not approved')
+            require(isinstance(criteria.get('version'), str) and criteria['version'], 'Criteria version required')
+            require(file_hash(root, criteria['path']) and file_hash(root, criteria['path']) == criteria.get('sha256'), 'Criteria hash mismatch')
+            ids = criteria.get('criterionIds')
+            require(isinstance(ids, list) and ids and all(isinstance(i, str) and i for i in ids) and len(set(ids)) == len(ids), 'Unique criterionIds required')
+            source = request.get('customerApproval', {})
+            require(isinstance(source, dict) and all(isinstance(source.get(k), str) and source[k] for k in ['source', 'reference']), 'Traceable customer approval source/reference required; this is not identity authentication')
+            nodes = {n['nodeId']: n for n in bundle['plan']['nodes']}
+            required = request.get('requiredNodes')
+            require(isinstance(required, list) and len(required) == len(nodes) and set(required) == set(nodes), 'All plan nodes are required')
+            tests = request.get('independentTests', [])
+            require(isinstance(tests, list), 'independentTests must be an array')
+            test_ids = set()
+            covered = set()
+            for test in tests:
+                tid = test.get('nodeId')
+                require(tid in nodes and tid not in test_ids and config['roles'][nodes[tid]['roleId']].get('purpose') == 'independent-test', 'Independent test node requires approved independent-test role')
+                test_ids.add(tid)
+                covers = test.get('covers')
+                require(isinstance(covers, list) and covers and len(set(covers)) == len(covers), 'Independent test covers required')
+                for target in covers:
+                    require(target in nodes and nodes[target]['roleId'] != nodes[tid]['roleId'] and config['roles'][nodes[target]['roleId']].get('purpose') != 'independent-test', 'Test producer must differ from tested developer')
+                    require(set(nodes[target]['writeSet'] + nodes[target]['readSet']) <= set(nodes[tid]['readSet']), 'Independent test readSet must include tested inputs and outputs')
+                covered.update(covers)
+            dev_ids = {i for i,n in nodes.items() if config['roles'][n['roleId']].get('purpose') != 'independent-test'}
+            cross_role = len({n['roleId'] for n in nodes.values()}) > 1
+            require(not cross_role or covered == dev_ids and test_ids == set(nodes)-dev_ids, 'Cross-role task requires independent test coverage of every developer stage')
+            graph = {nid: set(n.get('dependsOn', [])) for nid,n in nodes.items()}
+            for test in tests: graph[test['nodeId']].update(test['covers'])
+            done = set()
+            while len(done) < len(nodes):
+                ready = {nid for nid, deps in graph.items() if nid not in done and deps <= done}
+                require(ready, 'Independent testing coverage creates a dependency cycle')
+                done.update(ready)
+            criteria = {key: criteria[key] for key in ['path','version','sha256','criterionIds']}
+            source = {key: source[key] for key in ['source','reference']}
+            tests = [{'nodeId': test['nodeId'], 'covers': test['covers']} for test in tests]
+            for planned in nodes.values():
+                current_inputs(root, bundle, planned, config)
+            approval = {'planHash': plan_snapshot(bundle), 'planRevision': bundle['plan']['planRevision'], 'criteria': criteria, 'customerApproval': source, 'requiredNodes': required, 'independentTests': tests, 'acceptedBy': authority['roleId'], 'authorityHashes': {k: authority[k+'Sha256'] for k in ['card','boundary']}, 'recordedAt': now()}
+            previous = bundle['state'].get('planAcceptance', {})
+            require(not previous or previous['criteria'] == criteria, 'Criteria changes require a new reviewed task')
+            if previous and previous['planHash'] == approval['planHash']:
+                require(all(previous[key] == approval[key] for key in ['criteria','requiredNodes','independentTests','customerApproval']), 'Current plan already accepted; changed acceptance scope requires a new reviewed task')
+                return {'status': 'duplicate', 'stateRevision': bundle['state']['stateRevision']}
+            revision = bundle['state'].get('revisionReview', {})
+            if previous.get('criteria') == criteria and revision.get('unaffectedReason'):
+                carried = {}
+                for nid in revision.get('unaffected', []):
+                    planned, state = node_pair(bundle, nid)
+                    if state['status'] == 'verified' and state.get('acceptance', {}).get('verdict') == 'pass':
+                        evidence_valid(root, bundle, planned, state, config)
+                        carried[nid] = sha(encoded(state['acceptance']))
+                approval['carriedAcceptances'] = carried
+                approval['unaffectedReview'] = revision
+            bundle['state']['planAcceptance'] = approval
+            return store.commit(bundle, 'plan-accepted', 'Independent acceptance approved current plan and criteria')
         if command == 'revise':
             document=request.get('document','design')
             require(document in {'design','requirement'},'Only design or requirement revisions are supported')
@@ -234,13 +472,18 @@ def operate(root, task, command, request):
                 state['assignedRevisions']=dict(planned['revisions']);state['status']='blocked' if state['active'] else 'pending'
                 state['pauseRequested']=bool(state['active']);state['reason']='Design changed; reconcile and acknowledge new assignment'
                 state['checkEvidence']={};state.pop('verifiedCandidate',None)
+                state.pop('acceptance', None)
                 state['nextAction']={'summary':'Stop old attempt, then redispatch against revised design','responsibleRole':planned['roleId']}
             # Unaffected nodes acknowledge that the new document was reviewed as non-impacting.
             for n in bundle['plan']['nodes']:
                 if n['nodeId'] not in affected and n['documentHashes'][document]==old_digest:n['documentHashes'][document]=digest
+            bundle['state']['revisionReview'] = {'affected': sorted(affected), 'unaffected': sorted(all_ids-affected), 'unaffectedReason': request.get('unaffectedReason')}
             return store.commit(bundle,'design-revised' if document=='design' else 'requirement-change-accepted',request['reason'],extra={'affected':sorted(affected),'unaffectedReason':request.get('unaffectedReason')})
         planned,state=node_pair(bundle,node_id);role=config['roles'][planned['roleId']]
+        if command in {'ack','stop','run-check','report'}:
+            store.producer = producer(planned, state)
         if command == 'dispatch':
+            accepted_plan(root, bundle, config)
             current_inputs(root,bundle,planned,config)
             require(not state['active'] and state['status']!='verified','Stage already active or verified')
             capacity=config.get('maxConcurrentWorkers',4)
@@ -252,12 +495,8 @@ def operate(root, task, command, request):
                 if other.get('active'):
                     require(other['workerId']!=request['workerId'],'Worker is locked to another active stage')
                     op,_=node_pair(bundle,other['nodeId']);require(not set(op['writeSet']) & set(planned['writeSet']),'Concurrent write conflict')
-            for dep in planned.get('dependsOn',[]):
-                dp,ds=node_pair(bundle,dep);require(ds['status']=='verified','Prerequisite is not verified: '+dep)
-                current_inputs(root,bundle,dp,config)
-                require(ds.get('verifiedCandidate')==candidate(root,bundle,dp),'Prerequisite evidence is stale: '+dep)
-                for evidence in ds.get('checkEvidence', {}).values():
-                    require(file_hash(root, evidence['path']) == evidence['sha256'], 'Prerequisite check evidence is unavailable or changed: '+dep)
+            for dep in planned.get('dependsOn', []):
+                valid_pass(root, bundle, dep, config)
             authorization={'kind':'configuration','sha256':bundle['plan']['configHash']}
             if role.get('autoDispatch') is not True:
                 consent_path=request.get('consentPath')
@@ -274,9 +513,10 @@ def operate(root, task, command, request):
                 authorization={'kind':'explicit-consent','sha256':request['approvedConsentSha256']}
                 if consent_path:
                     authorization['path']=consent_path
-            if state.get('attemptId'):state.setdefault('previousAttempts',[]).append({'attemptId':state['attemptId'],'workerId':state['workerId'],'tokenHash':state['tokenHash']})
+            if state.get('attemptId'):state.setdefault('previousAttempts',[]).append({'attemptId':state['attemptId'],'workerId':state['workerId'],'assignmentCredentialHash':state['assignmentCredentialHash']})
+            state.pop('acceptance', None);state.pop('latestReport', None)
             token=secrets.token_urlsafe(32);state['attemptNumber']+=1
-            state.update(attemptId=node_id+'-'+str(state['attemptNumber']),workerId=request['workerId'],tokenHash=sha(token.encode()),status='running',active=True,pauseRequested=False,acknowledgedRevisions=None,checkEvidence={},authorization=authorization)
+            state.update(attemptId=node_id+'-'+str(state['attemptNumber']),workerId=request['workerId'],assignmentCredentialHash=sha(token.encode()),status='running',active=True,pauseRequested=False,acknowledgedRevisions=None,checkEvidence={},authorization=authorization)
             state['assignedRevisions']=dict(planned['revisions']);state['reason']='Awaiting worker revision acknowledgment'
             result=store.commit(bundle,'assigned','Authorized worker assignment',node_id)
             result['assignment']={'taskId':task,'nodeId':node_id,'roleId':planned['roleId'],'attemptId':state['attemptId'],'workerId':state['workerId'],'token':token,'revisions':state['assignedRevisions'],'writeSet':planned['writeSet'],'card':role['card'],'boundary':role['boundary']}
@@ -291,30 +531,35 @@ def operate(root, task, command, request):
             state.update(active=False,status='pending' if state.get('pauseRequested') else 'blocked',pauseRequested=False,reason=request['summary'])
             return store.commit(bundle,'stopped',request['summary'],node_id)
         if command == 'run-check':
+            require(state.get('acceptance', {}).get('verdict') != 'needs-work', 'Needs-work requires stop and a new authorized attempt')
             authenticate(state,request);current_inputs(root,bundle,planned,config)
             check_id=request['checkId'];require(check_id in planned['checks'],'Check not assigned')
             check=role['checks'][check_id];before=candidate(root,bundle,planned)
             timeout=check.get('timeoutSeconds',60);require(type(timeout) is int and 1<=timeout<=300,'Check timeout must be 1..300 seconds')
             path=safe(root,(store.folder/'evidence'/(state['attemptId']+'-'+check_id+'-'+secrets.token_hex(4)+'.log')).relative_to(root).as_posix());path.parent.mkdir(exist_ok=True)
-            timed_out=False
+            timed_out=False;started=now();runtime=environment(root, check)
             # Deliberately no shell. This command is pinned in the reviewed configuration.
             with path.open('wb') as output:
                 try:
-                    proc=subprocess.run(check['argv'],cwd=root,stdout=output,stderr=subprocess.STDOUT,timeout=timeout,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
+                    proc=subprocess.run(check['argv'],cwd=root,stdout=output,stderr=subprocess.STDOUT,timeout=timeout,env=execution_environment(check))
                     code=proc.returncode
                 except subprocess.TimeoutExpired:
                     code=124;timed_out=True
             after=candidate(root,bundle,planned)
             evidence={'checkId':check_id,'argv':check['argv'],'exitCode':code,'timedOut':timed_out,'candidate':before,'candidateUnchanged':before==after,'path':path.relative_to(root).as_posix(),'sha256':sha(path.read_bytes()),'recordedAt':now()}
+            evidence.update(producer=producer(planned, state), environment=runtime, configHash=bundle['plan']['configHash'], startedAt=started, finishedAt=now())
+            evidence['environmentUnchanged'] = runtime == environment(root, check)
+            state.setdefault('checkHistory', []).append(evidence)
             state['checkEvidence'][check_id]=evidence
-            if code or before!=after:state.update(status='failed',reason='Check failed or changed the candidate')
-            result=store.commit(bundle,'check-passed' if code==0 and before==after else 'verification-failed','Executed approved check '+check_id,node_id,{'evidence':evidence});result['evidence']=evidence
-            if code or before!=after:result['status']='check-failed'
+            if code or before!=after or not evidence['environmentUnchanged']:state.update(status='failed',reason='Check failed or changed the candidate')
+            result=store.commit(bundle,'check-passed' if code==0 and before==after and evidence['environmentUnchanged'] else 'verification-failed','Executed approved check '+check_id,node_id,{'evidence':evidence});result['evidence']=evidence
+            if code or before!=after or not evidence['environmentUnchanged']:result['status']='check-failed'
             return result
         if command == 'report':
             report_id=request.get('reportId');require(isinstance(report_id,str) and report_id,'reportId required')
             known=[state,*state.get('previousAttempts',[])]
-            require(any(a.get('attemptId')==request.get('attemptId') and a.get('workerId')==request.get('workerId') and secrets.compare_digest(a.get('tokenHash',''),sha(str(request.get('token','')).encode())) for a in known),'Unknown worker report')
+            require(any(a.get('attemptId')==request.get('attemptId') and a.get('workerId')==request.get('workerId') and secrets.compare_digest(a.get('assignmentCredentialHash',''),sha(str(request.get('token','')).encode())) for a in known),'Unknown worker report')
+            store.producer = {'roleId': planned['roleId'], 'nodeId': node_id, 'workerId': request['workerId'], 'attemptId': request['attemptId']}
             digest=sha(encoded({k:v for k,v in request.items() if k!='token'}))
             receipts=bundle['state']['reportReceipts']
             if report_id in receipts:
@@ -326,36 +571,51 @@ def operate(root, task, command, request):
             except Rejected as exc:
                 # Only retain authenticated old/current worker feedback; do not accept arbitrary writes.
                 known=[state,*state.get('previousAttempts',[])]
-                require(any(a.get('attemptId')==request.get('attemptId') and a.get('workerId')==request.get('workerId') and secrets.compare_digest(a.get('tokenHash',''),sha(str(request.get('token','')).encode())) for a in known),'Unknown worker report')
+                require(any(a.get('attemptId')==request.get('attemptId') and a.get('workerId')==request.get('workerId') and secrets.compare_digest(a.get('assignmentCredentialHash',''),sha(str(request.get('token','')).encode())) for a in known),'Unknown worker report')
                 receipts[report_id]={'digest':digest,'accepted':False,'reason':str(exc)}
                 result=store.commit(bundle,'report-rejected','Stale or out-of-scope feedback retained',node_id,{'reportId':report_id,'reason':str(exc)});result.update(accepted=False,reason=str(exc));return result
-            kind=request.get('kind');require(kind in {'progress','issue','complete'},'Unknown report kind')
+            kind=request.get('kind');require(state.get('acceptance', {}).get('verdict') != 'needs-work' or kind != 'complete', 'Needs-work requires stop and a new authorized attempt');require(kind in {'progress','issue','complete'},'Unknown report kind')
             require(isinstance(request.get('summary'),str) and request['summary'],'Report summary required')
-            state['latestReport']={'reportId':report_id,'summary':request['summary'],'revisions':request['revisions'],'candidate':candidate(root,bundle,planned)}
+            state['latestReport']={'reportId':report_id,'summary':request['summary'],'revisions':request['revisions'],'candidate':candidate(root,bundle,planned),'kind':kind,'attemptId':state['attemptId']}
             if kind=='issue':state.update(status='blocked',reason=request['summary'],nextAction={'summary':request['summary'],'responsibleRole':'project'})
             elif kind=='complete':state.update(status='awaiting-verification',reason='Awaiting current evidence verification')
             receipts[report_id]={'digest':digest,'accepted':True,'nodeId':node_id}
             return store.commit(bundle,{'progress':'progress','issue':'issue-reported','complete':'implementation-reported'}[kind],request['summary'],node_id,{'reportId':report_id})
         if command == 'verify':
-            current_inputs(root,bundle,planned,config)
-            require(state['status']=='awaiting-verification' and not state.get('pauseRequested'),'Stage is not awaiting verification')
-            current=candidate(root,bundle,planned)
-            for output in planned.get('requiredOutputs',planned['writeSet']):
-                require(file_hash(root,output) is not None,'Missing required output: '+output)
-            require(state.get('latestReport',{}).get('candidate')==current,'Implementation changed after completion report')
-            for check_id in planned['checks']:
-                evidence=state['checkEvidence'].get(check_id);require(evidence is not None,'Missing required check: '+check_id)
-                require(evidence['exitCode']==0 and evidence['candidateUnchanged'] and evidence['candidate']==current,'Required check failed or evidence is stale')
-                require(file_hash(root,evidence['path'])==evidence['sha256'],'Evidence artifact changed')
-            state.update(status='verified',active=False,verifiedCandidate=current,reason='',nextAction={'summary':'Release eligible dependents','responsibleRole':'project'})
-            return store.commit(bundle,'verification-passed','All assigned checks passed for the current candidate',node_id)
+            approval = accepted_plan(root, bundle, config)
+            current_inputs(root, bundle, planned, config)
+            require(state['status'] == 'awaiting-verification' and state['active'] and not state.get('pauseRequested'), 'Stage is not awaiting verification')
+            require(request.get('attemptId') == state['attemptId'], 'Stale acceptance attempt')
+            current = candidate(root, bundle, planned)
+            require(request.get('candidate') == current, 'Stale acceptance candidate')
+            criteria = approval['criteria']
+            require(request.get('criteriaVersion') == criteria['version'] and request.get('criteriaSha256') == criteria['sha256'], 'Stale acceptance criteria')
+            verdict = request.get('verdict')
+            require(verdict in {'pass','needs-work','missing-evidence'} and isinstance(request.get('summary'), str) and request['summary'], 'Explicit verdict and summary required')
+            results = acceptance_results(root, bundle, planned, state, request, approval)
+            dependencies = set(planned.get('dependsOn', []))
+            for test in approval['independentTests']:
+                if test['nodeId'] == node_id: dependencies.update(test['covers'])
+            if verdict == 'pass':
+                for dep in dependencies: valid_pass(root, bundle, dep, config)
+                evidence_valid(root, bundle, planned, state, config)
+            acceptance = {'verdict': verdict, 'summary': request['summary'], 'criteriaResults': results, 'candidate': current, 'attemptId': state['attemptId'], 'planAcceptanceHash': sha(encoded(approval)), 'reportId': state.get('latestReport', {}).get('reportId'), 'evidenceHash': sha(encoded(state['checkEvidence'])), 'acceptedBy': bundle['state']['acceptanceAuthority']['roleId'], 'recordedAt': now(), 'dependencyAcceptances': {dep: sha(encoded(node_pair(bundle, dep)[1].get('acceptance'))) for dep in sorted(dependencies)}}
+            state.setdefault('acceptanceHistory', []).append(acceptance)
+            state['acceptance'] = acceptance
+            if verdict == 'pass':
+                state.update(status='verified', active=False, verifiedCandidate=current, reason='', nextAction={'summary':'Release eligible dependents','responsibleRole':config.get('schedulerRoleId','scheduler')})
+            elif verdict == 'needs-work':
+                state.update(status='blocked', reason=request['summary'])
+            else:
+                state.update(status='awaiting-verification', reason=request['summary'])
+            return store.commit(bundle, 'verification-'+verdict, request['summary'], node_id)
         raise Rejected('Unknown command')
 
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,required=True);parser.add_argument('--task',required=True)
-    parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','verify'])
+    parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','accept-plan','verify'])
     parser.add_argument('--request',type=Path,help='Request file, or - to read JSON from standard input; keep worker tokens private')
     args=parser.parse_args(argv)
     try:

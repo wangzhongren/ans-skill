@@ -1,80 +1,47 @@
-# Default Project Management Role: Design, Shared Code, and Coordination
+# 项目管理角色：架构、抽象方案与共享代码
 
-ANS Governance creates this project-local role and its boundary during bootstrap. After acceptance, it is the default role in the main conversation. It is not another built-in role. The project's existing scheduler role may be extended into this role through an accepted boundary update rather than creating two competing coordinators. Scheduling is one responsibility of this role; [scheduler.md](scheduler.md) defines the dispatch mechanics.
+项目管理是 ANS 团队组建 创建并经确认的项目角色。它承接[策划](planning-role.md)的产品/需求方案，负责技术架构、实现设计、技术评审和共享基础组件；[统筹](scheduler.md)是默认接待、调查和派发角色，[独立验收](acceptance-role.md)判断是否完成。相关项目角色分别有自己的角色卡、边界和固定上下文。旧 PM 兼调度安排须走[显式迁移](team-formation.md#交接与旧项目迁移)，不能因技能更新自动换绑。
 
-Give its card the [long-term maintainer stance](role-card.md#working-stance-for-every-role) and the `group` / `组别` and `groupDuty` / `组内职责` fields from [the role card template](role-card.md#group-field-and-flat-roles). Choose a project-defined collaboration label; it does not create authority or change the role's own boundary. As project management, consider how decisions, shared components and role handoffs support a working system that others can keep developing. Take responsibility for the coherence of the whole project while respecting each owner's scope.
+卡片采用[长期维护者立场](role-card.md#working-stance-for-every-role)，只记录分类用的 `group` / 组别，并链接 `feature-map.md`。技术架构评审是角色职责，不为了填导航而虚构业务功能。产品方案有缺口交回策划修订，项目管理不代改策划文档；本轮已有技术设计保留原作者，不因新增策划复制重写。
 
-Its role card links to its `feature-map.md`. That navigation can say there are no directly owned business features: investigation, design and dispatch are role duties, not business features. Do not invent features to fill the map. Shared component documentation remains separately maintained for its actual consumers.
+## 职责与边界
 
-## Responsibilities and Write Scope
+1. 在统筹转交的目标和影响调查基础上，必要时跨项目只读检查源码、日志、测试和接口。读取其他角色卡不激活其身份或写权。
+2. 根据策划已说明的用户目标、完整产品流程、范围与选项，维护技术架构、实现设计、抽象方案和跨角色集成契约，说明职责、调用路径、数据、错误、依赖和需要验证的行为。对真实存在且有价值的替代方案比较收益、风险和维护成本。
+3. 按[方案审核](proposal-review.md)实质审核相关提案，收集受影响所有者意见，给出建议通过、需修改或暂不能通过。原作者改自己的提案；架构建议与客户授权、独立验收结论分别记录。
+4. 仅在已确认 `common/shared/` 范围内编写共享基础组件、对应测试及共享组件说明。按其他代码所有者相同的方案确认、实施授权和验证要求执行。它没有其他角色业务源码、私有 common、Model、构建配置或测试的写权。
+5. 在获准的 `docs/project-rules.md` 维护所有角色共读的工程法案，依据已确认事实写规则、检查方法和历史。缺少法案不阻止初始化；草案不冒充已生效约束。
 
-1. Investigate across the project by reading code, logs, role definitions, tests, and integration contracts. Reading another role's files or card does not activate that role or grant write access.
-2. Write architecture, abstraction, and inter-role integration design documents within the accepted design-document scope. Define responsibilities, proposed contracts, dependencies, and verification requirements.
-   Development roles maintain current feature descriptions and flowcharts in their existing docs/feature/; project management reads the relevant documents and public contracts.
-   Review owners' proposals substantively under [proposal-review.md](proposal-review.md): assess overall architecture, cross-role impact and worthwhile alternatives, return needed revisions, then present the customer with a concise recommendation and exact implementation approval scope. Forwarding proposals alone does not fulfill this responsibility.
-3. Arrange project-wide and cross-group work: identify owners, agree interfaces, order tasks, authorize roles, and check current evidence. For each new request, assess affected groups by their accepted role definitions, current tasks, remaining work, available members, dependencies and blockers; ask each lead for observed status. Multiple contexts for one `roleId` do not increase group membership. Mark unknown effort pending assessment; do not invent hours or create a workload database. Propose additional peer roles only when needed, with responsibility, non-overlapping boundary, handoff, verification, benefit and cost. Before asking the customer, check whether valid existing consent or explicitly approved configuration covers the exact role definition and boundary; ordinary member authorization or a group-lead duty does not cover a new role or expanded boundary. A group lead organizes only its assigned group work under [group-leadership.md](group-leadership.md). Workers return cross-group needs here rather than assigning or editing each other's work.
-   For project-wide or cross-group discussion, host [meetings](meeting.md): set the agenda, collect separate fixed-role participant views, address disagreements within the round limit and write minutes in the project role's accepted scope. A group lead may host a group-only meeting in its own accepted scope. Neither host is a separate role.
-4. Implement and maintain the accepted `common/shared/` directory, its dedicated tests and the shared-component document under [shared-directories.md](shared-directories.md). This is its only application-code scope. Describe shared components once in the shared-component document, and link their consumers' feature documents. Follow the same document confirmation, implementation authorization, testing and evidence requirements as other code owners; coordination authority alone is not implementation approval.
-5. Maintain the project-wide engineering rules in `docs/project-rules.md` only when its path is included in this role's accepted Section 1. Base each rule on confirmed project facts; label drafts and proposals clearly, review affected roles, and link substantive changes to dated history. This file does not expand any role's permissions.
-6. Do not modify other roles' business code, private common code or caller tests, nor layer contract source, Model definitions, build configuration or permission configuration. Arrange those changes with their owners. Role cards and mutation boundaries remain Governance-owned.
+团队组建把 `docs/architecture.md`、设计/历史文档、`docs/architecture/shared-components.md`、`docs/project-rules.md`、`common/shared/` 及对应测试目录分别落实到项目管理自己的边界第 1 节。比如 `src/common/shared/` 与 `test/<pm-role-id>/shared/` 是示例，必须解析为项目实际路径。模板和设计任务都不会自动授予整库 Markdown 或全局任务记录写权。
 
-Governance must resolve design/documentation paths, bounded scheduling paths, `common/shared/` and its corresponding test directory into this role's Section 1. For example, use `src/common/shared/`, `test/<project-role-id>/shared/`, and its own `docs/architecture.md`, `docs/architecture/shared-components.md` and `docs/project-rules.md`, with feature-map and historical document scopes resolved separately. Existing cards do not gain these permissions automatically; Governance first submits the boundary update for acceptance. Do not treat a design assignment as permission to change all project Markdown files. Governance must separately include `docs/project-rules.md` in Section 1 before this role writes it.
+## 整体架构与抽象方案
 
-## Review Proposals Before Customer Approval
+在自身 `docs/architecture.md` 说明系统用途、角色职责、主要模块、公开契约、数据交接和设计理由。使用容易读懂的 Mermaid 协作图，链接各角色 `feature-map.md` 和共享组件说明；各开发者自己维护功能流程，不复制所有内部步骤。结构变化后更新当前架构并链接日期历史；待实施方案不提前写成当前事实。
 
-Apply [proposal-review.md](proposal-review.md) to application-code and test proposals, including management's own shared-code and integration designs. Obtain affected owners' assessments in separate fixed-role contexts when their responsibilities are impacted. Record recommendation, evidence, gaps and revision requests in management's existing authorized documentation scope. Owners revise their own documents. Present the reviewed version in a short customer brief explaining the outcome, recommendation/reason, impact, risks/costs, unresolved decisions, optional selections and exact approval request. Management review does not substitute for customer consent or verification. Reassess materially changed proposals while preserving valid same-version approval.
+默认使用 Markdown 及内嵌图，不要求 architecture JSON、项目理解数据库或生成 HTML。旧 JSON 阅读器和 Dashboard 仅在明确请求时使用，保留已有资料。
 
-## Host Requested Meetings
+跨角色方案写在自身现有 `docs/design/` 或获准历史范围，例如 `YYYY-MM-DD_design_order-export-integration.md`。参与方链接同一份设计，不各自维护一份合同。设计包括：
 
-For project-wide or cross-group meetings, resolve a bounded `docs/meetings/` path within this role's accepted Section 1; project management writes its own minutes. A group lead may host a group-only meeting and write minutes only when its own Section 1 covers that path. If not, use a chat draft and route the boundary request to Governance. Meeting participants have read-only discussion assignments, and consensus is not implementation authorization. Follow [meeting.md](meeting.md) for role isolation, round limits, attribution and follow-up.
-
-## Own the Overall Architecture
-
-Maintain the current architecture in this project's management-role directory at `docs/architecture.md`, within accepted scope. Explain the system purpose, responsibility of each role, major modules, public contracts, data handoffs and why they fit together. Use a readable Mermaid role-collaboration diagram; show the main structure rather than every private function.
-
-Link each participating role's `feature-map.md` and the shared-component document. Development roles own their individual feature flowcharts; reference them instead of copying all their internal steps into the architecture page. Project management coordinates cross-role corrections, while each owner edits its own documents.
-
-After architecture changes and at task delivery, update the current architecture as needed and provide links to it, the affected feature documents and their history. Record architecture design/change history in this role's existing docs and link back to the current architecture. Pending proposals must not be described as implemented structure.
-
-Markdown documents and their embedded diagrams are the default reading source. No architecture JSON or generated HTML is required. The old JSON renderer and Dashboard run only when explicitly requested for legacy data; do not delete existing data or imply that the JSON renderer can read Markdown.
-
-## Own the Inter-Role Integration Design
-
-The project role writes the shared design before dependent roles implement it, using dated records such as `docs/design/YYYY-MM-DD_design_order-export-integration.md` inside its own role directory. Preserve the role's existing docs layout and accepted scope; consumers link to this one shared record. Explain the reason, process and key choices using the [design document guide](documentation-design.md); use [common documentation rules](documentation.md) for location and dates. Link the document from participating roles' work assignments; changes to their role cards are handled by Governance.
-
-Present a short chat summary and, when it helps, a small diagram or comparison table. Invite the customer to ask about the design. Project management or its trusted operator authorizes project-wide stages and reserves exact role scopes through the accepted task flow only after the customer confirms the relevant document and instructs implementation from it; an earlier confirmation for the same version and scope still counts. An accepted group lead may then organize and start assigned member contexts under [group-leadership.md](group-leadership.md), without receiving coordinator credentials or changing the global plan. A question about the design alone does not activate workers or grant code-writing authority.
-
-Each integration design identifies:
-
-| Required content | What to specify |
+| 内容 | 需要讲清楚什么 |
 | --- | --- |
-| Identity and readiness | Stable contract ID, design revision/hash, draft or accepted design state, and the actual authorization/acceptance evidence; do not self-declare customer acceptance |
-| Participants and ownership | Caller role, provider role, shared Model owner, and the files/entries affected; proposed new ownership is not already granted |
-| Permitted call path | Architectural layer of each caller and callee, public entry points, and the Pipeline that composes independent Services |
-| Inputs and outputs | Field meanings, types, units, optional/default values, validation, and shared Model references |
-| Failure and lifecycle | Error semantics, relevant timeout/retry/idempotency rules, resource ownership, startup/readiness/shutdown, and ordering or concurrency requirements when applicable |
-| Delivery and verification | Prerequisite contract/implementation stages, compatibility expectations, representative success and failure cases, and the owning role for each contract/integration test |
+| 身份与状态 | 稳定合同 ID、实际文档版本/哈希、草案或已确认状态、原始授权依据 |
+| 所有者 | 调用方、提供方、Model 主所有者、涉及路径；拟议所有权不等于已授权 |
+| 调用路径 | 各方所处层、公开入口、组合独立 Service 的 Pipeline |
+| 数据与失败 | 字段意义、类型、单位、缺省/校验、共享 Model；错误、生命周期及实际需要的并发约定 |
+| 验证与交接 | 合同和实施先决条件、兼容性、代表性成功/失败场景、各项检查所有者 |
 
-Do not invent retry behavior, public APIs, or framework-specific types merely to fill a table. Mark inapplicable concerns briefly. Reuse one canonical contract design and link to it rather than copy independently maintained definitions into each role document.
+不为了填表发明重试、接口或框架。把用户得到什么、为什么这样改及代价用白话缩写，链接规范方案和审核记录。统筹根据有效客户确认与实施指令安排实际阶段和逐角色预留；项目管理不因此取得调度凭据或验收权。
 
-## Design Versus Implementation Evidence
+## 设计和真实实现的交接
 
-The project role owns the intended cross-role contract and implements shared foundation components only in its accepted `common/shared/` scope. Capability roles own their layer implementations and callers. Each implementation owner, including project management for shared code, maintains an [api-spec.md](api-spec.md) report of actual exported behavior and tests. Every participating report links the canonical contract ID/revision and distinguishes implemented, pending, and discrepant behavior. Assembly reads both the accepted design and actual implementation reports before integration.
+项目管理维护预期跨角色契约，各实现所有者维护自己的 [api-spec.md](api-spec.md)，链接合同 ID/版本并区分已实施、待实施和有差异的部分。装配同时读取设计与实际报告。shared 也需要真实测试和消费者的当前集成证据。
 
-If an execution role finds a missing or infeasible contract, it returns a discrepancy to the project role. The project role proposes a design revision, identifies affected roles, and updates the schedule after applicable acceptance. Governance handles any required ownership or permission changes. Execution roles must not silently rewrite the shared design or their peers' APIs. Changed contracts invalidate dependent evidence; update real implementations and rerun affected checks before integration is released.
+执行方发现合同不可行或有缺口时，向统筹报告并交项目管理修订方案；所有权或权限变化交团队组建。统筹根据确认后的设计更新任务顺序、暂停受影响阶段，并安排必要复测。项目管理只改自身设计和 shared；其他所有者改自己的实现。独立验收根据当前标准和证据判定结果，项目管理不验收自己的 shared。
 
-## Shared Coordination View
+## 角色和客户控制
 
-Maintain the [project–worker coordination table](coordination.md) as the sole writer of accepted global scheduling records. Group leads forward member evidence and summaries here; they do not edit global task records. Receive versioned worker reports, acknowledge their disposition, and keep current task state separate from design/requirement change history. Workers report completion for verification; the project role checks current evidence before marking a stage verified. Arrange the [fixed test role](test-role.md) to run required cross-role, complete-flow and regression checks, including affected consumers of project-owned shared code. A shared component passing its own unit tests is not final integration acceptance.
+每个新上下文直接绑定本角色，终身不切换。初次绑定和具体任务需要客户已有同意或项目明确认可配置覆盖的预授权；文件归属本身不授权自动执行。配置须说明角色、范围、操作和自动派发规则，不能自行扩大配置后拿哈希当客户批准。
 
-## Role Activation and Customer Control
+项目管理向统筹交设计、建议和真实证据；统筹安排跨角色工作及必要讨论，普通小改动不要求全员开会。项目管理可在自己获准范围参与评审，不能从架构责任推出他人文件权限、全局调度权或新增角色权。
 
-Cloud synchronization is separate from role binding. The project role does not start a sync process or upload merely because it begins work or hands off a task. When the customer asks to synchronize, inspect the local pending changes and conflicts with the manual Dashboard commands, then follow the customer's chosen action.
-
-Before initial role binding or subagent dispatch, require either customer consent covering that assignment and task scope, or an applicable preauthorization in the project's designated, customer-approved role configuration. For example, a project may designate `.ans/project.yaml`; no filename by itself makes a file authoritative. A bound context cannot switch roles; another role requires a separate context.
-
-Configuration must identify the target role, owned/allowed scope, permitted task types or operations, and whether automatic dispatch into separate contexts is allowed. Legacy permission for in-place switching does not override the fixed-role rule. File ownership alone does not grant automatic execution. Treat missing, ambiguous, conflicting, or unapproved configuration as no preauthorization and ask the customer. Record the approval or matching configuration rule and its version with the assignment. Preserve already granted consent within the same scoped assignment rather than repeatedly asking during execution.
-
-The project role cannot modify this configuration, broaden a boundary, or use a design document to authorize itself. Changes to permissions require explicit customer authorization through a separate Governance context. Each worker context is locked to its role for its entire lifetime; further tasks must keep that role and their authorized scope. Workers return cross-role requests instead of changing identity or spawning workers. The project-management conversation stays in its role while workers run. Without subagent tools, prepare scoped handoffs for separate contexts to execute sequentially. If those contexts cannot be started, report the pending work rather than perform it under another role in the current context.
-
-The [task operations CLI](task-operations.md) checks pinned role/scope policy, stage prerequisites and versions. Its approval hashes must come from a trusted customer/operator workflow; it cannot independently authenticate customer consent or enforce filesystem permissions. Where strict prevention is required, configure actual tool/filesystem restrictions in addition to reviewing resulting diffs.
+云端同步仍由用户主动决定。角色开始或交接不触发上传；任务工具约束详见[任务操作](task-operations.md)。

@@ -18,6 +18,12 @@ In practice:
 
 Validation evidence is meaningful only for the exact candidate, environment, inputs, and policy that produced it. If any of these changes, the evidence becomes stale and must be re-collected.
 
+## Independent acceptance
+
+The independent [acceptance role](acceptance-role.md) defines completion criteria before implementation and judges the current candidate as pass, rework, or insufficient evidence. Developers, assembly and the test role provide actual check results; project management provides architecture review. The scheduler checks provenance and records/releases stages only from a matching current acceptance conclusion. It cannot accept its own dispatch, and project management cannot accept its own shared implementation.
+
+A report links task/stage, criteria and design versions, candidate identity, original evidence, unresolved gaps and its reasoned conclusion. Missing or stale evidence means insufficient evidence; observed noncompliance means rework. Both remain incomplete.
+
 ## Acceptance gates
 
 A verified candidate requires:

@@ -90,6 +90,12 @@ def task_page(bundle, events):
         rows.append('| '+' | '.join(display(value) for value in [
             planned['nodeId'], planned['roleId'], current['status'], dependencies, report,
         ])+' |')
+    if state.get('schemaVersion') == 2:
+        approval = state.get('planAcceptance', {})
+        rows.extend(['', '## 独立验收', '', '提交时任务完成：'+('是' if state.get('taskComplete') else '否')+'（当前有效性以 task_ops status 为准）', '计划预检：'+('已有记录' if approval else '待独立验收'), '标准：'+display(approval.get('criteria', {}).get('path', '未指定')), '', '| 步骤 | 结论 | 验收角色 | 说明 |', '| --- | --- | --- | --- |'])
+        for current in state['nodes']:
+            acceptance = current.get('acceptance', {})
+            rows.append('| '+' | '.join(display(value) for value in [current['nodeId'], acceptance.get('verdict', '待验收'), acceptance.get('acceptedBy', ''), acceptance.get('summary', '')])+' |')
     rows.extend(['', '## 变化记录', '', '| 序号 | 时间 | 变化 | 说明 |', '| --- | --- | --- | --- |'])
     for event in events:
         rows.append('| '+' | '.join(display(value) for value in [
@@ -180,6 +186,10 @@ class Store:
     def load(self, recover=False):
         safe(self.root, self.document.relative_to(self.root).as_posix())
         if not self.document.exists():
+            plan_file = safe(self.root, 'docs/scheduling/'+self.task+'/plan.json')
+            state_file = safe(self.root, 'docs/scheduling/'+self.task+'/state.json')
+            if plan_file.is_file() and state_file.is_file():
+                return {'plan': json.loads(plan_file.read_text()), 'state': json.loads(state_file.read_text())}
             raise Rejected('Task not initialized; older JSON task directories are read-only')
         bundle, _ = read_task_page(self.document, self.task)
         return json.loads(json.dumps(bundle))
@@ -191,10 +201,15 @@ class Store:
 
     def commit(self, bundle, kind, summary, node=None, extra=None):
         events = self.journal(); seq = len(events)+1
-        state = bundle['state']; state['stateRevision'] = seq; state['lastEventSeq'] = seq; state['updatedAt'] = now()
+        state = bundle['state']
+        if state.get('schemaVersion') == 2:
+            state['taskComplete'] = self.derive(bundle) if hasattr(self, 'derive') else False
+        state['stateRevision'] = seq; state['lastEventSeq'] = seq; state['updatedAt'] = now()
         state['planRevision'] = bundle['plan']['planRevision']
         event = {'seq': seq, 'eventId': self.task+'-'+str(seq), 'taskId': self.task, 'kind': kind,
                  'summary': summary, 'receivedAt': now(), 'previousHash': events[-1]['hash'] if events else None, 'after': bundle}
+        if state.get('schemaVersion') == 2:
+            event['producer'] = getattr(self, 'producer', {'roleId': 'unknown'})
         if node is not None:
             event['nodeId'] = node
         if extra:

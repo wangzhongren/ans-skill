@@ -11,5 +11,7 @@
 | 单文件 | `角色卡/测试/docs/change/2026-10-14_change_role-groups-validation.md` | 本轮角色组别的独立验证记录 |
 | 单文件 | `角色卡/测试/docs/change/2026-10-14_change_group-leadership-validation.md` | 本轮组长与工作量评估的独立验证记录 |
 | 单文件 | `角色卡/测试/docs/change/2026-10-16_change_boundary-yaml-validation.md` | 本轮边界 YAML 一致性验证报告 |
+| 单文件 | `角色卡/测试/docs/change/2026-10-19_change_role-authority-split-validation.md` | 本轮角色权责拆分的文档验收准备记录 |
+| 单文件 | `scripts/tests/test_role_authority_flow.py` | 本轮角色职责拆分的独立 CLI 端到端测试 |
 
-未列路径默认只读。本边界不授予测试源码、业务代码、构建配置、其他角色文档或技能规范的写入权限；角色卡与边界由 ANS Governance 唯一维护。新增路径须先由 Governance 更新边界并取得所需确认。
+未列路径默认只读。本边界不授予业务代码、构建配置、其他角色文档或技能规范的写入权限；角色卡与边界由 ANS Governance 唯一维护。本轮在既有文档验收准备权限外，仅增加 `scripts/tests/test_role_authority_flow.py` 这一独立 CLI 测试文件，不授予 `scripts/tests/` 目录或其他程序文件权限。开发单测 `scripts/tests/test_task_ops.py` 归任务工具角色独占。

@@ -60,7 +60,7 @@ mutation_contract:
     - <structural checks that must pass>
   dynamic_gate:
     - <tests or execution evidence required>
-  acceptance_condition: <what makes the candidate acceptable>
+  acceptance_condition: <customer-confirmed criteria checked by independent acceptance>
 ```
 
 Rules for deriving the contract:
@@ -76,6 +76,8 @@ Rules for deriving the contract:
 
 For application code or tests, first write the relevant design, feature, change or fix document as a concrete proposal. Summarize the proposed behavior and limits in the chat, adding a small diagram/table only when it clarifies the decision. Start code changes only after the customer confirms that document and instructs implementation based on it; use an earlier same-version confirmation when one already exists. If material findings change the proposal, revise and present the affected part before coding. Do not treat a question about the proposal as approval.
 
+For new product requirements, the scheduler routes product/requirements proposals to [planning](planning-role.md), then to project management for technical architecture, implementation design and technical review. Valid same-version proposals/authorization remain reusable; no duplicate historical proposal is required. The scheduler then arranges authorized work with its owners; independent acceptance establishes completion criteria before implementation and later judges current evidence. Keep these responsibilities in separate fixed contexts.
+
 Implement the smallest coherent candidate that satisfies the objective and architectural contracts.
 
 - Preserve public behavior outside the requested change unless a contract change is authorized.
@@ -89,14 +91,9 @@ Implement the smallest coherent candidate that satisfies the objective and archi
 
 First check whether the user's existing authorization already covers the additional work. If it does, update the task-local contract and continue within that authority. The conditions below govern expansion beyond the established scope, not repeated approval of an already authorized outcome.
 
-Expand the allowed write set without pausing only when all of the following are true:
+A task-local write set may grow without a new permission request only when the additional artifact is directly necessary, already covered by this role's accepted Section 1 and existing customer authorization, and introduces no changed public contract, protected artifact, governance policy or external effect. Record the narrowed assignment and changes as appropriate.
 
-1. the additional artifact is directly necessary for the requested outcome;
-2. the change is reversible and within the user's existing authority;
-3. it does not alter a public contract, governance policy, frozen artifact, external system, or unrelated subsystem; and
-4. the expansion is reported to the user.
-
-Otherwise stop before editing that artifact and request authorization. Explain the dependency, the smallest additional scope, and the consequence of declining it.
+A file outside accepted Section 1 remains read-only even when its repair is reversible. Send a precise ownership/scope request to the scheduler for Team Formation handling; do not use this workflow to authorize yourself. Reuse valid existing authorization rather than asking twice.
 
 ## Stop Conditions
 
