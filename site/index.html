@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ANS — 先明确责任，再让 AI 开始开发</title>
-  <meta name="description" content="ANS 是受 Role-First Software Governance 启发的 AI 开发技能。用角色责任、文件边界与明确交接组织协作，了解五层代码关系并安装到 Codex 或 Claude Code。">
+  <title>ANS — 让 AI 接得上工作，改动有范围</title>
+  <meta name="description" content="ANS 帮助 AI 从功能文档接手工作，按确认范围修改，让多个 AI 分工有负责人，出问题能沿记录找原因。开源技能，适用于 Codex 和 Claude Code。">
   <link rel="canonical" href="https://wangzhongren.github.io/ans-skill/">
   <link rel="alternate" hreflang="zh-CN" href="https://wangzhongren.github.io/ans-skill/">
   <link rel="alternate" hreflang="en" href="https://wangzhongren.github.io/ans-skill/en/">
-  <meta property="og:title" content="ANS — 先明确责任，再让 AI 开始开发">
-  <meta property="og:description" content="ANS 是受 Role-First Software Governance 启发的 AI 开发技能。用角色责任、文件边界与明确交接组织协作，了解五层代码关系并安装到 Codex 或 Claude Code。">
+  <meta property="og:title" content="ANS — 让 AI 接得上工作，改动有范围">
+  <meta property="og:description" content="ANS 帮助 AI 从功能文档接手工作，按确认范围修改，让多个 AI 分工有负责人，出问题能沿记录找原因。开源技能，适用于 Codex 和 Claude Code。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://wangzhongren.github.io/ans-skill/">
   <link rel="stylesheet" href="/ans-skill/style.css">
@@ -30,8 +30,8 @@
     <section class="hero" aria-labelledby="hero-title">
       <div>
         <div class="eyebrow">Role-first · AI development</div>
-        <h1 id="hero-title">先明确责任，<br>再让 AI <em>开始开发。</em></h1>
-        <p class="intro">AI 能看懂多处代码，不代表它知道谁负责结果、谁可以修改。ANS 用角色责任、文件边界和明确交接，让协作有据可循。</p>
+        <h1 id="hero-title">让 AI 接着做，<br><em>改动有范围。</em></h1>
+        <p class="intro">换一轮对话，AI 能查文档接着做。先确认要改什么，再交给负责的角色；出问题也能翻记录查原因。</p>
         <div class="actions"><a class="button primary" href="#install">从安装开始 ↓</a><a class="button secondary" href="https://github.com/wangzhongren/ans-skill">查看源码 ↗</a></div>
         <p class="hero-note">一个开源开发技能 · Codex / Claude Code · MIT</p>
       </div>
@@ -47,30 +47,39 @@
       </figure>
     </section>
     <div class="principle"><p>看懂了哪里，与有权改哪里，分开判断。</p><span>角色管责任，边界管写入。</span></div>
+    <section class="section" aria-labelledby="value-title">
+      <div class="section-head"><div class="index">01 / 能帮你什么</div><div><h2 id="value-title">接手、修改和排查，都有依据。</h2><p>适合需要持续维护、经常换对话或由多个 AI 接力的项目。</p></div></div>
+      <ol class="steps">
+        <li><span class="step-number">01</span><h3>下一轮，少从头解释</h3><p>功能说明和工作记录，让下一轮 AI 知道项目现在怎么运行、还有什么没做。</p></li>
+        <li><span class="step-number">02</span><h3>只想改一处，先定范围</h3><p>先确认方案和改动范围，再按角色的文件边界修改。</p></li>
+        <li><span class="step-number">03</span><h3>多个 AI 做事，知道找谁</h3><p>开发、测试、验收各有负责角色，出问题知道该找谁处理。</p></li>
+        <li><span class="step-number">04</span><h3>过阵子再改，能查原因</h3><p>从功能说明回看设计和修复历史，知道当初为什么这样做。</p></li>
+      </ol>
+    </section>
     <section class="section" id="example" aria-labelledby="example-title">
-      <div class="section-head"><div class="index">01 / 一次协作</div><div><h2 id="example-title">用一个草稿，说明角色怎样配合。</h2><p>假设用户要保存尚未提交的工单。工单角色处理输入和保存流程，存储角色负责读写；各自维护自己的文件。以下只是协作示意，ANS 不是一个已经交付的工单应用。</p></div></div>
+      <div class="section-head"><div class="index">02 / 一次协作</div><div><h2 id="example-title">用一个草稿，说明角色怎样配合。</h2><p>假设用户要保存尚未提交的工单。工单角色处理输入和保存流程，存储角色负责读写；各自维护自己的文件。以下只是协作示意，ANS 不是一个已经交付的工单应用。</p></div></div>
       <div class="example"><div class="example-role"><span class="tag">Owner 01</span><h3>工单角色</h3><p>对保存过程负责：检查输入，组织步骤，处理业务结果。</p><ol class="stages"><li>接收输入</li><li>组织保存</li><li>检查规则</li></ol></div><div class="example-role"><span class="tag">Owner 02</span><h3>存储角色</h3><p>对持久化负责：通过公开约定读写记录，返回实际结果。</p><ol class="stages"><li>接收记录</li><li>读写存储</li><li>返回结果</li></ol></div></div>
       <div class="handoff"><p>公开约定连接两个角色</p><span>工单 → 记录与保存请求；存储 → 成功结果或错误</span></div><div class="shared-model">Model：由指定所有者维护数据定义，供各层共享。修改共享约定后，重新核对受影响的调用者。</div>
     </section>
     <section class="section" aria-labelledby="layers-title">
-      <div class="section-head"><div class="index">02 / 责任与代码</div><div><h2 id="layers-title">一个角色，可以跨多个代码层。</h2><p>角色回答“谁对结果负责”；分层回答“代码怎样配合”。不是一层一个角色，也不要求每个功能在五层各建一个文件。</p></div></div>
+      <div class="section-head"><div class="index">03 / 责任与代码</div><div><h2 id="layers-title">一个角色，可以跨多个代码层。</h2><p>角色回答“谁对结果负责”；分层回答“代码怎样配合”。不是一层一个角色，也不要求每个功能在五层各建一个文件。</p></div></div>
       <div class="layout-two"><ol class="layer-list"><li><strong>Interface</strong><span>接收外部输入，返回结果</span></li><li><strong>Pipeline</strong><span>组织步骤与分支</span></li><li><strong>Service</strong><span>处理业务规则</span></li><li><strong>Provider</strong><span>访问文件、数据库或外部资源</span></li><li class="model"><strong>Model</strong><span>共享的数据定义与约束</span></li></ol><div class="role-notes"><h3>职责清楚，交接才有着落。</h3><p>团队组建定义角色和文件边界；统筹直接安排每个角色。策划说明用户目标，项目管理设计技术协作，开发者实现，测试角色运行检查，独立验收判断是否完成。</p><ul><li>上下文始终绑定一个角色，不在同一对话中来回换身份。</li><li>跨角色阅读不会自动带来修改权限。</li><li>测试通过与最终验收是两件事。</li></ul><a href="https://github.com/wangzhongren/ans-skill/blob/main/references/architecture.md">查看五层规则 ↗</a></div></div>
     </section>
     <section class="section" aria-labelledby="workflow-title">
-      <div class="section-head"><div class="index">03 / 开始工作</div><div><h2 id="workflow-title">先检查权限，再安排实际工作。</h2><p>新的团队先建立角色；已有项目由原统筹准备配置。配置、边界和本次任务一起限制可写文件，预检不会自动替你扩权。</p></div></div><ol class="steps"><li><span class="step-number">01</span><h3>定义角色</h3><p>团队组建写清职责与权限，准备完整登记内容。</p></li><li><span class="step-number">02</span><h3>准备配置</h3><p>确认统筹角色，由独立固定的统筹上下文准备项目配置。</p></li><li><span class="step-number">03</span><h3>只读预检</h3><p>发现漏权或冲突，交回对应所有者修正；不创建任务或运行日志。</p></li><li><span class="step-number">04</span><h3>获准后开始</h3><p>预检齐全且已有有效授权，统筹再安排各角色工作。</p></li></ol>
+      <div class="section-head"><div class="index">04 / 开始工作</div><div><h2 id="workflow-title">先检查权限，再安排实际工作。</h2><p>新的团队先建立角色；已有项目由原统筹准备配置。配置、边界和本次任务一起限制可写文件，预检不会自动替你扩权。</p></div></div><ol class="steps"><li><span class="step-number">01</span><h3>定义角色</h3><p>团队组建写清职责与权限，准备完整登记内容。</p></li><li><span class="step-number">02</span><h3>准备配置</h3><p>确认统筹角色，由独立固定的统筹上下文准备项目配置。</p></li><li><span class="step-number">03</span><h3>只读预检</h3><p>发现漏权或冲突，交回对应所有者修正；不创建任务或运行日志。</p></li><li><span class="step-number">04</span><h3>获准后开始</h3><p>预检齐全且已有有效授权，统筹再安排各角色工作。</p></li></ol>
     </section>
     <section class="section" id="install" aria-labelledby="install-title">
-      <div class="section-head"><div class="index">04 / 安装</div><div><h2 id="install-title">把技能带到你的开发环境。</h2><p>macOS / Linux，需先安装 Git。选择自己的工具，复制对应的完整命令。无需注册服务或站内账号。</p></div></div>
+      <div class="section-head"><div class="index">05 / 安装</div><div><h2 id="install-title">把技能带到你的开发环境。</h2><p>macOS / Linux，需先安装 Git。选择自己的工具，复制对应的完整命令。无需注册服务或站内账号。</p></div></div>
       <div class="install-grid"><div class="install-card"><div class="install-top"><h3>Codex</h3><button hidden class="copy" type="button" data-copy="command-agents" aria-describedby="status-agents" data-success="已复制完整命令。" data-failure="无法自动复制，请选中命令手动复制。">复制命令</button></div><pre><code id="command-agents">mkdir -p &quot;$HOME/.agents/skills&quot;
 git clone https://github.com/wangzhongren/ans-skill.git &quot;$HOME/.agents/skills/ans-governed-construction&quot;</code></pre><p class="copy-status" id="status-agents" role="status" aria-live="polite">也可以直接选中命令，手动复制。</p></div><div class="install-card"><div class="install-top"><h3>Claude Code</h3><button hidden class="copy" type="button" data-copy="command-claude" aria-describedby="status-claude" data-success="已复制完整命令。" data-failure="无法自动复制，请选中命令手动复制。">复制命令</button></div><pre><code id="command-claude">mkdir -p &quot;$HOME/.claude/skills&quot;
 git clone https://github.com/wangzhongren/ans-skill.git &quot;$HOME/.claude/skills/ans-governed-construction&quot;</code></pre><p class="copy-status" id="status-claude" role="status" aria-live="polite">也可以直接选中命令，手动复制。</p></div></div><p class="install-note">目的目录已存在？请按 README 更新，不要覆盖或删除现有目录。Windows 和其他安装方式也见 <a href="https://github.com/wangzhongren/ans-skill#安装与更新">安装说明 ↗</a></p>
       <div class="start-prompt"><p class="tag">安装后，在下一轮对话里试着说：</p><blockquote>使用 $ans-governed-construction，调查保存草稿失败的问题，先写修改方案。</blockquote><p class="install-note">先说明问题、边界和准备怎样验证，再按已有授权实施。</p></div>
     </section>
     <section class="section evidence" aria-labelledby="evidence-title">
-      <div><div class="index">05 / 已有验证</div><h2 id="evidence-title">有检查记录，<br>也说明证明到哪里。</h2></div>
+      <div><div class="index">06 / 已有验证</div><h2 id="evidence-title">有检查记录，<br>也说明证明到哪里。</h2></div>
       <div><div class="numbers"><div><strong>236</strong><span>源仓库测试</span></div><div><strong>60</strong><span>独立库存回归</span></div></div><p>截至 2026-10-20，源仓库完整测试 236 项，包含开发 69 项与独立 CLI 40 项；隔离库存项目另有 60 种测试方法，并完成两个真实节点的独立验收。这些是已运行的历史检查，不代表速度、提效或未来可靠性保证。</p><a href="https://github.com/wangzhongren/ans-skill/blob/main/角色卡/验收/docs/acceptance/2026-10-20_workflow-fixes-result.md">查看原始验收依据 ↗</a></div>
     </section>
-    <section class="section" id="faq" aria-labelledby="faq-title"><div class="section-head"><div class="index">06 / 常见问题</div><h2 id="faq-title">开始前，可能还想知道。</h2></div><div class="faq"><details><summary>读文档，需要启动服务吗？</summary><p>不需要。Markdown 和网页正文可直接阅读。运行权限预检与任务工具需要 Python 3.10+；业务项目可以使用其他语言。</p></details><details><summary>角色看懂了别人的代码，就能顺手修吗？</summary><p>不能。读取是为了理解；写入仍受角色边界、项目配置和本次任务限制。跨角色问题交统筹安排，由对应所有者修改。</p></details><details><summary>有一个测试通过，就算整个任务完成吗？</summary><p>不算。开发者负责自身检查，固定测试角色运行联调与回归；独立验收依据当前版本和原始证据判断通过、返工或证据不足。</p></details><details><summary>在哪里查看五层和功能流程？</summary><p>从 README 进入五层说明和角色卡。项目管理维护整体架构，各角色用功能导航链接当前功能说明、流程图和历史记录。</p></details><details><summary>脚本被禁用，或者页面暂时打不开怎么办？</summary><p>禁用 JavaScript 仍能阅读全部正文、打开链接并手动复制命令。页面暂时打不开时，可直接访问公开仓库 README、论文和许可证；页面不提供离线缓存或自动切换。</p></details></div></section>
+    <section class="section" id="faq" aria-labelledby="faq-title"><div class="section-head"><div class="index">07 / 常见问题</div><h2 id="faq-title">开始前，可能还想知道。</h2></div><div class="faq"><details><summary>读文档，需要启动服务吗？</summary><p>不需要。Markdown 和网页正文可直接阅读。运行权限预检与任务工具需要 Python 3.10+；业务项目可以使用其他语言。</p></details><details><summary>角色看懂了别人的代码，就能顺手修吗？</summary><p>不能。读取是为了理解；写入仍受角色边界、项目配置和本次任务限制。跨角色问题交统筹安排，由对应所有者修改。</p></details><details><summary>有一个测试通过，就算整个任务完成吗？</summary><p>不算。开发者负责自身检查，固定测试角色运行联调与回归；独立验收依据当前版本和原始证据判断通过、返工或证据不足。</p></details><details><summary>在哪里查看五层和功能流程？</summary><p>从 README 进入五层说明和角色卡。项目管理维护整体架构，各角色用功能导航链接当前功能说明、流程图和历史记录。</p></details><details><summary>脚本被禁用，或者页面暂时打不开怎么办？</summary><p>禁用 JavaScript 仍能阅读全部正文、打开链接并手动复制命令。页面暂时打不开时，可直接访问公开仓库 README、论文和许可证；页面不提供离线缓存或自动切换。</p></details></div></section>
     <section class="closing" aria-labelledby="closing-title"><div><h2 id="closing-title">从一个明确的问题开始。</h2><p>先划清职责，再把实现、检查和交接交给负责的角色。ANS 的设计受 Role-First Software Governance 论文启发。</p></div><a class="button secondary" href="https://zenodo.org/records/22824700">阅读论文 ↗</a></section>
   </main>
   <footer class="footer"><span>ANS · 角色责任与有界协作</span><div class="footer-links"><a href="https://github.com/wangzhongren/ans-skill">公开源码</a><a href="https://github.com/wangzhongren/ans-skill/blob/main/LICENSE">MIT 许可证</a><a href="/ans-skill/sitemap.xml">站点地图</a></div></footer>
