@@ -98,7 +98,22 @@ src/common/
 
 客户负责确认需求和范围；各角色对应的 AI 核对代码、维护自己的 Markdown 文档和图。图来自实际行为，不靠按钮名或文件名猜流程。
 
-角色初次绑定和工作派发遵循客户授权或已批准的项目配置。团队组建完成角色定义后，交给新建的统筹上下文；统筹负责全局计划、逐角色授权预留和记录，项目管理继续自己的架构职责。统筹逐角色授权、预留后启动其独立上下文，执行者直接报告原始结果。只传递角色、边界、有效授权和任务所需资料，不复制团队组建或统筹的完整角色对话来改换身份。无法使用子代理时，准备交接资料，由独立新上下文顺序承接；无法创建独立上下文就报告待办，不能在原上下文切换角色。涉及文件边界变化时，由独立团队组建上下文处理；架构图本身不授予修改权限。
+新项目按四步开始：
+
+1. 团队组建写好角色及权限，准备完整的角色登记内容。
+2. 确认统筹角色，由它在自己的权限范围内准备项目配置。已有项目由原统筹更新配置。
+3. 运行只读预检，发现漏权或冲突就交原负责角色修正。
+4. 预检通过且已获授权后，统筹安排各角色开始工作。
+
+每个角色使用独立、固定的对话或代理上下文。统筹只传角色、边界、有效授权和任务所需资料，执行者直接报告结果。无法使用子代理时，可由独立新上下文顺序接手；无法创建时就报告待办，不在原上下文切换角色。
+
+预检会指出角色自己的工作文档哪里缺权、哪里与其他角色或治理资料冲突，不创建任务、锁或运行日志。例如，在技能仓库目录下检查项目配置：
+
+```sh
+printf '%s\n' '{"configPath":".ans/project.json"}' | python3 scripts/task_ops.py --root /path/to/project preflight-role --request -
+```
+
+把 `/path/to/project` 换成实际项目根目录；配置须含完整角色登记。预检通过表示权限检查齐全，不表示文档已写完，也不替代客户批准或派发。详见[初始化与交接](references/bootstrap-workflow.md)及[任务操作](references/task-operations.md)。
 
 旧项目须先盘点现有角色、配置和运行中的任务，明确迁移后再交接。旧 PM 上下文不自动变成统筹或验收，旧任务历史不冒充独立验收结果。工具旧版任务保留只读，继续执行须核对并停止旧写入者、按新授权建立新任务并补齐必要证据。
 
@@ -112,7 +127,10 @@ src/common/
 角色卡/工单/
   role-card.md
   boundary.md
+  boundary.yaml
   memo.md
+  functional-description.md
+  api-spec.md             # 有实际对外代码能力或装配接口时维护
   feature-map.md
   docs/
     feature/
@@ -145,7 +163,9 @@ src/common/
 
 维护 ANS 产品时同样按文件归属协作：团队组建维护真实角色卡和边界，策划维护后续新需求的产品方案，技能规范维护入口与指南，任务工具维护任务程序，测试运行独立检查，验收核对标准和证据，统筹协调各自的交接；项目管理维护本仓库的[架构](角色卡/项目管理/docs/architecture.md)与[工程法案](角色卡/项目管理/docs/project-rules.md)。这些是本仓库的分工，其他项目按实际职责建立自己的角色。
 
-本轮拆分的[设计方案](角色卡/项目管理/docs/design/2026-10-19_design_role-authority-split.md)和[技能当前说明](角色卡/技能规范/docs/feature/role-authority-split.md)分别记录预期设计与规范状态；程序是否已实现、实际验证到哪里，以各所有者报告为准，不把方案写成验证结果。所有角色在独立固定上下文中，只改自己边界允许的文件。
+角色分工的[设计方案](角色卡/项目管理/docs/design/2026-10-19_design_role-authority-split.md)和[技能当前说明](角色卡/技能规范/docs/feature/role-authority-split.md)可供查看。所有角色在独立固定上下文中，只改自己边界允许的文件。
+
+2026-10-20 的[工作流修复独立验收](角色卡/验收/docs/acceptance/2026-10-20_workflow-fixes-result.md)已通过。源仓库完整测试 236 项，其中包含开发 69 项和独立 CLI 40 项；库存隔离副本另跑 60 项回归，并完成两个真实节点的独立验收。
 
 ## 项目管理先审核，再交客户审批
 
@@ -165,16 +185,23 @@ meeting 是技能讨论流程，不是新增命令行工具或主持人角色。
 
 ## 安装与更新
 
-安装需要 Git。日常说明直接阅读 Markdown，在支持 Mermaid 的预览器里查看流程图，不需要账号或服务端。可选的任务工具和旧绘图工具使用 Python 3.10+；业务项目可以使用其他语言。安装时保留整个仓库。
+安装需要 Git。日常说明直接阅读 Markdown，在支持 Mermaid 的预览器里查看流程图，不需要账号或服务端。运行权限预检和任务工具需要 Python 3.10+；只阅读 Markdown 不需要启动服务。业务项目可以使用其他语言。安装时保留整个仓库。
 
-个人安装，macOS / Linux：
+Codex 个人安装到 `~/.agents/skills/ans-governed-construction`，macOS / Linux：
 
 ```sh
 mkdir -p "$HOME/.agents/skills"
 git clone https://github.com/wangzhongren/ans-skill.git "$HOME/.agents/skills/ans-governed-construction"
 ```
 
-Windows PowerShell：
+Claude Code 个人安装到 `~/.claude/skills/ans-governed-construction`，macOS / Linux：
+
+```sh
+mkdir -p "$HOME/.claude/skills"
+git clone https://github.com/wangzhongren/ans-skill.git "$HOME/.claude/skills/ans-governed-construction"
+```
+
+Codex 的 Windows PowerShell 示例：
 
 ```powershell
 New-Item -ItemType Directory -Force "$HOME/.agents/skills" | Out-Null
@@ -188,10 +215,11 @@ git submodule add https://github.com/wangzhongren/ans-skill.git .agents/skills/a
 git submodule update --init --recursive
 ```
 
-更新前先保留和处理本地改动。**个人安装**且工作区干净时：
+更新前先保留和处理本地改动。**个人安装**且工作区干净时，按实际安装位置选择一条更新命令：
 
 ```sh
-git -C "$HOME/.agents/skills/ans-governed-construction" pull --ff-only
+git -C "$HOME/.agents/skills/ans-governed-construction" pull --ff-only  # Codex
+git -C "$HOME/.claude/skills/ans-governed-construction" pull --ff-only  # Claude Code
 ```
 
 **项目子模块**由团队维护者确认升级后，在业务仓库根目录执行：
@@ -213,13 +241,15 @@ git add .agents/skills/ans-governed-construction
 | `角色卡/<角色>/boundary.md` | 唯一授权来源：第 1 节列出允许修改的文件和目录 |
 | `角色卡/<角色>/boundary.yaml` | 与 Markdown 同名同目录的结构化同步副本，不单独授权 |
 | `角色卡/<角色>/memo.md` | 由本角色维护的简短事实、依据与续接线索 |
+| `角色卡/<角色>/functional-description.md` | 真实职责、交接输入输出及代码或文档位置 |
+| `角色卡/<角色>/api-spec.md`（适用时） | 实际对外代码能力、共享能力或装配接口的实现报告 |
 | `角色卡/<项目管理>/docs/project-rules.md` | 项目管理维护、所有角色共读的已确认工程约束 |
 | `src/common/<角色>/`、`src/common/shared/` | 角色自己的基础代码，以及项目管理角色维护的共享组件 |
 | `角色卡/<项目管理>/docs/architecture/shared-components.md` | 共享组件的用途、入口、使用者、测试与修改影响 |
 | `角色卡/<项目管理>/docs/architecture.md` | 当前整体架构、角色配合和功能导航链接 |
 | `角色卡/<角色>/feature-map.md` | 本角色的功能导航 |
 | `角色卡/<角色>/docs/feature/<功能名>.md` | 当前用途、流程图、分支和历史链接 |
-| `角色卡/<统筹>/docs/scheduling/<任务 ID>.md` | 工具单写的全局计划、步骤和历史，实际路径按边界确定 |
+| `docs/scheduling/<任务 ID>.md` | 项目根下由工具单写的全局计划、步骤和历史 |
 | 独立验收角色自己获准的标准和结论文件 | 当前完成条件、版本、原始证据及通过/返工/证据不足判断 |
 | 角色 docs 下的 `design/`、`change/`、`fix/` | 带日期的设计、修改和修复历史 |
 
@@ -234,6 +264,10 @@ git add .agents/skills/ans-governed-construction
 ## 任务工具与可选旧工具
 
 多角色任务使用 `task_ops` 时，新任务写入一份 `docs/scheduling/<任务 ID>.md`，包含计划、步骤状态和事件历史，可以随项目提交到 Git。项目授权配置仍使用一份 `.ans/project.json`；本地锁和检查输出保存在被忽略的 `.ans/runtime/`。换机器后能读历史，但运行中的工作和本地检查证据需重新核对。详见[任务操作说明](references/task-operations.md)。
+
+角色可以把自己的功能导航、备忘录、职责说明，以及工作需要的接口报告和其他文档列入任务。每个文件必须同时获角色权限、项目配置和本次任务允许。整个目录有权限，也要列清这次具体改哪些文件。其他角色的资料、角色卡、权限文件和任务状态仍受保护。
+
+换终端查看结果时，仅 PATH 写法不同不会再误报检查失效；真正的程序、配置、相关输入或证据变了，结果仍会失效。旧检查只有环境摘要，仍按旧方式核对，不会自动升级。新检查的执行环境记录若丢失或损坏，需要按流程重新检查。细节见[任务操作说明](references/task-operations.md)。
 
 [旧 JSON 架构 HTML](references/role-architecture-viewer.md)、Dashboard、云端同步、角色消息和历史文档查询按需要保留，不默认启动，也不要求维护旧 JSON 或项目理解索引。本轮没有改造旧工具使其读取新的 Markdown 导航。需要这些工具时，查阅 [Dashboard 指南](dashboard/README.md)；云端上传仍由用户手动决定。
 
