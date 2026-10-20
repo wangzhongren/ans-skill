@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).parents[1]))
 from coordination_store import Store, Rejected, encoded, file_hash, sha
-from task_ops import operate, roles_valid
+from task_ops import operate, roles_valid, preflight_role, environment
 
 class TaskOpsTests(unittest.TestCase):
  def setUp(self):
@@ -365,7 +365,7 @@ class TaskOpsTests(unittest.TestCase):
   self.op('verify',{'nodeId':'a'})
   self.assertEqual([e['exitCode'] for e in self.state()['checkHistory']],[9,0])
   with patch.dict('os.environ',{'NODE_OPTIONS':'--new-environment'}):
-   self.assertFalse(self.state()['currentAcceptanceValid'])
+   self.assertTrue(self.state()['currentAcceptanceValid'])
  def test_changed_candidate_check_and_timeout_fail(self):
   for name,code in [('mutate','from pathlib import Path;Path("src/a.py").write_text("changed")'),('timeout','import time;time.sleep(2)')]:
    with self.subTest(name=name):
@@ -480,5 +480,277 @@ class TaskOpsTests(unittest.TestCase):
      target=Path(outside)/filename;target.write_text('{}')
      path=self.root/'docs/scheduling'/task/filename;path.unlink();path.symlink_to(target)
      with self.assertRaisesRegex(Rejected,'Symlink'):operate(self.root,task,'status',{})
+
+ def registered_config(self, custom_root='role-cards/a'):
+  definitions={}
+  for role_id in ['a','b','scheduler','acceptance']:
+   role_root='role-cards/'+role_id
+   if role_id=='a':role_root=custom_root
+   card=role_root+'/role-card.md';boundary=role_root+'/boundary.md'
+   if role_id in self.config['roles']:
+    original=self.config['roles'][role_id]
+    text=(self.root/original['boundary']).read_text()
+    self.put(card,'# '+role_id);original.update(card=card,boundary=boundary)
+   elif (self.root/boundary).exists():text=(self.root/boundary).read_text()
+   else:text='# Section 1\n'
+   self.put(card,'# '+role_id)
+   required=[role_root+'/'+name for name in ['feature-map.md','memo.md','functional-description.md']]
+   api='not-applicable'
+   if role_id=='a':
+    api='required';required.append(role_root+'/api-spec.md')
+   for path in required:text+='\n| file | `'+path+'` | owner work |'
+   text+='\n| directory | `'+role_root+'/docs/` | owner history |'
+   if role_id=='scheduler':
+    text+='\n| file | `.ans/project.json` | approved config |\n| directory | `.ans/runtime/` | runtime |\n| directory | `docs/scheduling/` | Store only |'
+   self.put(boundary,text)
+   reason='Fixture coordination role has no exported interface'
+   if api=='required':reason='Fixture has callable code'
+   definitions[role_id]={'card':card,'boundary':boundary,'requiredWorkDocuments':required,'apiSpec':api,'apiSpecReason':reason}
+  self.config['roleDefinitions']=definitions
+  return definitions
+
+ def fresh_registered_task(self):
+  self.task='documents';self.plan['taskId']=self.task
+  self.initialize()
+
+ def legacy_check_fixture(self):
+  """Model a real hash-only old-format check; never migrate a real task."""
+  store=Store(self.root,self.task);bundle=store.load()
+  state=bundle['state']['nodes'][0]
+  legacy=dict(state['checkEvidence']['ok'])
+  legacy.pop('environmentVersion');legacy.pop('environmentSnapshot')
+  legacy['environment']=environment(self.root,self.config['roles']['a']['checks']['ok'])
+  state['checkEvidence']['ok']=legacy
+  state['checkHistory'][-1]=legacy
+  store.commit(bundle,'legacy-check-fixture','Explicit isolated old-format fixture')
+
+ def test_preflight_cli_is_read_only_without_task_or_store(self):
+  self.registered_config();self.put('.ans/preflight.json',json.dumps(self.config))
+  def tree():
+   entries={}
+   for path in self.root.rglob('*'):
+    data=None
+    if path.is_file():data=path.read_bytes()
+    entries[str(path.relative_to(self.root))]=(path.stat().st_mode,data)
+   return entries
+  before=tree()
+  with patch('task_ops.Store',side_effect=AssertionError('Preflight must not construct Store')):
+   result=operate(self.root,None,'preflight-role',{'configPath':'.ans/preflight.json'})
+  self.assertTrue(result['permissionsComplete']);self.assertEqual(result['status'],'ok')
+  self.assertTrue(all(not document['exists'] and document['permissionGranted'] for role in result['roles'] for document in role['documents']))
+  script=Path(__file__).parents[1]/'task_ops.py'
+  proc=subprocess.run([sys.executable,str(script),'--root',str(self.root),'preflight-role','--request','-'],input=json.dumps({'configPath':'.ans/preflight.json'}),capture_output=True,text=True)
+  self.assertEqual(proc.returncode,0,proc.stdout+proc.stderr)
+  self.assertTrue(json.loads(proc.stdout)['permissionsComplete']);self.assertEqual(tree(),before)
+
+ def test_preflight_lists_core_and_work_doc_missing_permissions(self):
+  definitions=self.registered_config()
+  missing='role-cards/a/memo.md';work='role-cards/a/docs/fix/current.md'
+  definitions['a']['requiredWorkDocuments'].append(work)
+  text=(self.root/definitions['a']['boundary']).read_text()
+  self.put(definitions['a']['boundary'],'\n'.join(line for line in text.splitlines() if '`'+missing+'`' not in line and 'role-cards/a/docs/' not in line))
+  result=preflight_role(self.root,self.config)
+  self.assertFalse(result['permissionsComplete'])
+  issues=next(role['issues'] for role in result['roles'] if role['roleId']=='a')
+  self.assertEqual({issue['path'] for issue in issues},{missing,work})
+  with self.assertRaisesRegex(Rejected,'preflight'):self.fresh_registered_task()
+  self.assertFalse((self.root/'docs/scheduling/documents.md').exists())
+
+ def test_preflight_rejects_missing_required_api_and_applicability(self):
+  definitions=self.registered_config()
+  definitions['a']['requiredWorkDocuments'].remove('role-cards/a/api-spec.md')
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+  definitions['a']['apiSpec']='not-applicable';definitions['a']['apiSpecReason']=''
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+
+ def test_registered_custom_root_and_future_document_real_lifecycle(self):
+  self.registered_config('团队/库存存储')
+  path='团队/库存存储/docs/change/future.md'
+  self.config['roles']['a']['writeFiles']=[path];self.plan['nodes'][0]['writeSet']=[path]
+  self.config['roles']['a']['checks']['ok']['argv']=[sys.executable,'-c','from pathlib import Path;assert "approved marker" in Path("'+path+'").read_text()']
+  self.fresh_registered_task();a=self.dispatch()
+  self.put(path,'approved marker')
+  self.op('run-check',{**a,'checkId':'ok'})
+  self.op('report',{**a,'reportId':'document-done','kind':'complete','summary':'actual document checked','changedPaths':[path]})
+  self.op('verify',{'nodeId':'a'});self.assertTrue(self.state()['currentAcceptanceValid'])
+  self.assertNotIn(path,self.config['roleDefinitions']['a']['requiredWorkDocuments'])
+  self.assertNotIn('role-cards/a',a['card'])
+
+ def test_registered_roots_bindings_and_governance_are_protected(self):
+  definitions=self.registered_config()
+  good=json.loads(json.dumps(self.config))
+  for path in ['role-cards/a/role-card.md','role-cards/a/boundary.md','role-cards/a/boundary.yaml','role-cards/a/changelog.md','role-cards/a/docs/boundary.md','role-cards/b/memo.md','.ans/project.json','docs/scheduling/new.md']:
+   with self.subTest(path=path):
+    self.config=json.loads(json.dumps(good));self.config['roles']['a']['writeFiles']=[path]
+    boundary=self.config['roles']['a']['boundary'];original=(self.root/boundary).read_text()
+    self.put(boundary,original+'\n| file | `'+path+'` | wrongly granted |')
+    with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+    self.put(boundary,original)
+  self.config=json.loads(json.dumps(good));self.config['roleDefinitions'].pop('scheduler')
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+  self.config=json.loads(json.dumps(good));self.config['roles']['a']['card']=definitions['b']['card']
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+  self.config=json.loads(json.dumps(good));self.config['roleDefinitions']['a']['boundary']=definitions['b']['boundary']
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+
+ def test_preflight_checks_all_boundary_scopes_not_selected_write_files(self):
+  definitions=self.registered_config()
+  other=definitions['b']['boundary'];original=(self.root/other).read_text()
+  for path in ['src/a.py','src/','src','common/','test/','role-cards/a/','role-cards/a/docs/','.ans/project.json']:
+   with self.subTest(path=path):
+    self.put(other,original+'\n| scope | `'+path+'` | not selected for writeFiles |')
+    self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+  self.put(other,original)
+  self.assertTrue(preflight_role(self.root,self.config)['permissionsComplete'])
+
+ def test_preflight_protects_custom_nonexecuting_governance_in_common_and_test(self):
+  definitions=self.registered_config()
+  for role_id,role_root in [('custom-common','src/common/governed'),('custom-test','test/governed')]:
+   required=[role_root+'/'+name for name in ['feature-map.md','memo.md','functional-description.md']]
+   card=role_root+'/custom-card.txt';boundary=role_root+'/custom-scope.txt'
+   self.put(card,'# custom governance')
+   self.put(boundary,'# Section 1\n'+'\n'.join('| file | `'+path+'` | work |' for path in required))
+   definitions[role_id]={'card':card,'boundary':boundary,'requiredWorkDocuments':required,'apiSpec':'not-applicable','apiSpecReason':'No callable code in this fixture'}
+  self.assertTrue(preflight_role(self.root,self.config)['permissionsComplete'])
+  original=(self.root/definitions['a']['boundary']).read_text()
+  for path in ['src/common/governed/','test/governed/','src/common/governed/custom-card.txt','test/governed/custom-scope.yaml']:
+   with self.subTest(path=path):
+    self.put(definitions['a']['boundary'],original+'\n| scope | `'+path+'` | not selected |')
+    result=preflight_role(self.root,self.config)
+    self.assertFalse(result['permissionsComplete'])
+    self.assertIn('protected governance',json.dumps(result))
+  self.put(definitions['a']['boundary'],original)
+
+ def test_preflight_scope_column_ignores_purpose_and_keeps_scheduler_management(self):
+  definitions=self.registered_config()
+  path=definitions['b']['boundary'];self.put(path,(self.root/path).read_text()+'\n| file | `.gitignore` | ignores `.ans/runtime/` |')
+  self.assertTrue(preflight_role(self.root,self.config)['permissionsComplete'])
+  self.config['roles']['a']['writeFiles']=['.ans/runtime/file.txt']
+  with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+
+ def test_registered_directory_governance_and_nested_role_roots_rejected(self):
+  definitions=self.registered_config()
+  self.put('role-cards/a/docs/hidden/changelog.md','governance')
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+  (self.root/'role-cards/a/docs/hidden/changelog.md').unlink()
+  definitions['extra']={'card':'role-cards/a/docs/hidden/card.md','boundary':'role-cards/a/docs/hidden/scope.md','requiredWorkDocuments':[],'apiSpec':'not-applicable','apiSpecReason':'fixture'}
+  self.put(definitions['extra']['card'],'# extra');self.put(definitions['extra']['boundary'],'# Section 1')
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+
+ def test_registered_document_canonical_and_symlink_paths_rejected(self):
+  definitions=self.registered_config()
+  self.put('outside/valid.md','source')
+  (self.root/'role-cards/a/docs').mkdir()
+  (self.root/'role-cards/a/docs/link').symlink_to(self.root/'outside',target_is_directory=True)
+  for path in ['role-cards/a/docs/../memo.md','role-cards/a/docs//new.md','role-cards/a/docs/link/not-created.md','role-cards/a/docs/*.md']:
+   with self.subTest(path=path):
+    self.config['roles']['a']['writeFiles']=[path]
+    with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+  definitions['a']['requiredWorkDocuments'].append('role-cards/a/docs/link/valid.md')
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+
+ def test_legacy_config_still_rejects_role_documents(self):
+  path='role-cards/a/memo.md';self.config['roles']['a']['writeFiles']=[path]
+  boundary=self.config['roles']['a']['boundary'];self.put(boundary,(self.root/boundary).read_text()+'\n| file | `'+path+'` | work |')
+  with self.assertRaises(Rejected):roles_valid(self.root,self.config)
+
+ def test_v2_other_query_environment_verify_and_dependency_dispatch(self):
+  a=self.dispatch();self.op('run-check',{**a,'checkId':'ok'})
+  self.op('report',{**a,'reportId':'done','kind':'complete','summary':'done'})
+  with patch.dict('os.environ',{'PATH':'/query-only-path','LANG':'query-LANG','NODE_OPTIONS':'query-options'}):
+   self.op('verify',{'nodeId':'a'})
+   self.assertTrue(self.state()['currentAcceptanceValid']);b=self.dispatch('b')
+  self.assertEqual(b['roleId'],'b')
+
+ def test_v2_private_snapshot_and_no_untracked_environment_capture(self):
+  self.task='private';self.plan['taskId']=self.task
+  self.config['roles']['a']['checks']['ok']['env']={'SYNTHETIC_TRACKED':'private-tracked-marker','PYTHONDONTWRITEBYTECODE':'0'}
+  self.initialize();a=self.dispatch()
+  with patch.dict('os.environ',{'SYNTHETIC_UNTRACKED':'private-untracked-marker','NODE_OPTIONS':'private-inherited-marker'}):
+   result=self.op('run-check',{**a,'checkId':'ok'})
+  evidence=result['evidence'];self.assertEqual(evidence['environmentVersion'],2)
+  snapshot=self.root/evidence['environmentSnapshot']['path'];data=json.loads(snapshot.read_text())
+  self.assertEqual(data['values']['PYTHONDONTWRITEBYTECODE'],'1')
+  self.assertEqual(data['values']['SYNTHETIC_TRACKED'],'private-tracked-marker')
+  self.assertNotIn('SYNTHETIC_UNTRACKED',data['values'])
+  self.assertEqual(snapshot.stat().st_mode&0o777,0o600);self.assertEqual(snapshot.parent.stat().st_mode&0o777,0o700)
+  self.assertNotIn('declaredEnvironment',evidence['environment'])
+  public=Store(self.root,self.task).document.read_text()+json.dumps(self.op('status'))
+  for marker in ['private-tracked-marker','private-untracked-marker','private-inherited-marker']:self.assertNotIn(marker,public)
+
+ def test_v2_snapshot_missing_or_modified_invalidates_without_legacy_fallback(self):
+  a=self.dispatch();self.complete(a)
+  reference=self.state()['checkEvidence']['ok']['environmentSnapshot'];path=self.root/reference['path'];original=path.read_bytes()
+  path.write_bytes(b'{}')
+  self.assertFalse(self.state()['currentAcceptanceValid'])
+  path.write_bytes(original);self.assertTrue(self.state()['currentAcceptanceValid'])
+  path.unlink();self.assertFalse(self.state()['currentAcceptanceValid'])
+  with self.assertRaises(Rejected):self.dispatch('b')
+
+ def test_v2_readset_resource_and_declared_configuration_changes_invalidate(self):
+  self.task='resources';self.plan['taskId']=self.task
+  path='test/a/approved-resource.txt';self.put(path,'approved resource')
+  self.plan['nodes'][0]['readSet']=[path]
+  self.config['roles']['a']['checks']['ok']['env']={'DECLARED_MODE':'approved'}
+  self.initialize();a=self.dispatch();self.complete(a)
+  self.put(path,'changed resource');self.assertFalse(self.state()['currentAcceptanceValid'])
+  with self.assertRaises(Rejected):self.dispatch('b')
+  self.put(path,'approved resource');self.assertTrue(self.state()['currentAcceptanceValid'])
+  self.config['roles']['a']['checks']['ok']['env']['DECLARED_MODE']='changed'
+  self.put('.ans/project.json',json.dumps(self.config))
+  self.assertFalse(self.op('status')['state']['taskComplete'])
+  self.assertIn('configuration changed',self.op('status')['state']['currentValidityReason'])
+
+ def test_v2_executable_symlink_target_and_bytes_are_rechecked(self):
+  self.task='executable';self.plan['taskId']=self.task
+  original=self.put('bin/first','#!/bin/sh\nprintf first');original.chmod(0o755)
+  other=self.put('bin/second','#!/bin/sh\nprintf second');other.chmod(0o755)
+  selected=self.root/'bin/selected';selected.symlink_to(original)
+  self.config['roles']['a']['checks']['ok']={'argv':['selected'],'env':{'PATH':'bin'}}
+  self.initialize();a=self.dispatch();self.complete(a)
+  self.assertEqual(self.state()['checkEvidence']['ok']['environment']['executable'],str(original))
+  selected.unlink();selected.symlink_to(other);self.assertFalse(self.state()['currentAcceptanceValid'])
+  selected.unlink();selected.symlink_to(original);self.assertTrue(self.state()['currentAcceptanceValid'])
+  original.write_text('#!/bin/sh\nprintf changed');self.assertFalse(self.state()['currentAcceptanceValid'])
+
+ def test_v2_checks_use_single_capture_and_pinned_program(self):
+  self.task='capture';self.plan['taskId']=self.task
+  selected=self.put('bin/probe','#!/bin/sh\nprintf captured');selected.chmod(0o755)
+  self.config['roles']['a']['checks']['ok']={'argv':['probe'],'env':{'PATH':'bin'}}
+  self.initialize();a=self.dispatch()
+  from task_ops import execution_environment
+  with patch('task_ops.execution_environment',wraps=execution_environment) as capture:
+   result=self.op('run-check',{**a,'checkId':'ok'})
+  self.assertEqual(capture.call_count,1);self.assertEqual(result['evidence']['exitCode'],0)
+  self.assertEqual((self.root/result['evidence']['path']).read_text(),'captured')
+
+ def test_v2_executable_changes_during_check_and_snapshot_write_failure(self):
+  self.task='self-change';self.plan['taskId']=self.task
+  executable=self.put('bin/mutate','#!/bin/sh\nprintf changed >> "$0"\n');executable.chmod(0o755)
+  self.config['roles']['a']['checks']['ok']={'argv':['bin/mutate']}
+  self.initialize();a=self.dispatch();result=self.op('run-check',{**a,'checkId':'ok'})
+  self.assertEqual(result['status'],'check-failed');self.assertFalse(result['evidence']['environmentUnchanged'])
+  with patch('task_ops.atomic',side_effect=OSError('snapshot storage failed')):
+   with self.assertRaisesRegex(OSError,'snapshot storage failed'):self.op('run-check',{**a,'checkId':'ok'})
+  self.assertEqual(len(self.state()['checkHistory']),1)
+
+ def test_legacy_environment_still_rechecks_query_variables_without_migration(self):
+  a=self.dispatch();self.op('run-check',{**a,'checkId':'ok'});self.legacy_check_fixture()
+  self.op('report',{**a,'reportId':'old-done','kind':'complete','summary':'legacy fixture'})
+  self.op('verify',{'nodeId':'a'});before=Store(self.root,self.task).document.read_bytes()
+  with patch.dict('os.environ',{'NODE_OPTIONS':'--new-environment'}):self.assertFalse(self.state()['currentAcceptanceValid'])
+  self.assertTrue(self.state()['currentAcceptanceValid']);self.assertEqual(Store(self.root,self.task).document.read_bytes(),before)
+  self.assertNotIn('environmentVersion',self.state()['checkEvidence']['ok'])
+
+ def test_unknown_environment_version_or_bad_snapshot_shape_rejected(self):
+  from task_ops import check_environment_valid
+  a=self.dispatch();result=self.op('run-check',{**a,'checkId':'ok'});evidence=result['evidence']
+  bundle=Store(self.root,self.task).load();state=bundle['state']['nodes'][0];check=self.config['roles']['a']['checks']['ok']
+  for version in [None,1,3,True]:
+   with self.subTest(version=version):
+    with self.assertRaisesRegex(Rejected,'version'):check_environment_valid(self.root,bundle,state,'ok',check,{**evidence,'environmentVersion':version})
+  path=self.root/evidence['environmentSnapshot']['path'];data=json.loads(path.read_text());data['absentKeys'].append('PATH');path.write_text(json.dumps(data))
+  bad={**evidence,'environmentSnapshot':{'path':evidence['environmentSnapshot']['path'],'sha256':file_hash(self.root,evidence['environmentSnapshot']['path'])}}
+  with self.assertRaisesRegex(Rejected,'keys/absent'):check_environment_valid(self.root,bundle,state,'ok',check,bad)
 
 if __name__=='__main__':unittest.main()

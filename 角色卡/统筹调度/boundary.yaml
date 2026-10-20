@@ -1,14 +1,19 @@
+---
 source: boundary.md
 section1:
   entries:
   - type: 单文件
-    path: 角色卡/统筹调度/feature-map.md
-    purpose: 本角色功能导航；说明无直接负责的业务功能
+    path: "角色卡/统筹调度/feature-map.md"
+    purpose: "本角色功能导航；说明无直接负责的业务功能"
   - type: 单文件
-    path: 角色卡/统筹调度/memo.md
-    purpose: 本角色私有工作备忘录
+    path: "角色卡/统筹调度/memo.md"
+    purpose: "本角色私有工作备忘录"
   - type: 单文件
-    path: 角色卡/统筹调度/docs/coordination/2026-10-19_role-authority-split-handoff.md
-    purpose: 本轮职责迁移和协作交接文档
+    path: "角色卡/统筹调度/docs/coordination/2026-10-19_role-authority-split-handoff.md"
+    purpose: "本轮职责迁移和协作交接文档"
+  - type: 单文件
+    path: "角色卡/统筹调度/docs/coordination/2026-10-20_workflow-fixes-handoff.md"
+    purpose: "工作流缺口修复协调交接"
   notes:
-  - 未列路径默认只读。此边界不授予任务记录、业务代码、其他角色文档、测试文件或治理文件的写入权限。不得自行创建任务 ID、手工写入全局调度状态或代表验收提交结论；未来任务记录路径须由 ANS 团队组建（原 ANS Governance，同一内置身份）按已授权工具与具体任务精确增加。
+  - "未列路径默认只读。此边界不授予任务记录、业务代码、其他角色文档、测试文件或治理文件的写入权限。不得自行创建任务 ID、手工写入全局调度状态或代表验收提交结论；未来任务记录路径须由 ANS 团队组建（原 ANS Governance，同一内置身份）按已授权工具与具体任务精确增加。"
+  - "本轮 2026-10-20 治理授权仅增加表中列出的本角色工作文档路径；不扩大其他角色或程序文件权限。"

@@ -2,7 +2,7 @@
 
 使用 [task_ops.py](../scripts/task_ops.py) 维护任务记录，不手工改状态 JSON 或 Markdown 机器块。程序核对角色范围、依赖、版本确认、反馈身份和实际检查证据，通过一个加锁存储统一写记录。它不会创建代理、执行操作系统权限隔离或独立认证客户身份。
 
-下列字段已按当前 `task_ops.py` 与 `coordination_store.py` 实码核对，对应[本轮设计](../角色卡/项目管理/docs/design/2026-10-19_design_role-authority-split.md)。配置和计划仍使用 `schemaVersion: 1`，新任务状态使用 `schemaVersion: 2`。接口已实现不等于整体验证通过：开发单测、真实 CLI 与独立验收分别以各所有者原报告为准。
+既有分权字段对应[分权设计](../角色卡/项目管理/docs/design/2026-10-19_design_role-authority-split.md)；本轮角色文档与环境v2按客户已确认的[D1-final-1](../角色卡/项目管理/docs/design/2026-10-20_design_workflow-fixes.md)同步。新增CLI字段已按任务工具owner交付接口核对，独立测试与验收仍待各原报告，不将文档接口核对当作执行通过。配置和计划仍使用 `schemaVersion: 1`，新任务状态使用 `schemaVersion: 2`。接口已实现不等于整体验证通过：开发单测、真实 CLI 与独立验收分别以各所有者原报告为准。
 
 ## 谁持有什么权限
 
@@ -18,6 +18,36 @@
 客户／可信端审核一份项目执行配置（通常 `.ans/project.json`），固定实际内容摘要。AI 自己计算摘要不是客户批准；配置须说明真实角色卡、边界、精确写入文件、允许操作、检查命令与自动派发权限。任务写入集合只能缩小已确认边界。配置中目录归属和计划中精确文件是两件事：获准目录可长出任务必要文件，但执行前仍须列入已审核配置和当前任务。
 
 独立验收秘密由可信本地端在统筹上下文之外产生，明文只直接交验收上下文，配置只放摘要及批准验收身份和标准路径。初始化不能产生、返回或覆盖验收秘密，不能让两种凭证相同。明文不进入仓库、报告、共享记录或云端项目 Key；丢失或更换须重新走可信配置与授权建任务，不能让统筹重置它。工具检查秘密与固定输入，不把角色名、摘要或自述当客户身份认证。
+
+## 角色文档登记与交接预检
+
+现有配置 `schemaVersion: 1` 可增加 `roleDefinitions`，不新建配置文件。每个实际roleId登记 `card`、`boundary`、`requiredWorkDocuments`、`apiSpec`、`apiSpecReason`。card/boundary是存在、可读、无符号链接的精确项目相对路径，必须同父；该父目录才是角色根，不能从roleId拼目录。重复或相互嵌套的角色根拒绝。roles执行者和acceptanceAuthority的card/boundary必须与登记一致，schedulerRoleId也须已登记。
+
+登记涵盖本项目全部实际角色，包括不作为执行者的统筹、策划、PM和验收。团队组建准备实际清单，原owner核对适用性，统筹与验收核对完整性；工具只能验证提供的登记，不能证明不存在未登记角色，也不递归把隔离样例当项目角色。
+
+`requiredWorkDocuments` 是职责需要的精确工作文件，仅用于预检许可，不授权、不接受目录通配，也不限制已获边界覆盖的未来日期文档。最低列实际角色根下feature-map.md、memo.md、functional-description.md；有真实对外代码/shared能力或装配接口时 `apiSpec: "required"` 并加入根api-spec.md，否则可声明 `"not-applicable"`。两种取值都须非空、可核对的apiSpecReason，不能凭角色名判断或临时漏填。纯协作角色写真实职责、交接和文档位置，无系统功能/代码就明说，不虚构代码层。
+
+团队组建只准备完整登记内容与角色权限定义，已接受的统筹在其自身边界内写候选执行配置。新项目先接受统筹定义，独立固定统筹上下文仅做配置准备，随后运行只读预检；齐全后再交接/派发其余实际工作。已有项目由原统筹准备配置。此顺序不授权团队组建写配置，不新增审批，也不以配置准备代替客户配置审核或派发门禁。候选配置具备后，运行真实只读入口：
+
+```sh
+python3 /path/to/skill/scripts/task_ops.py --root /path/to/project preflight-role --request -
+```
+
+标准输入只传 `{"configPath":".ans/project.json"}`，替换成实际候选配置路径。不要求 `--task`、凭证或审批动作；此分支在Store构造/加锁之前执行，不创建任务、runtime、忽略文件、锁或日志，不运行checks，也不修改文档或边界。响应有 `status`、`permissionsComplete`、逐角色 `roles`（含documents和issues）以及全局 `issues`；指出角色、实际路径、缺权/重叠/保护问题及文档存在情况。成功退出0，缺项或冲突退出2。文件尚不存在可报告 `exists=false`，不能把许可齐全说成内容已完成。
+
+预检读取全部登记角色真实Section 1，既查requiredWorkDocuments归本人且获许可，也查未选入当前writeFiles的权限重叠。失败交团队组建处理所需授权差额并重查；适用性不清返回职责定义owner。成功不等于客户批准、派发或验收。新配置启用roleDefinitions时，init复用同源检查，失败不创建任务记录；后续定义改变仍按现有哈希门禁失效。
+
+无roleDefinitions的旧配置保持原执行范围语义；申请新增角色文档能力，须完整登记、新审核配置和新任务，不能改旧批准内容或configHash自动扩权。此规则与旧JSON任务状态的只读兼容是两件事。
+
+### 哪些工作文件可以进入执行范围
+
+角色文档必须同时处于以下交集：**自身有限根工作文件或自身有界docs内精确Markdown ∩ 实际Section 1 ∩ 审核配置精确writeFiles ∩ 当前节点精确writeSet**。根文件限feature-map、memo、functional-description及适用api-spec；不开放任意根文件或整个角色根。Section 1可授自身docs/或明确docs子树，配置/节点仍只能选择本轮精确文件，目录不能进入writeFiles/writeSet。代码文件及common/test原限制保持。
+
+先构造全部角色保护集合，再判断许可：全部实际card/boundary、同名boundary YAML、根changelog，包含自定义治理路径；docs内治理命名也不作普通工作文件。`.ans/`与`docs/scheduling/`及子路径继续拒绝普通执行写入，其他角色资料受保护。目录授权也检查是否包含保护文件、包含或进入其他角色根、与其他角色文件/目录相交；路径按组件判断，docs/a不覆盖docs/ab。同角色文件在自己的目录许可内可去重。
+
+完整登记中的统筹合法管理范围（如.ans/runtime和docs/scheduling）可以参与规范所有权核对，不因此成为普通执行writeFiles；统筹状态仍由Store路由统一写入，不能借文档许可直接改机器记录。治理覆盖资料也不属于允许的普通工作文件。
+
+复用safe和规范相对路径检查，拒绝绝对路径、点段、反斜线、穿越、符号链接；未创建文件也核对现存父目录。保持全部Section 1权限的不重叠检查、批准配置与节点子集校验、授权/ack/changedPaths/候选/readSet/报告门禁。工具不提供OS沙箱，也不自动扫描所有架构缺陷。
 
 ## 配置与实际命令
 
@@ -52,6 +82,7 @@ python3 /path/to/skill/scripts/task_ops.py --root /path/to/project --task repair
 
 | 命令 | 实际请求与结果 |
 | --- | --- |
+| `preflight-role` | 无任务只读命令，请求仅configPath；返回status/permissionsComplete/roles及issues；不授予写权 |
 | `init` | `configPath`（默认 `.ans/project.json`）、`approvedConfigSha256`、完整 `plan`；可带至少 32 字符 `schedulerToken`，否则生成；返回 `schedulerToken`。拒绝请求中的 `coordinatorToken`、`acceptanceToken`、`acceptanceAuthority`、`credentialHash`，不返回验收秘密 |
 | `accept-plan` | `acceptanceToken`、当前整数 `stateRevision`、`planRevision`、`criteria`、`customerApproval`、`requiredNodes`、`independentTests`；记录计划预检 |
 | `dispatch` | `schedulerToken`、`nodeId`、`workerId`；非自动派发还须 `consent` 或 `consentPath` 及 `approvedConsentSha256`；失败/阻塞重试须 `retryReason`；返回一次性工作 `assignment` |
@@ -132,7 +163,21 @@ python3 /path/to/skill/scripts/task_ops.py --root /path/to/project --task repair
 
 工作者先确认分配的版本，再运行配置固定 argv 的检查；不通过 shell 执行报告中的任意命令。记录候选、生产角色/工作者/节点/批次、起止时间、退出码、输出摘要和下述环境快照。失败、超时、候选被检查修改、无法执行和未测试均不算通过。开发自测不能冒充独立测试角色产生的完整流程证据。
 
-当前环境快照使用与子进程相同的项目 cwd 和合并环境：`os.environ`、检查 `env`，再强制 `PYTHONDONTWRITEBYTECODE=1`。它比较平台、执行 task_ops 的 Python 版本、argv 首个程序解析后的路径及该文件内容摘要，以及 `PATH/PYTHONPATH/NODE_PATH/NODE_OPTIONS/LANG/LC_ALL/TZ/PYTHONDONTWRITEBYTECODE` 和全部声明 `env` 值的摘要；检查前后也必须一致。它不自动核对外部程序的所有库依赖、数据库、远程服务或未声明的其他继承变量；相关文件放进 readSet，其他必需环境行为用实际批准检查证明。不能宣称工具检测了所有环境变化。
+### 环境证据v2：核对执行者的实际环境
+
+新run-check证据增加 `environmentVersion: 2` 和 `environmentSnapshot: {path, sha256}`，不升级任务状态schema。程序只构造一次实际子进程环境：继承环境、批准check.env覆盖并强制PYTHONDONTWRITEBYTECODE=1；同一映射用于执行前后核对和subprocess。跟踪PATH、PYTHONPATH、NODE_PATH、NODE_OPTIONS、LANG、LC_ALL、TZ、PYTHONDONTWRITEBYTECODE及全部声明env键，区分有值与absent，不额外采集全部os.environ。
+
+实际值仅存工具生成的 `.ans/runtime/check-environments/<task>/<attempt>-<check>-<nonce>.json`，目录0700、文件0600，路径不由请求者指定，safe校验并原子写入。任务记录仅保存路径/摘要、跟踪键集合、environment指纹、声明env摘要及执行文件身份；v2不写明文declaredEnvironment。完整环境、秘密值和私密快照不进入Git、报告、status或云端；配置check.env也不适合放明文秘密。
+
+程序按项目cwd和捕获PATH解析首个可执行文件，记录canonical实际路径与文件摘要，固定该实际路径执行。合法系统可执行符号链接记录其解析目标，复核时须仍指同一实际文件和字节；项目输入路径仍由safe拒绝符号链接。执行后用同一捕获环境重新核对程序、平台/Python身份、候选和日志，记录environmentUnchanged；快照写入失败或程序过程变化不能生成有效通过证据。
+
+status、verify、依赖消费使用同一有效性逻辑：先核原有批准配置、定义、标准、产物、writeSet/readSet、producer/attempt、报告、日志和验收关联，再核私密快照路径/形状/键及absent语义/摘要，最后在原捕获环境下重核执行文件、声明环境、平台与Python运行身份。查询者PATH、LANG等不会替换原检查环境。仅查询者PATH写法不同且原对象不变不误失效；实际程序路径/内容、声明env/批准配置、快照、相关源码/资源/readSet或日志改变仍当前无效。平台/Python改变可保守失效，不承诺跨机器复用。
+
+只有**没有environmentVersion字段**的legacy证据继续按旧environment(root, check)重建查询进程环境比较，原PATH差异仍可能失效。v2快照缺失、损坏、错误形状或摘要不匹配，及未知environmentVersion，均直接当前无效并说明原因；绝不回退legacy或查询者环境，不补写快照，不从旧variablesHash反推原值或追认旧通过。私密快照丢失或换机器无法恢复时，用新审核任务真实复测。
+
+若需实际换检查环境，只有既有状态机允许且仍active的assignment可真实run-check并记录新快照，随后由独立验收对新证据重新verify，不能沿用旧acceptance。candidate/attempt没变时，完成报告沿用既有门禁，不新增通用report与environment绑定系统；verified节点已非active，不能原批次重开/重跑，须新审核任务。check.env或批准配置变更同样需要新审核任务，不改configHash伪装未变，也不编辑快照切环境。
+
+工具代码、批准入口及相关配置/资源需列入readSet；间接工具和其他必要文件也明确声明。继承但未跟踪变量、未声明的动态依赖、数据库和远程服务等不在自动检测承诺内；额外必要变量放批准check.env，文件放readSet。保留全部原检查和失败历史。
 
 完成报告只把节点交给待验收，不能释放业务依赖。验收结论须指向当前计划、标准、候选、批次、完成报告和检查证据，并核对预期状态版本，避免看完旧成果却通过新成果。
 
@@ -169,4 +214,4 @@ Dashboard 继续只读展示同一记录；云端一个项目 Key 和管理员�
 
 开发与回归使用 `python3 -m unittest discover -s scripts/tests -v`，真实 CLI 由独立测试角色检查。隔离 Timer 回放脚本为 [validate_task_flow.py](../scripts/validate_task_flow.py)，输入与现有源码保持只读；支持 TypeScript stripping 的实际 Node 路径由运行方提供。回放不是浏览器、DOM 或 TypeScript 编译验证。
 
-本指南已按真实代码接口核对。[开发者原报告](../角色卡/任务工具/docs/change/2026-10-19_change_task-authority.md)已记录 49 项单测和隔离 timer 回放通过；回放使用子进程、标准输入 JSON 调用真实 CLI，并使用独立测试角色。固定测试的实际命令、受测候选、结果和限制以其[原报告](../角色卡/测试/docs/change/2026-10-19_change_role-authority-split-validation.md)为准，当前正在整理最终证据；独立验收尚未给终验结论。开发自测和接口说明不代替独立 QA 或最终验收。
+既有分权接口与本轮新增接口的核对状态分别见本文开头及[D1](../角色卡/项目管理/docs/design/2026-10-20_design_workflow-fixes.md)。以下是2026-10-19既有工作事实，不作为本轮修复的通过结论。[开发者原报告](../角色卡/任务工具/docs/change/2026-10-19_change_task-authority.md)已记录 49 项单测和隔离 timer 回放通过；回放使用子进程、标准输入 JSON 调用真实 CLI，并使用独立测试角色。固定测试的实际命令、受测候选、结果和限制以其[原报告](../角色卡/测试/docs/change/2026-10-19_change_role-authority-split-validation.md)为准，当前正在整理最终证据；独立验收尚未给终验结论。开发自测和接口说明不代替独立 QA 或最终验收。

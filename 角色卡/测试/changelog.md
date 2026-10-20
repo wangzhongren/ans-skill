@@ -14,3 +14,11 @@
 
 - 2026-10-10：本角色卡已接入[项目法案指南](../../references/project-rules.md)、[角色 memo 指南](../../references/role-memo.md)、共同的[项目工程法案](../项目管理/docs/project-rules.md)、本角色 memo 和[本地治理覆盖](../governance-boundary.md)；链接现有测试导航与受测功能说明。授权仍限本轮，不构成永久自动派发。Doc: [role-card.md](role-card.md)。
 - 2026-10-10：创建本角色卡、边界与变更记录；授权依据为用户明确委派实施已确认方案并限定本轮角色范围。该授权不是永久自动派发授权。记录依据：[role-card.md](role-card.md) 与 [边界](boundary.md)。
+
+## 2026-10-20 — 工作流缺口文档授权
+
+依据用户 2026-10-20 授权，仅为本角色增加以下定点工作文档写入路径：`角色卡/测试/docs/design/2026-10-20_design_workflow-fixes-validation.md`, `角色卡/测试/docs/change/2026-10-20_change_workflow-fixes-validation.md`。其他角色路径及未列程序路径仍按原边界管理；本次不修改角色身份或组别。
+
+## 2026-10-20：落实已确认的库存隔离复制准备范围
+
+客户已确认 D1-final-1 第7节。仅补充该节唯一验证根内的有限材料复制与双基线清单准备例外；原项目、业务内容、治理内容与各角色新产物仍由其原责任和权限管理。Markdown 与同名 YAML 同步；此例外不作为 task_ops 跨根权限，不修改安全路径算法。

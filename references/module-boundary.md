@@ -42,7 +42,10 @@ The mutation whitelist. A table listing every file or directory the AI may creat
 | Owned directory | `src/common/<role-id>/` | Only this role's private helpers and framework code |
 | Owned directory | `test/<role-id>/` | This role's assigned tests and test fixtures; no production code |
 | Conditional directory | `docs/` | Task-specific documentation only |
-| Single file | `角色卡/<role>/feature-map.md` | Navigation for owned system features |
+| Single file | `角色卡/<role>/feature-map.md` | Owned feature navigation; state when no system feature is owned |
+| Single file | `角色卡/<role>/memo.md` | This role's continuation clues |
+| Single file | `角色卡/<role>/functional-description.md` | Actual duties, handoffs and document/code locations |
+| Single file, when applicable | `角色卡/<role>/api-spec.md` | Real exported/shared capability or assembly-interface report |
 | Conditional directory | `角色卡/<role>/docs/feature/` | Stable feature descriptions, flowcharts and history links |
 | Conditional directory | `角色卡/<role>/docs/` | Owned design/change/fix history; project management also owns its architecture document |
 
@@ -51,6 +54,14 @@ The mutation whitelist. A table listing every file or directory the AI may creat
 For the project management role, the common-code directory is `src/common/shared/`, with its corresponding test directory and its own `docs/architecture/shared-components.md` and `docs/architecture.md`. It cannot claim every role's common directory. See [shared-directories.md](shared-directories.md).
 
 New role boundaries use feature-map and existing docs scopes; do not require architecture JSON or project-understanding SQLite entries. If the user explicitly works with a legacy SQLite store, any existing accepted row scope still covers only that role's rows, not schema changes or peers' records. Documents and diagrams do not grant write permissions. Legacy viewers remain opt-in and cannot expand authority.
+
+### Role work documents and protected governance
+
+Explicitly cover each project role's own `feature-map.md`, `memo.md` and `functional-description.md` by exact root file paths. Include `api-spec.md` when real exported/shared capabilities or assembly interfaces make it applicable. Collaboration roles describe actual duties and document handoffs; an explicit, evidenced API non-applicability decision avoids invented code or exports. Add only actual bounded own docs scopes. These grants do not open the entire role directory.
+
+Role cards, boundaries, synchronized YAML and root governance changelog remain Team Formation-owned. Other roles' roots and files, `.ans/`, task/scheduling state and custom registered governance paths stay protected from ordinary execution even if a broad common/test/docs entry would contain them. Legitimate scheduler management scopes may participate in complete ownership checks, but state still changes only through Store, never ordinary execution writeFiles. Check directory intersections across all registered actual Section 1 permissions before selecting current files, including nested role roots, protected filenames under docs and prefix-similar paths. Preserve existing exact business-source and private common/test rules.
+
+The existing configuration's complete `roleDefinitions.requiredWorkDocuments` lists exact expected files for [read-only preflight](task-operations.md); it grants nothing and does not restrict future dated docs already covered by accepted directories. Actual task work files must additionally be precise approved writeFiles and node writeSet entries. Missing paths return to Team Formation; preflight cannot edit Section 1. Markdown remains the sole authority and YAML remains its synchronized copy.
 
 ### Private abstractions
 

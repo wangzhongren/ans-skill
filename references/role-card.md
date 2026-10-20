@@ -95,7 +95,7 @@ For the assembly role, additionally read:
     - **Error handling:** Every `try/catch` must output the error — log it, rethrow, or return an error result. Silent empty catches are forbidden.
     - **Readability:** Ternary operators (`condition ? a : b`) are forbidden — they reduce review readability. Use `if/else` instead.
     - **Test structure:** `test/` mirrors the role structure under `角色卡/`, using the project's language-native test files grouped by owning role where the runner permits. Tests are grouped by role, not by layer.
-4. **Explain the change to a reader.** Maintain the current feature document and write the relevant dated design/change/fix record when applicable, using each type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Create deliverables (`changelog.md`, `functional-description.md`, `api-spec.md`) at the role directory root. Update this role's affected feature descriptions, Mermaid flows, history links and feature-map. Notify project management when overall architecture or cross-role handoffs change; do not edit peers' documents or maintain architecture JSON. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Team Formation handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
+4. **Explain the change to a reader.** Maintain the current feature document and write the relevant dated design/change/fix record when applicable, using each type's guide. Lead with its real scenario and result; keep test conclusions short and link detailed evidence. Maintain your own root `functional-description.md`, `memo.md`, `feature-map.md` and applicable `api-spec.md` within accepted scope. Root `changelog.md` records role governance and is maintained only by Team Formation; write implementation history under your own docs/change or docs/fix instead. Update this role's affected feature descriptions, Mermaid flows, history links and feature-map. Notify project management when overall architecture or cross-role handoffs change; do not edit peers' documents or maintain architecture JSON. Before adding, removing, or reorganizing owned application files outside the accepted scope, report the requested boundary change to Scheduler for Team Formation handling. Resume only after the accepted scope and assignment are updated; do not self-expand authority. Capability roles maintain their own implementation reports in their accepted documentation scope; they do not grant themselves more authority.
    If current behavior changed, update its stable `docs/feature/<feature-id>.md` after verification and link the dated design/change/fix record in its history; that record links back to the feature. Preserve earlier history. Update navigation within owned scope; ownership or role-card changes still go through Team Formation. Follow [feature-point.md](feature-point.md).
 5. **Return stage evidence.** Follow the coordination.md worker-report protocol: include a stable report ID, task/node/attempt identity, the actual requirement/design/boundary revisions used, and any help needed. Deliver links to the affected feature documents and history. Project management maintains the overall architecture; no JSON, HTML-generation or running Dashboard is required. Do not write the shared project table; wait for the scheduler to acknowledge feedback and design revisions. For coordinated work, report the assigned node ID, changed paths, final candidate identity, artifact links, exact check results, and unresolved dependencies to Scheduler. Independent acceptance judges the current evidence; Scheduler records/releases only from a matching current pass; reporting completion does not itself mark a node verified. For a standalone task, report the same evidence directly without inventing a scheduling node.
 6. **Provide evidence for independent acceptance.** Apply evidence invalidation rules before the final report and submit current evidence to the independent acceptance role; do not accept your own implementation or dispatch. A verified candidate requires authorized changed paths, passing applicable gates, current evidence and required documentation. Verification does not authorize commits, pushes, publication, deployment, merges, or external mutations.
@@ -113,9 +113,8 @@ For the assembly role, additionally read:
 
 Maintain these deliverables within the accepted scope. Navigation and companion documents live at the role root; feature files live under its existing docs/:
 
-- `changelog.md` — Change history with date, description, and doc reference
-- `functional-description.md` — Local module notes and code locations; links to the feature-map and project architecture
-- `api-spec.md` — Actual exports, dependencies, assembly notes, design contract ID/revision, compliance/deviations and test evidence; shared integration design remains project-role-owned
+- `functional-description.md` — Actual responsibilities, handoff inputs/outputs and document or code locations; links to the feature-map and project architecture. Collaboration roles state when they have no code module.
+- `api-spec.md` — Required for actual exported/shared code capabilities or assembly interfaces: exports, dependencies, wiring, contract revision and evidence. Otherwise record `apiSpec: not-applicable` with a nonempty, verifiable responsibility reason in role registration; do not invent an API. Shared integration design remains project-role-owned.
 - `memo.md` — This role's concise, dated, sourced facts and continuation clues; maintained by the role itself
 - `feature-map.md` — Feature navigation: name, plain-language purpose, status and document link
 - `docs/feature/<feature-id>.md` — One stable current-behavior document per owned system feature: purpose, flowchart and history links; do not invent business features for roles without them
@@ -125,7 +124,7 @@ Dated design/change/fix history lives in this role's existing `docs/design/`, `d
 
 ## Companion file: `changelog.md`
 
-Each role is a directory under `角色卡/` (project root — the directory root name follows the project language: `角色卡/` in Chinese projects, e.g. `role-cards/` in English ones) containing the role card, its module boundary document, a companion change history file, and an API specification. File names follow the project language:
+Each role is a directory under `角色卡/` (project root — the directory root name follows the project language: `角色卡/` in Chinese projects, e.g. `role-cards/` in English ones) containing the role card, its module boundary document and governance change history, with owner work documents and an API specification when applicable. File names follow the project language:
 
 ```
 appointment-booking/
@@ -133,9 +132,9 @@ appointment-booking/
 ├── boundary.md               # 边界文档: Section 1 白名单，唯一授权源
 ├── boundary.yaml             # 同名 YAML 同步副本，不单独授权
 ├── memo.md                   # 本角色的简短事实与续接线索
-├── changelog.md              # 变更日志 ← 角色实现阶段创建（角色根目录）
-├── functional-description.md # 功能描述: 图 + 代码位置 + 详解 ← 角色实现阶段创建（角色根目录）
-├── api-spec.md               # API 规范: 导出 + 依赖 + 装配说明 ← 角色实现阶段创建（角色根目录）
+├── changelog.md              # 角色治理变更日志 ← 仅团队组建维护
+├── functional-description.md # 实际职责、交接与代码/文档位置 ← 角色owner维护
+├── api-spec.md               # 实际导出/装配接口报告 ← 适用时由实现owner维护
 ├── feature-map.md            # 功能导航：用途、状态、链接
 └── docs/
     ├── design/               # 详细设计记录
@@ -147,7 +146,7 @@ appointment-booking/
 
 Each role maintains its own `memo.md` for dated, sourced work clues; it does not replace project rules or task status. Read the project management role's shared `docs/project-rules.md` when present and check relevant rules. Bootstrap creates the role definition and accepted documentation scopes. Team Formation records planned ownership; the accepted owner creates `feature-map.md` and grounded current feature files in `docs/feature/`. Pending documents are labeled without broken links. Project management owns its overall `docs/architecture.md`. Do not create architecture JSON or another project-understanding database.
 
-`changelog.md` records every creation, scope update, split, or merge of this role in reverse chronological order. Each entry must index the actual completion document:
+Team Formation alone maintains root `changelog.md`, recording every creation, scope update, split, or merge of this role in reverse chronological order. It is protected governance material, not the owner's implementation history. Each entry must index the actual completion document:
 
 ```markdown
 # Changes: <Role name in project language>
@@ -157,6 +156,12 @@ Each role maintains its own `memo.md` for dated, sourced work clues; it does not
 ```
 
 The companion file obeys the same evidence and acceptance gates as the role card itself.
+
+## Work-document permissions before handoff
+
+Every project role needs explicit Section 1 coverage for its root feature-map, memo and functional-description. No owned system features means an honest statement in the map, not invented feature pages. A collaboration role describes actual handoffs and document locations without creating unused code layers. API applicability follows [api-spec.md](api-spec.md), with a nonempty responsibility reason for either `required` or `not-applicable`.
+
+Team Formation prepares complete `roleDefinitions` content and role permissions; an accepted scheduler writes the candidate configuration within its own scope, and owners check applicability. A new project first accepts the scheduler definition, then a separate fixed scheduler context prepares configuration only; read-only preflight precedes handoff/dispatch of the remaining actual work. Existing projects use their existing scheduler for configuration. Team Formation gains no configuration write authority. Actual card/boundary paths identify each role root. `requiredWorkDocuments` contains exact expected work-file paths, never directory grants. Before handing off new or adjusted roles, run the read-only [preflight-role](task-operations.md); absent content can be reported without failing valid permission coverage. It does not create files or authorize work. Missing permission returns to Team Formation. Task execution still intersects actual Section 1, approved exact writeFiles and node writeSet with the limited own root work files or own bounded docs; governance, peers and state remain protected.
 
 ## Relationship
 

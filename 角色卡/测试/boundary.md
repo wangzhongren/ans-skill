@@ -13,5 +13,11 @@
 | 单文件 | `角色卡/测试/docs/change/2026-10-16_change_boundary-yaml-validation.md` | 本轮边界 YAML 一致性验证报告 |
 | 单文件 | `角色卡/测试/docs/change/2026-10-19_change_role-authority-split-validation.md` | 本轮角色权责拆分的文档验收准备记录 |
 | 单文件 | `scripts/tests/test_role_authority_flow.py` | 本轮角色职责拆分的独立 CLI 端到端测试 |
+| 单文件 | `角色卡/测试/docs/design/2026-10-20_design_workflow-fixes-validation.md` | 工作流缺口修复验证设计 |
+| 单文件 | `角色卡/测试/docs/change/2026-10-20_change_workflow-fixes-validation.md` | 工作流缺口修复验证记录 |
 
 未列路径默认只读。本边界不授予业务代码、构建配置、其他角色文档或技能规范的写入权限；角色卡与边界由 ANS Governance 唯一维护。本轮在既有文档验收准备权限外，仅增加 `scripts/tests/test_role_authority_flow.py` 这一独立 CLI 测试文件，不授予 `scripts/tests/` 目录或其他程序文件权限。开发单测 `scripts/tests/test_task_ops.py` 归任务工具角色独占。
+
+本轮 2026-10-20 治理授权仅增加表中列出的本角色工作文档路径；不扩大其他角色或程序文件权限。
+
+本次项目外复制准备例外（2026-10-20，客户已确认 D1-final-1 第7节）：固定测试角色可在唯一独立验证根 `../ans-full-trial-2026-10-19-bqf0vjof/validation/workflow-fixes-2026-10-20/`，按该方案第7.1节的完整有限清单，仅逐字节复制原20个交付文件、9个角色各7份既有输入、旧P1/D1/R1/C1/T1、4份API、最终候选清单；将原配置复制为 `baseline-inputs/original-project.json`，将当前获准源工具复制为 `validation-tools/task_ops.py` 和 `validation-tools/coordination_store.py`，并维护 `baseline-inputs/copy-manifest.md` 的复制与接受后执行基线。该路径相对源仓库根定位独立验证项目，不是源仓库 task_ops 的可执行 writeFiles 条目，不放宽 safe 或跨根 readSet。此例外只授权材料准备与清单记录，不取得业务维护权、治理内容编辑权、角色新工作文档权或凭证；原库存文件和已安装技能只读。副本治理调整由团队组建执行，后续节点由各自独立角色执行。任务完成后不得沿用此例外准备其他项目。

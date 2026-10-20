@@ -38,6 +38,10 @@ description: 按角色的文件范围开发和修复代码，遵守五层调用�
 
 例如：`使用 $ans-governed-construction meeting，讨论保存草稿的接口设计，请工单、存储和测试角色参与，最多两轮。` 这是讨论和纪要请求，不是代码实施授权。会议共识不授予文件权限、不代表客户确认，也不证明代码已实现或验证。没有可用的独立参与上下文时记录缺席和待办，不模拟多个角色。详见 [meeting 流程](references/meeting.md)。
 
+角色建立或调整后，团队组建提供完整登记内容和权限，由已接受的统筹在自身边界内落候选配置；新项目先接受统筹定义，独立固定统筹上下文仅准备配置，再只读预检齐全后交接/派发其余实际工作，已有项目由原统筹写配置。团队组建不因此取得配置写权。用配置中的完整 `roleDefinitions` 登记实际角色卡、边界和精确 `requiredWorkDocuments`，运行只读 `task_ops preflight-role` 检查真实 Section 1；不创建任务、runtime、锁或日志。角色根从实际卡与边界的共同父目录取得，不从 roleId 拼接。缺权交团队组建处理，成功也不代替客户授权、派发或验收。命令契约和当前实现状态见[任务操作](references/task-operations.md)。
+
+每个项目角色默认明确获准维护自己的 `feature-map.md`、`memo.md`、`functional-description.md`；无系统功能就直说，无代码模块就说明真实职责、交接输入输出和文档位置。实际对外代码能力、共享能力或装配接口才要求 `api-spec.md`；否则登记有依据的“不适用”。卡片、边界、同步 YAML 和根治理 `changelog.md` 归团队组建，执行历史写自身 docs。清单不授权：本次文档仍须属于自身有限根工作文件或有界 docs、实际 Section 1、审核配置精确 writeFiles 与节点 writeSet 的交集，治理、他角色和状态资料继续保护。详见[初始化](references/bootstrap-workflow.md)与[角色卡](references/role-card.md)。
+
 ## 2. 代码放哪：五层是调用规则，不是五个角色
 
 | 层 | 用白话说 | 例子 |

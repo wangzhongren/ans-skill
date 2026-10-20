@@ -4,11 +4,14 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 from pathlib import Path
 import secrets
 import subprocess
 import sys
+# A standalone preflight must not create bytecode beside a copied tool module.
+sys.dont_write_bytecode = True
 from coordination_store import Store, Rejected, atomic, encoded, file_hash, now, safe, sha
 
 
@@ -46,41 +49,189 @@ def claim_scope(ownership, path, role_id):
     ownership[path] = role_id
 
 
+def boundary_paths(root, path):
+    """Read only the existing Markdown Section 1 table whitelist."""
+    paths = set()
+    active = False
+    for line in safe(root, path).read_text(encoding='utf-8').splitlines():
+        if line.lstrip().startswith('#'):
+            is_section = 'section 1' in line.lower() or '第 1 节' in line or '第1节' in line
+            if active and not is_section:
+                break
+            if is_section:
+                active = True
+        if active and line.lstrip().startswith('|'):
+            columns = line.strip().split('|')
+            if len(columns) >= 4:
+                paths.update(re.findall(r'`([^`]+)`', columns[2]))
+    return paths
+
+
+def canonical_scope(root, path, exact=False):
+    resolved = safe(root, path)
+    canonical = resolved.relative_to(root).as_posix()
+    if path.endswith('/') and not exact:
+        canonical += '/'
+    require(canonical == path and not any(char in path for char in '*?[]'), 'Scope must use a canonical path: '+path)
+    if path.endswith('/') and not exact:
+        require(not resolved.exists() or resolved.is_dir(), 'Directory scope points to a file: '+path)
+    else:
+        require(not resolved.is_dir(), 'Scope must be an exact file: '+path)
+    return resolved
+
+
+def scope_overlap(first, second):
+    return (first == second or first.endswith('/') and second.startswith(first)
+            or second.endswith('/') and first.startswith(second))
+
+
+ROOT_WORK_FILES = {'feature-map.md', 'memo.md', 'functional-description.md', 'api-spec.md'}
+GOVERNANCE_NAMES = {'role-card.md', 'boundary.md', 'boundary.yaml', 'changelog.md'}
+
+
+def work_document(path, definition, directory=False):
+    role_root = definition['root']+'/'
+    if not path.startswith(role_root):
+        return False
+    local = path[len(role_root):]
+    if not directory and local in ROOT_WORK_FILES:
+        return local != 'api-spec.md' or definition['apiSpec'] == 'required'
+    if not local.startswith('docs/'):
+        return False
+    if any(part in GOVERNANCE_NAMES for part in Path(local).parts):
+        return False
+    if directory:
+        return path.endswith('/')
+    return path.endswith('.md')
+
+
+def definitions_for(root, config):
+    definitions = config.get('roleDefinitions')
+    require(isinstance(definitions, dict) and definitions, 'Complete roleDefinitions required')
+    registered = {}
+    protected = set()
+    for role_id, definition in definitions.items():
+        require(isinstance(role_id, str) and role_id and isinstance(definition, dict), 'Invalid roleDefinitions entry')
+        for key in ['card', 'boundary']:
+            canonical_scope(root, definition[key], exact=True)
+            require(file_hash(root, definition[key]), 'Missing '+role_id+' '+key+': '+definition[key])
+        parent = Path(definition['card']).parent.as_posix()
+        require(parent != '.' and parent == Path(definition['boundary']).parent.as_posix(), 'Role '+role_id+' card/boundary must share a role root')
+        require(parent != '.ans' and not parent.startswith(('.ans/', 'docs/scheduling/')) and parent != 'docs/scheduling', 'Role root cannot be in task state: '+parent)
+        for other_id, other in registered.items():
+            require(not scope_overlap(parent+'/', other['root']+'/'), 'Overlapping role roots: '+role_id+' and '+other_id)
+        require(definition.get('apiSpec') in {'required', 'not-applicable'}, 'Role '+role_id+' apiSpec must be required or not-applicable')
+        require(isinstance(definition.get('apiSpecReason'), str) and definition['apiSpecReason'].strip(), 'Role '+role_id+' apiSpecReason required')
+        required = definition.get('requiredWorkDocuments')
+        require(isinstance(required, list) and all(isinstance(path, str) for path in required), 'Role '+role_id+' requiredWorkDocuments must be exact files')
+        registered[role_id] = {**definition, 'root': parent, 'scopes': boundary_paths(root, definition['boundary'])}
+        protected.update([definition['card'], definition['boundary'], str(Path(definition['boundary']).with_suffix('.yaml')), parent+'/changelog.md'])
+    required_ids = set(config.get('roles', {})) | {config.get('schedulerRoleId', 'scheduler')}
+    authority = config.get('acceptanceAuthority')
+    if isinstance(authority, dict):
+        required_ids.add(authority['roleId'])
+    require(required_ids <= set(registered), 'Role definitions missing: '+', '.join(sorted(required_ids-set(registered))))
+    bindings = dict(config.get('roles', {}))
+    if isinstance(authority, dict):
+        bindings[authority['roleId']] = authority
+    for role_id, role in bindings.items():
+        require(all(role[key] == registered[role_id][key] for key in ['card', 'boundary']), 'Role '+role_id+' card/boundary differs from roleDefinitions')
+    return registered, protected
+
+
+def registered_path_valid(root, path, role_id, definitions, protected):
+    resolved = canonical_scope(root, path)
+    require(not any(scope_overlap(path, item) for item in protected), 'Role '+role_id+' scope includes protected governance: '+path)
+    for owner, definition in definitions.items():
+        if scope_overlap(path, definition['root']+'/'):
+            require(owner == role_id and work_document(path, definition, directory=path.endswith('/')), 'Role '+role_id+' scope includes another role or invalid work document: '+path)
+    # A docs grant cannot hide conventional governance files that were not selected for this task.
+    if path.endswith('/') and work_document(path, definitions[role_id], directory=True) and resolved.exists():
+        for nested in resolved.rglob('*'):
+            require(nested.name not in GOVERNANCE_NAMES, 'Role '+role_id+' document directory includes governance: '+nested.relative_to(root).as_posix())
+
+
+def preflight_role(root, config):
+    result = {'status': 'rejected', 'permissionsComplete': False, 'roles': [], 'issues': []}
+    try:
+        require(config.get('schemaVersion') == 1 and isinstance(config.get('roles'), dict), 'Invalid configuration')
+        definitions, protected = definitions_for(root, config)
+    except (Rejected, OSError, KeyError, TypeError, ValueError) as exc:
+        result['issues'].append({'reason': str(exc)})
+        return result
+    ownership = {}
+    for role_id, definition in definitions.items():
+        role_result = {'roleId': role_id, 'permissionsComplete': False, 'documents': [], 'issues': []}
+        for path in sorted(definition['scopes']):
+            try:
+                registered_path_valid(root, path, role_id, definitions, protected)
+                if path in {'.ans', 'docs/scheduling'} or path.startswith(('.ans/', 'docs/scheduling/')):
+                    require(role_id == config.get('schedulerRoleId', 'scheduler'), 'Task management scope belongs to scheduler: '+path)
+                if path.endswith('/'):
+                    management_scope = role_id == config.get('schedulerRoleId', 'scheduler') and path in {'.ans/runtime/', 'docs/scheduling/'}
+                    require(owned_code_directory(path) or work_document(path, definition, directory=True) or management_scope, 'Role '+role_id+' directory scope is too broad or unsupported: '+path)
+                claim_scope(ownership, path, role_id)
+            except (Rejected, OSError, ValueError) as exc:
+                role_result['issues'].append({'path': path, 'reason': str(exc)})
+        mandatory = {definition['root']+'/'+name for name in ['feature-map.md', 'memo.md', 'functional-description.md']}
+        if definition['apiSpec'] == 'required':
+            mandatory.add(definition['root']+'/api-spec.md')
+        for path in sorted(mandatory-set(definition['requiredWorkDocuments'])):
+            role_result['issues'].append({'path': path, 'reason': 'Required core/API document absent from requiredWorkDocuments'})
+        for path in definition['requiredWorkDocuments']:
+            document = {'path': path, 'exists': False, 'permissionGranted': False}
+            try:
+                document['exists'] = canonical_scope(root, path, exact=True).is_file()
+                registered_path_valid(root, path, role_id, definitions, protected)
+                require(work_document(path, definition), 'Required document is not this role work document: '+path)
+                require(any(scope_overlap(scope, path) for scope in definition['scopes']), 'Required document missing from boundary Section 1: '+path)
+                document['permissionGranted'] = True
+            except (Rejected, OSError, ValueError) as exc:
+                role_result['issues'].append({'path': path, 'reason': str(exc)})
+            role_result['documents'].append(document)
+        role_result['permissionsComplete'] = not role_result['issues']
+        result['roles'].append(role_result)
+    result['permissionsComplete'] = all(role['permissionsComplete'] for role in result['roles'])
+    if result['permissionsComplete']:
+        result['status'] = 'ok'
+    return result
+
+
 def roles_valid(root, config):
     require(config.get('schemaVersion') == 1 and isinstance(config.get('roles'), dict), 'Invalid configuration')
     ownership = {}
+    definitions = {}
+    protected = set()
+    if 'roleDefinitions' in config:
+        preflight = preflight_role(root, config)
+        require(preflight['permissionsComplete'], 'Role permission preflight failed: '+json.dumps(preflight, ensure_ascii=False))
+        definitions, protected = definitions_for(root, config)
     for role_id, role in config['roles'].items():
         require(isinstance(role, dict), 'Invalid role configuration')
         for key in ['card', 'boundary']:
             require(file_hash(root, role[key]), 'Missing role '+key)
         require(isinstance(role.get('writeFiles'), list), 'writeFiles must be exact file paths')
-        boundary = safe(root, role['boundary']).read_text()
-        # Backtick paths in Section 1 tables include bounded common/test directories.
-        lines = boundary.splitlines(); section = []; active = False
-        for line in lines:
-            if line.lstrip().startswith('#'):
-                is_section = 'section 1' in line.lower() or '第 1 节' in line or '第1节' in line
-                if active and not is_section:
-                    break
-                if is_section:
-                    active = True
-            if active and line.lstrip().startswith('|'):
-                section.append(line)
-        boundary_paths = set()
-        import re
-        for line in section:
-            boundary_paths.update(re.findall(r'`([^`]+)`', line))
-        directories = [path for path in boundary_paths if owned_code_directory(path)]
+        paths = boundary_paths(root, role['boundary'])
+        directories = [path for path in paths if owned_code_directory(path) or definitions and work_document(path, definitions[role_id], directory=True)]
         for directory in directories:
             resolved = safe(root, directory)
             require(resolved.relative_to(root).as_posix()+'/' == directory, 'Directory scope must use a canonical path')
-            require(not directory.startswith(('.ans/', 'docs/scheduling/', 'role-cards/', '角色卡/')), 'Execution scope cannot include governance/state files')
+            if definitions:
+                registered_path_valid(root, directory, role_id, definitions, protected)
+            else:
+                require(not directory.startswith(('role-cards/', '角色卡/')), 'Execution scope cannot include governance/state files')
+            require(not directory.startswith(('.ans/', 'docs/scheduling/')), 'Execution scope cannot include governance/state files')
             claim_scope(ownership, directory, role_id)
         for path in role['writeFiles']:
             resolved = safe(root, path)
             require(resolved.relative_to(root).as_posix() == path and not resolved.is_dir(), 'writeFiles must use exact canonical file paths')
-            require(path in boundary_paths or any(path.startswith(directory) for directory in directories), 'Configured write file is absent from boundary Section 1: '+path)
-            require(not path.startswith(('.ans/', 'docs/scheduling/', 'role-cards/', '角色卡/')), 'Execution scope cannot include governance/state files')
+            require(path in paths or any(path.startswith(directory) for directory in directories), 'Configured write file is absent from boundary Section 1: '+path)
+            if definitions:
+                registered_path_valid(root, path, role_id, definitions, protected)
+                require(not path.startswith(('role-cards/', '角色卡/')) or work_document(path, definitions[role_id]), 'Execution scope cannot include unregistered role documents: '+path)
+            else:
+                require(not path.startswith(('role-cards/', '角色卡/')), 'Execution scope cannot include governance/state files')
+            require(path not in {'.ans', 'docs/scheduling'} and not path.startswith(('.ans/', 'docs/scheduling/')), 'Execution scope cannot include governance/state files')
             claim_scope(ownership, path, role_id)
         require(isinstance(role.get('operations'), list), 'Role operations required')
         for check_id, check in role.get('checks', {}).items():
@@ -226,6 +377,78 @@ def environment(root, check):
             'variablesHash': sha(encoded(values)), 'declaredEnvironment': check.get('env', {})}
 
 
+TRACKED_ENVIRONMENT_KEYS = {'PATH', 'PYTHONPATH', 'NODE_PATH', 'NODE_OPTIONS', 'LANG', 'LC_ALL', 'TZ', 'PYTHONDONTWRITEBYTECODE'}
+
+
+def environment_identity(root, check, actual):
+    """Fingerprint the captured execution inputs, never the status caller's environment."""
+    keys = sorted(TRACKED_ENVIRONMENT_KEYS | set(check.get('env', {})))
+    command = check['argv'][0]
+    if os.path.dirname(command):
+        selected = os.path.abspath(root / command)
+    else:
+        search_path = os.pathsep.join(os.path.abspath(root / entry) for entry in actual.get('PATH', os.defpath).split(os.pathsep))
+        selected = shutil.which(command, path=search_path)
+    executable = None
+    digest = None
+    if selected:
+        executable = str(Path(selected).resolve())
+        if Path(executable).is_file():
+            digest = sha(Path(executable).read_bytes())
+    return {'platform': platform.platform(), 'python': platform.python_version(),
+            'selectedExecutable': selected, 'executable': executable, 'executableHash': digest,
+            'trackedKeys': keys, 'variablesHash': sha(encoded({key: actual.get(key) for key in keys})),
+            'declaredEnvironmentHash': sha(encoded(check.get('env', {})))}
+
+
+def save_environment_snapshot(root, task, state, check_id, check, actual):
+    keys = sorted(TRACKED_ENVIRONMENT_KEYS | set(check.get('env', {})))
+    snapshot = {'environmentVersion': 2, 'trackedKeys': keys,
+                'values': {key: actual[key] for key in keys if key in actual},
+                'absentKeys': [key for key in keys if key not in actual]}
+    for relative in ['.ans/runtime/check-environments', '.ans/runtime/check-environments/'+task]:
+        directory = safe(root, relative)
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        directory.chmod(0o700)
+    relative = '.ans/runtime/check-environments/'+task+'/'+state['attemptId']+'-'+check_id+'-'+secrets.token_hex(8)+'.json'
+    path = safe(root, relative)
+    atomic(path, encoded(snapshot))
+    path.chmod(0o600)
+    return {'path': relative, 'sha256': file_hash(root, relative)}
+
+
+def check_environment_valid(root, bundle, state, check_id, check, evidence):
+    if 'environmentVersion' not in evidence:
+        require(evidence['environment'] == environment(root, check), 'Check environment or approved command changed')
+        return
+    require(type(evidence['environmentVersion']) is int and evidence['environmentVersion'] == 2, 'Unknown check environment version')
+    reference = evidence.get('environmentSnapshot')
+    require(isinstance(reference, dict), 'Execution environment snapshot missing or changed')
+    prefix = '.ans/runtime/check-environments/'+bundle['state']['taskId']+'/'+state['attemptId']+'-'+check_id+'-'
+    path = reference.get('path')
+    require(isinstance(path, str) and path.startswith(prefix) and re.fullmatch(r'[0-9a-f]{16}\.json', path[len(prefix):]), 'Invalid execution environment snapshot path')
+    canonical_scope(root, path, exact=True)
+    digest = file_hash(root, path)
+    require(digest and digest == reference.get('sha256'), 'Execution environment snapshot missing or changed')
+    try:
+        snapshot = read(root, path)
+    except ValueError as exc:
+        raise Rejected('Invalid execution environment snapshot JSON') from exc
+    keys = sorted(TRACKED_ENVIRONMENT_KEYS | set(check.get('env', {})))
+    require(isinstance(snapshot, dict) and set(snapshot) == {'environmentVersion', 'trackedKeys', 'values', 'absentKeys'}
+            and type(snapshot.get('environmentVersion')) is int and snapshot['environmentVersion'] == 2
+            and snapshot.get('trackedKeys') == keys, 'Invalid execution environment snapshot shape')
+    values = snapshot.get('values')
+    absent = snapshot.get('absentKeys')
+    require(isinstance(values, dict) and all(isinstance(key, str) and isinstance(value, str) for key, value in values.items())
+            and isinstance(absent, list) and all(isinstance(key, str) for key in absent)
+            and len(absent) == len(set(absent)) and not set(values) & set(absent)
+            and set(values) | set(absent) == set(keys), 'Invalid execution environment snapshot keys/absent values')
+    expected = {**check.get('env', {}), 'PYTHONDONTWRITEBYTECODE': '1'}
+    require(all(values.get(key) == value for key, value in expected.items()), 'Declared check environment changed')
+    require(evidence['environment'] == environment_identity(root, check, values), 'Check execution environment or approved command changed')
+
+
 def producer(planned, state):
     return {key: value for key, value in {'roleId': planned['roleId'], 'nodeId': planned['nodeId'], 'workerId': state['workerId'], 'attemptId': state['attemptId']}.items()}
 
@@ -242,9 +465,10 @@ def evidence_valid(root, bundle, planned, state, config):
         require(evidence is not None, 'Missing required check: '+check_id)
         require(evidence['producer'] == producer(planned, state), 'Check producer or attempt mismatch')
         check = config['roles'][planned['roleId']]['checks'][check_id]
-        require(evidence['argv'] == check['argv'] and evidence['environment'] == environment(root, check) and evidence['configHash'] == bundle['plan']['configHash'], 'Check environment or approved command changed')
-        require(evidence['exitCode'] == 0 and not evidence['timedOut'] and evidence['candidateUnchanged'] and evidence.get('environmentUnchanged') and evidence['candidate'] == current, 'Required check failed or evidence is stale')
         require(file_hash(root, evidence['path']) == evidence['sha256'], 'Check evidence is unavailable or changed')
+        require(evidence['argv'] == check['argv'] and evidence['configHash'] == bundle['plan']['configHash'], 'Check environment or approved command changed')
+        check_environment_valid(root, bundle, state, check_id, check, evidence)
+        require(evidence['exitCode'] == 0 and not evidence['timedOut'] and evidence['candidateUnchanged'] and evidence.get('environmentUnchanged') and evidence['candidate'] == current, 'Required check failed or evidence is stale')
     return current
 
 
@@ -336,6 +560,11 @@ def acceptance_results(root, bundle, planned, state, request, approval):
 
 
 def operate(root, task, command, request):
+    if command == 'preflight-role':
+        root = Path(root).resolve()
+        require(root.is_dir(), 'Project root missing')
+        require(set(request) <= {'configPath'}, 'Preflight request accepts only configPath')
+        return preflight_role(root, read(root, request.get('configPath', '.ans/project.json')))
     store = Store(root,task); root=store.root
     store.derive = lambda bundle: status(root, bundle)['state']['taskComplete']
     with store.locked():
@@ -537,18 +766,25 @@ def operate(root, task, command, request):
             check=role['checks'][check_id];before=candidate(root,bundle,planned)
             timeout=check.get('timeoutSeconds',60);require(type(timeout) is int and 1<=timeout<=300,'Check timeout must be 1..300 seconds')
             path=safe(root,(store.folder/'evidence'/(state['attemptId']+'-'+check_id+'-'+secrets.token_hex(4)+'.log')).relative_to(root).as_posix());path.parent.mkdir(exist_ok=True)
-            timed_out=False;started=now();runtime=environment(root, check)
+            timed_out=False;started=now()
+            actual = execution_environment(check)
+            runtime = environment_identity(root, check, actual)
+            snapshot = save_environment_snapshot(root, task, state, check_id, check, actual)
             # Deliberately no shell. This command is pinned in the reviewed configuration.
             with path.open('wb') as output:
                 try:
-                    proc=subprocess.run(check['argv'],cwd=root,stdout=output,stderr=subprocess.STDOUT,timeout=timeout,env=execution_environment(check))
+                    require(runtime['executable'] and runtime['executableHash'], 'Check executable unavailable')
+                    proc=subprocess.run(check['argv'],executable=runtime['executable'],cwd=root,stdout=output,stderr=subprocess.STDOUT,timeout=timeout,env=actual)
                     code=proc.returncode
                 except subprocess.TimeoutExpired:
                     code=124;timed_out=True
+                except (OSError, Rejected) as exc:
+                    output.write(('Check could not execute: '+str(exc)+'\n').encode())
+                    code=127
             after=candidate(root,bundle,planned)
             evidence={'checkId':check_id,'argv':check['argv'],'exitCode':code,'timedOut':timed_out,'candidate':before,'candidateUnchanged':before==after,'path':path.relative_to(root).as_posix(),'sha256':sha(path.read_bytes()),'recordedAt':now()}
-            evidence.update(producer=producer(planned, state), environment=runtime, configHash=bundle['plan']['configHash'], startedAt=started, finishedAt=now())
-            evidence['environmentUnchanged'] = runtime == environment(root, check)
+            evidence.update(producer=producer(planned, state), environment=runtime, environmentVersion=2, environmentSnapshot=snapshot, configHash=bundle['plan']['configHash'], startedAt=started, finishedAt=now())
+            evidence['environmentUnchanged'] = bool(runtime['executableHash']) and runtime == environment_identity(root, check, actual) and file_hash(root, snapshot['path']) == snapshot['sha256']
             state.setdefault('checkHistory', []).append(evidence)
             state['checkEvidence'][check_id]=evidence
             if code or before!=after or not evidence['environmentUnchanged']:state.update(status='failed',reason='Check failed or changed the candidate')
@@ -614,15 +850,23 @@ def operate(root, task, command, request):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--root',type=Path,required=True);parser.add_argument('--task',required=True)
-    parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','accept-plan','verify'])
+    parser.add_argument('--root',type=Path,required=True);parser.add_argument('--task')
+    parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','accept-plan','verify','preflight-role'])
     parser.add_argument('--request',type=Path,help='Request file, or - to read JSON from standard input; keep worker tokens private')
     args=parser.parse_args(argv)
     try:
         request=json.loads(sys.stdin.read() if str(args.request) == '-' else args.request.read_text()) if args.request else {}
         require(args.root.is_dir(),'Project root missing')
+        require(args.command == 'preflight-role' or args.task is not None, '--task required for task commands')
         result=operate(args.root,args.task,args.command,request)
-        print(json.dumps(result,ensure_ascii=False,indent=2));return 3 if result.get('accepted') is False else 4 if result.get('status')=='check-failed' else 0
+        print(json.dumps(result,ensure_ascii=False,indent=2))
+        if result.get('status') == 'rejected':
+            return 2
+        if result.get('accepted') is False:
+            return 3
+        if result.get('status') == 'check-failed':
+            return 4
+        return 0
     except (Rejected,OSError,ValueError,KeyError,TypeError) as exc:
         print(json.dumps({'status':'rejected','message':str(exc)},ensure_ascii=False));return 2
 
