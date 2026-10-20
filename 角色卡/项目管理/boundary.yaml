@@ -38,6 +38,9 @@ section1:
   - type: 单文件
     path: "角色卡/项目管理/docs/design/2026-10-20_design_workflow-fixes.md"
     purpose: "工作流缺口修复技术方案与评审"
+  - type: 单文件
+    path: "角色卡/项目管理/docs/design/2026-10-20_design_public-landing-page.md"
+    purpose: "ANS 宣传页、搜索抓取与 GitHub Pages 部署方案及技术评审"
   notes:
   - "未列路径默认只读。此边界不授权修改本角色卡、边界、变更记录、技能文件、其他角色资料、业务代码或测试。新增日期文档、目录或其他文件须先由 ANS Governance 更新并由用户确认边界。"
   - "本轮设计稿供项目管理角色先行提出详细架构与工具方案；该角色继续承担本轮既有协调职责，迁移须按设计向新统筹上下文交接后实施。"
