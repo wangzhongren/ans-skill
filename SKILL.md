@@ -30,12 +30,22 @@ Maintain these invariants throughout the task:
 7. **Do not make a failing change look successful.** Never delete tests, loosen assertions, widen permissions, or hide errors just to make it pass unless the user explicitly changes that rule.
 8. **One context, one fixed role.** Once bound, a context cannot activate another role. Cross-role work requires a separate context; neither authorization nor unavailable subagent tools permits an in-place switch.
 
-### Adjacent-Layer Call Direction
+### Adjacent-Layer Calls, Controlled Infrastructure Access, and Shared Models
+
+The default operational call direction is:
 
 ```text
 Interface -> Pipeline -> Service -> Provider -> external infrastructure
 Model: shared by all four operational layers
 ```
+
+- Interface may call Pipeline only. Pipeline normally calls Service; it may directly call a narrow operation from the designated Provider public entry point only for infrastructure orchestration with no business validation, transformation, deduplication, policy, or platform-specific business decision. Service may call Provider only. Provider is the bottom operational layer and accesses its authorized infrastructure. Do not call upward, deep-import Provider implementations, or call peer components as a workaround. Private module collaboration within one component is allowed under the shared acyclic dependency rules.
+- Controlled Pipeline-to-Provider operations are limited to connection/transport clients, storage, process lifecycle, logging, metrics, notifications, and bootstrap construction. They must be explicitly exported by Provider public, must not expose concrete implementations or lower-layer capability objects to Interface, and must not become a general service locator. If business meaning is present, add or reuse a meaningful Service instead of using this exception.
+- Responsibility determines module ownership, existing capability determines reuse, and layer position determines the legal call path. Apply the decision table in [Shared architecture](references/architecture.md): invoke an existing capability, modify its existing responsibility, or create a separate owner for a new responsibility. Call boundaries do not require every feature to visit or add files in all layers.
+- Enforce this direction for imports and runtime capability use, including injected objects, callbacks, factories, registries, dynamic imports, and re-exports. Passing a Provider into a Pipeline or Interface does not authorize those layers to invoke it; an allowed Pipeline call must target the declared Provider public infrastructure operation itself. Returning ordinary results or errors to a caller is not an upward call.
+- Each layer exposes its own operations and manages only the immediately lower layer, except for the controlled Pipeline infrastructure access above. Do not re-export lower-layer APIs or hand lower-layer capability objects to higher-layer consumers. Keep creation and selection local: Interface starts Pipeline, Pipeline obtains Services through the Service public entry point, Services obtain Providers through the Provider public entry point, and an authorized Pipeline infrastructure call enters through that same Provider public boundary. No global wiring shortcut may bypass these boundaries.
+- Model is globally shared and outside this operational call chain. Every layer may directly use Model schemas, types, value objects, and invariant validation. Model must not depend on or call Interface, Pipeline, Service, or Provider, and shared access does not authorize mutable global business state.
+- `utils` remains a helper folder, not an operational layer. Its shared helpers must not depend on or invoke the operational layers or perform external effects on their behalf. Keep effectful helpers inside Provider. Neither Model nor `utils` may be used to hide a forbidden dependency.
 
 See [references/architecture.md](references/architecture.md) for the full dependency decision table, three-part layer structure (`abstract/`/`public/`/`impl/`), enforcement edge cases (imports, callbacks, factories, dynamic imports, re-exports), creation locality rules, and Model sharing constraints.
 

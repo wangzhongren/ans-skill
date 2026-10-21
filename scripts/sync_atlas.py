@@ -206,16 +206,16 @@ def main(argv=None):
     except ValueError as exc:parser.error(str(exc))
     out=(args.out or root/'doc/architecture').resolve()
     json_path=out/'atlas.json';html_path=out/'five-layer-code-atlas.html'
-    previous=json.loads(json_path.read_text()) if json_path.exists() else {}
+    previous=json.loads(json_path.read_text(encoding='utf-8')) if json_path.exists() else {}
     data=scan(root,args.source_root);review(data,previous)
     template=Path(__file__).resolve().parents[1]/'assets/code-atlas/viewer.html'
-    text=template.read_text();data['templateHash']=digest(text.encode());data['scannerHash']=digest(Path(__file__).read_bytes())
+    text=template.read_text(encoding='utf-8');data['templateHash']=digest(text.encode());data['scannerHash']=digest(Path(__file__).read_bytes())
     payload=json.dumps(data,ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     if args.check:
         same=all(previous.get(k)==data.get(k) for k in ['sourceFingerprint','sourceBaseUri','sourceRoots','templateHash','scannerHash'])
         if not html_path.exists():same=False
         else:
-            m=re.search(r'<script id="graph-data"[^>]*>(.*?)</script>',html_path.read_text(),re.S)
+            m=re.search(r'<script id="graph-data"[^>]*>(.*?)</script>',html_path.read_text(encoding='utf-8'),re.S)
             same=same and bool(m) and json.loads(m.group(1))==previous
         print('CURRENT' if same else 'STALE: run sync without --check')
         return 0 if same else 1

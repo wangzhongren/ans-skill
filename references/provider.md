@@ -24,9 +24,9 @@ When creating or explicitly restructuring this layer, require both `abstract/` a
 
 ## Callers and Exports
 
-Service imports this layer only through the Provider public entry point, including creation functions that return this layer's own contract. A package alias is allowed only when it resolves to that designated public entry point. External consumers use only that declared entry, even when it resides in `public/`; other internal modules in `public/`, `abstract/`, or `impl/` remain off limits.
+Service imports this layer only through the Provider public entry point, including creation functions that return this layer's own contract. Pipeline may use the same declared public boundary only for the controlled infrastructure operations defined by the skill. A package alias is allowed only when it resolves to that designated public entry point. External consumers use only that declared entry, even when it resides in `public/`; other internal modules in `public/`, `abstract/`, or `impl/` remain off limits.
 
-The designated public entry point explicitly exposes supported API from its own `public/`. Public exposure does not authorize callers from other operational layers. Keep concrete implementations internal and keep selection inside this layer.
+The designated public entry point explicitly exposes supported API from its own `public/`. Public exposure authorizes Service and only the reviewed Pipeline infrastructure cases; it is not general permission for other operational layers. Keep concrete implementations internal and keep selection inside this layer.
 
 ## Implementation Growth and Dependencies
 
@@ -36,7 +36,7 @@ Grow `impl/` according to the [incremental organization rules](architecture.md):
 
 ## Verification
 
-Check contract satisfaction, public-entry-only external imports, explicit public API exposure, absence of import-time resource initialization, and no circular dependencies or leaked implementation classes. Verify affected implementation behavior and caller paths, refreshing evidence for changed contracts or dependencies.
+Check contract satisfaction, public-entry-only external imports, explicit public API exposure, absence of import-time resource initialization, no circular dependencies or leaked implementation classes, and that Pipeline-visible operations are infrastructure-only. Verify affected implementation behavior and caller paths, refreshing evidence for changed contracts or dependencies.
 
 For example, begin with a local-storage module in `impl/`. If an authorized S3 implementation needs related modules, group storage, client, and error modules under `impl/s3/`, using the project language's file extensions. Storage may depend on client and errors; those modules must not depend back on storage. Keep unrelated implementations in place.
 

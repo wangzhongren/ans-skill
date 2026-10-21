@@ -10,11 +10,11 @@ Create `abstract/` and `impl/` only when a distinct contract and implementation 
 
 Pipeline may grow files and folders directly, without an `impl/` wrapper. Start with a workflow file and group related steps, branches, retries, and coordination helpers in workflow directories when useful.
 
-Internal workflow modules may collaborate without cycles. Calls outside Pipeline target Service only, through the Service public entry point. Do not call Provider, external infrastructure, or Interface from workflow steps. Model and permitted shared helpers remain available. Keep business transformations in Service and infrastructure effects in Provider. Obtain Service implementations through their exported creation entry points without exposing them to Interface.
+Internal workflow modules may collaborate without cycles. Calls outside Pipeline normally target Service through the Service public entry point. For connection/transport, storage, process lifecycle, logging, metrics, notifications, or bootstrap construction with no business rule, Pipeline may call a narrow operation through the designated Provider public entry point. It must not import Provider `impl/` or `abstract/`, expose Provider objects to Interface, or use the exception for validation, transformation, deduplication, policy, or platform business decisions. Model and permitted shared helpers remain available. Keep business transformations in Service and infrastructure effects in Provider. Obtain Service implementations through their exported creation entry points without exposing them to Interface.
 
 ## Verification
 
-Check workflow imports and runtime calls for bypasses, including injected capabilities. Verify affected sequencing, branching, retry, and failure paths as appropriate. Directory growth must preserve acyclic dependencies and the adjacent-layer boundary.
+Check workflow imports and runtime calls for bypasses, including injected capabilities. Verify each direct Provider public call is an allowed infrastructure operation and that no implementation path leaks through it. Verify affected sequencing, branching, retry, and failure paths as appropriate. Directory growth must preserve acyclic dependencies and the controlled layer boundary.
 
 ## Required Layer Tests
 
