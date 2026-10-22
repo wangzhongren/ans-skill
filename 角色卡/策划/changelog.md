@@ -26,3 +26,7 @@ Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)、[boundary.yaml]
 ## 2026-10-22 — 运行架构与上下文隔离
 
 客户窗口只加载沟通角色；策划由沟通启动独立子代理上下文，只接收自己的角色、边界、授权、任务输入和交付要求，不在同一上下文切换为其他角色。工作角色只经统筹调度，策划不直接给工作角色派活、授权或启动。角色卡执行原则同步本条；不改变角色身份、边界或程序权限。Doc: [role-card.md](role-card.md)、[planning-role.md](../../references/planning-role.md)。
+
+## 2026-10-22 — 实施方案与调研方案归策划
+
+客户确定方案级的写作归属：**所有实施方案和调研方案都由策划写**。客户在闸门 1 确认的那一版策划方案（产品方案、架构设计、共有业务契约与完成标准）就是实施方案；需要先查清现状、根因、影响范围或可行性时，先写调研方案（要回答的问题、调查范围与入口、方法、需要的证据、停止条件和结果回填）。统筹只写团队计划和任务计划书，按调研方案安排已授权的只读调查；实现设计仍按现行模型由按团队计划建立的项目管理角色在已确认架构下细化。同步更新角色卡、`references/planning-role.md`、`references/authority-matrix.md` 与入口文档；不改变角色身份、边界或程序权限。Doc: [role-card.md](role-card.md)、[planning-role.md](../../references/planning-role.md)。

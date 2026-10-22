@@ -56,3 +56,7 @@ Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
 ## 2026-10-22 — 运行架构与上下文隔离
 
 客户窗口只加载沟通角色；本工作角色由统筹调度启动独立上下文，只接收自己的角色、边界、授权、任务输入和交付要求，不在同一上下文切换为其他角色；不直接接受沟通派活、授权或启动。角色卡执行原则同步本条；不改变角色身份、边界或程序权限。Doc: [role-card.md](role-card.md)。
+
+## 2026-10-22 — 入口文档同步：实施方案与调研方案归策划
+
+客户确定方案级写作归属后，本角色维护的共享入口与流程文档同步写明：所有实施方案和调研方案由策划写；统筹只写团队计划和任务计划书，按调研方案安排已授权的只读调查；实现设计仍由按团队计划建立的项目管理（技术架构）角色在已确认架构下细化。涉及 `SKILL.md`、`SKILL.zh.md`、`README.md`、`references/documentation.md`、`site/index.html`、`site/en/index.html`。不新增角色、边界或程序权限。Doc: [SKILL.md](../../SKILL.md)、[README.md](../../README.md)。
