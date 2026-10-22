@@ -24,13 +24,17 @@ src/
 
   common/        supporting code, not a sixth layer
     <role-id>/   private helpers and framework components owned by this role
-    shared/      cross-role components owned by project management
+    shared/      cross-role components owned by a project-management
+                   (technical-architecture) role established by the team plan
 
   Supporting directories at project root:
   test/          organized by role: unit tests, shared tests, and a dedicated test role
   resource/      static assets
   Role-owned documents: feature-map.md and existing docs/feature/, docs/design/,
-  docs/change/, docs/fix/. Project management owns the overall docs/architecture.md.
+  docs/change/, docs/fix/. Planning owns the product solution and architecture
+  design in docs/planning/. Only when the scheduler's team plan establishes a
+  project-management (technical-architecture) role does that role own the
+  implementation-layer docs/architecture.md and technical contracts.
 ```
 
 A capability (e.g., "physics") contributes files to multiple layers — `services/physics/` + `providers/physics/` — rather than owning its own top-level `physics/` directory.
@@ -104,7 +108,7 @@ Grow Provider and Service `impl/` modules according to current responsibilities 
 - Inspect existing contracts, implementations, helpers, and callers first. Reuse a compatible implementation; add a module only for a distinct responsibility or an implementation strategy required by the task.
 - Start with individual files. Introduce a purpose-named subdirectory when an implementation has several related files that benefit from being maintained together. Do not pre-create empty trees or organize modules by task number or development round.
 - Before adding or changing dependency edges, identify the affected modules, their direct dependencies, and callers. Keep the affected module dependency graph directed and acyclic; directory nesting alone does not establish a valid dependency direction. Do not introduce cycles through imports, re-exports, public factories, or shared helpers. Existing cycles do not authorize an unrelated rewrite; report a blocking cycle and apply scope-expansion rules when necessary.
-- Keep one-off private helpers near their implementation. Put a role's reusable helpers and framework support in its owned `common/<role-id>/`; cross-role foundation reuse goes through project management and `common/shared/`. Follow [common-code rules](shared-directories.md). Do not move business orchestration into helpers to disguise a dependency between peer Services.
+- Keep one-off private helpers near their implementation. Put a role's reusable helpers and framework support in its owned `common/<role-id>/`; cross-role foundation reuse goes through the project-management (technical-architecture) role and `common/shared/` when the scheduler's team plan establishes that role; otherwise the scheduler judges whether the plan needs one. Follow [common-code rules](shared-directories.md). Do not move business orchestration into helpers to disguise a dependency between peer Services.
 - Internal modules may collaborate within one component's responsibility. Cross-component dependencies must use permitted contracts and public entry points where defined, rather than importing another component's implementation internals. Composition of Services remains in Pipeline-equivalent code; cross-layer calls obey the adjacent-layer rule except for reviewed Pipeline access to Provider public infrastructure operations.
 - Adding or splitting an implementation does not automatically add a public capability. Reuse an existing contract when it fits; update `abstract/` and public exports only when the requested outcome requires a contract or exposure change, under the existing authorization rules.
 - Include new files, moves, and necessary caller changes in the Mutation Contract. Implement and validate dependencies before their affected callers where practical, then verify affected execution paths and refresh invalidated evidence. Do not create a persistent dependency registry unless the repository already requires one.

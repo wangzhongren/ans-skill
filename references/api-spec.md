@@ -1,12 +1,12 @@
 # API Specification Format
 
-The project management role owns the canonical inter-role integration design under [project-role.md](project-role.md). Each implementation owner, including project management for `common/shared/`, maintains `api-spec.md` as an implementation report alongside its card and boundary: actual exports, compatibility with the design, and test evidence. It does not independently redefine the shared contract. Assembly reads both the accepted design and these reports, verifying unclear details in source.
+Planning owns the architecture design under [planning-role.md](planning-role.md). When the scheduler's team plan establishes a project-management (technical-architecture) role, that role owns the canonical inter-role integration design under [project-role.md](project-role.md). Each implementation owner, including an established project-management role for `common/shared/`, maintains `api-spec.md` as an implementation report alongside its card and boundary: actual exports, compatibility with the design, and test evidence. It does not independently redefine the shared contract. Assembly reads both the accepted design and these reports, verifying unclear details in source.
 
 ## Applicability
 
-Require a root `api-spec.md` for actual code capabilities exported to other roles, shared capabilities (including project management's shared code), or assembly interfaces. Role names alone do not decide applicability. A pure planning, scheduling, test or acceptance role without such interfaces can declare `apiSpec: not-applicable`, with a nonempty, verifiable `apiSpecReason` in the existing configuration's role registration. Do not create fictitious exports or unused Provider/Service layers to satisfy a template.
+Require a root `api-spec.md` for actual code capabilities exported to other roles, shared capabilities (including an established project-management role's shared code), or assembly interfaces. Role names alone do not decide applicability. A pure planning, scheduling, test or acceptance role without such interfaces can declare `apiSpec: not-applicable`, with a nonempty, verifiable `apiSpecReason` in the existing configuration's role registration. Do not create fictitious exports or unused Provider/Service layers to satisfy a template.
 
-For `apiSpec: required`, include the role's exact root API path in `requiredWorkDocuments` and explicitly cover it in actual boundary Section 1. Owners check duties; Team Formation prepares registration. This list checks permission coverage only, never grants writes. Both required and non-applicable decisions need an actual responsibility reason. A proposed interface and pending tests remain marked as proposed/pending. Collaboration handoffs without program interfaces belong in functional-description, which remains a default work document. See [bootstrap](bootstrap-workflow.md) and [task operations](task-operations.md).
+For `apiSpec: required`, include the role's exact root API path in `requiredWorkDocuments` and explicitly cover it in actual boundary Section 1. Owners check duties; People Operations prepares registration. This list checks permission coverage only, never grants writes. Both required and non-applicable decisions need an actual responsibility reason. A proposed interface and pending tests remain marked as proposed/pending. Collaboration handoffs without program interfaces belong in functional-description, which remains a default work document. See [bootstrap](bootstrap-workflow.md) and [task operations](task-operations.md).
 
 ## Template
 
@@ -45,7 +45,7 @@ A game project's Pipeline may register steps in a game loop, but that is a proje
 
 ## Rules
 
-- The implementation owner maintains its report within its accepted documentation scope. Send shared-contract discrepancies through the scheduler to project management before implementing a deviation; project management owns the design revision and the scheduler arranges affected owner changes and Team Formation handles any permission changes.
+- The implementation owner maintains its report within its accepted documentation scope. Send shared-contract discrepancies through the scheduler to the design owner before implementing a deviation: Planning owns product and architecture changes; an established project-management role owns implementation-design revisions. The scheduler arranges affected owner changes, and People Operations handles any permission changes on the scheduler's written team plan.
 - Assembly reads only the participating API specifications before dependent wiring; access to a specification does not permit cross-layer imports.
 - Incomplete implementations or stale tests must be marked explicitly. Update affected consumers and invalidate evidence when contracts change.
 

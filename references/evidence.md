@@ -20,7 +20,7 @@ Validation evidence is meaningful only for the exact candidate, environment, inp
 
 ## Independent acceptance
 
-The independent [acceptance role](acceptance-role.md) defines completion criteria before implementation and judges the current candidate as pass, rework, or insufficient evidence. Developers, assembly and the test role provide actual check results; project management provides architecture review. The scheduler checks provenance and records/releases stages only from a matching current acceptance conclusion. It cannot accept its own dispatch, and project management cannot accept its own shared implementation.
+The independent [acceptance role](acceptance-role.md) writes completion criteria from the confirmed planning proposal version before implementation and judges the current candidate as pass, rework, or insufficient evidence. Developers, assembly and the test role provide actual check results; an established technical-architecture worker role provides implementation-design review. The scheduler checks provenance and records/releases stages only from a matching current acceptance conclusion. It cannot accept its own dispatch, and the technical-architecture role cannot accept its own shared implementation.
 
 A report links task/stage, criteria and design versions, candidate identity, original evidence, unresolved gaps and its reasoned conclusion. Missing or stale evidence means insufficient evidence; observed noncompliance means rework. Both remain incomplete.
 
@@ -28,7 +28,7 @@ A report links task/stage, criteria and design versions, candidate identity, ori
 
 A verified candidate requires:
 
-- All changed paths authorized by Section 1 of the relevant module boundary document
+- All changed paths authorized by Section 1 of the owning worker role's module boundary document, or by a built-in management role's reference default scope
 - Required verification gates passed (tests, lint, type check)
 - Current evidence and required documentation
 

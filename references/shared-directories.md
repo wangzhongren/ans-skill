@@ -9,28 +9,28 @@ Use `src/common/` in a new five-layer project. It combines small utilities and s
 ```text
 src/common/
   <role-id>/     # This role's private helpers and framework components
-  shared/        # Cross-role components implemented by the project management role
+  shared/        # Cross-role components implemented by an established project-management role
 ```
 
 1. **Role-local space.** Each capability role owns its accepted `common/<role-id>/` subtree and corresponding test scope. Within an approved task it may add, split, rename or remove internal files without requesting a boundary change for every filename. Record actual changes and update affected tests and feature/module documentation. Other roles do not import or edit this private subtree. Directory permission does not approve unrelated features, public-contract changes or edits outside that subtree.
-2. **Shared space.** The project management role is the sole writer of `common/shared/`, its dedicated tests and the shared-component document. A capability role proposes a reuse need; project management designs and implements the shared component; the scheduler arranges caller changes with each owner. It does not edit callers owned by other roles. The built-in ANS Team Formation role handles any ownership or permission changes.
+2. **Shared space.** When the scheduler's team plan establishes a project-management (technical-architecture) role, that role is the sole writer of `common/shared/`, its dedicated tests and the shared-component document. A capability role proposes a reuse need to the scheduler; if no such role exists, the scheduler judges whether the team plan needs one. The established role designs and implements the shared component; the scheduler arranges caller changes with each owner. It does not edit callers owned by other roles. The built-in ANS People Operations role handles ownership or permission changes on the scheduler's written team plan.
 3. **What belongs here.** Examples include encoding helpers, reusable validation mechanisms, result handling and in-memory framework support. A clear current purpose and interface can justify placement with one caller; two calls are not a hard threshold. Check existing components before adding another. Do not invent extension points merely because the directory exists.
 4. **What stays in the layers.** Business decisions stay in Service, feature orchestration in Pipeline, infrastructure effects in Provider, and domain data contracts/invariants in Model. `common/` must not import or invoke the operational layers, including indirectly through callbacks used to hide orchestration. Domain types remain read-only Model dependencies under existing rules. A helper directory is not permission to skip a layer.
 5. **Dependency direction.** A role's layers may use their own common code and declared shared entry points; private common code may use shared code. Shared code must not depend on a role's private common directory. Keep these dependencies acyclic. Cross-role reuse of business capabilities still goes through their owning layer's public entry; it does not automatically move into `shared/`.
 
 ### Shared-Component Document
 
-The project management role maintains `docs/architecture/shared-components.md` inside its own role directory. Team Formation grants its actual path along with `common/shared/` and a dedicated test directory such as `test/<project-role-id>/shared/`. This is the current reuse catalog, separate from dated change/design history. Use clear prose and one entry per component:
+An established project-management role maintains `docs/architecture/shared-components.md` inside its own role directory. People Operations grants its actual path along with `common/shared/` and a dedicated test directory such as `test/<project-role-id>/shared/`. This is the current reuse catalog, separate from dated change/design history. Use clear prose and one entry per component:
 
 | Field | Explain |
 | --- | --- |
 | Name and purpose | What problem it solves and why sharing helps |
 | Code and public entry | Actual paths and supported entry points |
-| Owner and users | Project management role as maintainer; current consumer roles and caller locations; mark planned users explicitly |
+| Owner and users | The established project-management role as maintainer; current consumer roles and caller locations; mark planned users explicitly |
 | Contract and example | Inputs, outputs, errors and a short real usage example |
 | Tests and change impact | Corresponding tests, affected consumers and compatibility concerns |
 
-Cross-role reuse follows this sequence: a role reports the need → project management writes a design and identifies consumers → the customer confirms the document and authorizes implementation → project management implements and tests `shared/` → the scheduler arranges each consumer's integration → affected tests actually run → independent acceptance judges current evidence → the catalog, relevant feature flows/history and project architecture are updated. Reuse existing consent for the same version and scope. Do not leave two independently maintained copies after an approved extraction; each original owner updates its own caller and obsolete implementation.
+Cross-role reuse follows this sequence: a role reports the need to the scheduler → the scheduler judges the team and the established project-management role writes a design and identifies consumers → the customer confirms the document and authorizes implementation → the established role implements and tests `shared/` → the scheduler arranges each consumer's integration → affected tests actually run → independent acceptance judges current evidence → the catalog, relevant feature flows/history and implementation architecture are updated. Reuse existing consent for the same version and scope. Do not leave two independently maintained copies after an approved extraction; each original owner updates its own caller and obsolete implementation.
 
 Changes in shared behavior invalidate affected caller evidence. Frozen files and existing authorization rules still apply. Document each shared component once in the project role's catalog and contract; consumers link to it from their feature documents instead of copying definitions.
 

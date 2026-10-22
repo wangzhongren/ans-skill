@@ -4,7 +4,27 @@ Use with role-card.md's Required reading. These rules retain the global mutation
 
 ### Who Owns Tests
 
-Development roles own and run their unit and layer-contract tests. The project management role owns the tests for `common/shared/`. The assembly role owns runner setup and startup/wiring smoke checks. The project's [fixed test role](test-role.md) owns cross-role integration, complete user-flow and regression tests. The scheduler arranges repairs and testing; the test role reports actual results instead of editing another role's code. Independent acceptance defines completion criteria and judges pass, rework, or insufficient evidence from current reports. Neither scheduler dispatch nor a self-test is an acceptance verdict. Passing unit tests does not replace required integrated tests, and a dedicated test role does not remove per-layer verification.
+Development roles own and run their unit and layer-contract tests. An established project-management role owns the tests for `common/shared/`. The assembly role owns runner setup and startup/wiring smoke checks. The project's [fixed test role](test-role.md) owns cross-role integration, complete user-flow and regression tests. The scheduler arranges repairs and testing; the test role reports actual results instead of editing another role's code. Independent acceptance writes completion criteria from the confirmed planning proposal version and judges pass, rework, or insufficient evidence from current reports. Neither scheduler dispatch nor a self-test is an acceptance verdict. Passing unit tests does not replace required integrated tests, and a dedicated test role does not remove per-layer verification.
+
+### Risk-Based Verification and Change Packages
+
+Acceptance is risk-based, not a full rerun by default. The scheduler gives Independent Acceptance a **change package** for the current candidate: candidate hash/version, changed paths, task nodes, evidence links and the risk tier. Acceptance reviews the change record and the acceptance table, reuses evidence that is still valid for unaffected paths, and adds only missing, invalidated or higher-risk checks. Full regression is reserved for **T3** changes — release, shared-abstraction, governance or permission change — or insufficient evidence.
+
+| Tier | Change | Default verification |
+| --- | --- | --- |
+| **T0** | Pure documentation, comments, formatting or other non-behavioral text, with no governance or permission change | Link, format and consistency checks plus the affected document checks; no code regression |
+| **T1** | Local implementation inside one role with no cross-role contract change | That role's affected unit/layer tests and the narrowest changed-path checks |
+| **T2** | Cross-role, interface/contract, data model, pipeline, integration or shared-code change | Affected roles' tests plus integration checks across the changed contract; affected callers retested |
+| **T3** | Release, shared-abstraction change (Model, public entry, cross-module contract), governance or permission change, or an uncertain/insufficient evidence basis | Full applicable regression plus release/shared-abstraction checks |
+
+Selection rules:
+
+- Map each changed path to its owning role, layer and affected contract; run the checks that cover those paths.
+- Governance or permission changes are T3, never T0, even when the edited files are documentation.
+- Reuse evidence only for unchanged paths and the same candidate/version. A changed input, dependency, contract, fixture or configuration invalidates affected evidence.
+- Do not rerun unrelated suites merely because a task exists. Do not skip a required check because another role ran something different.
+- If the change package is incomplete, the candidate hash is unclear, or evidence is missing or invalidated, classify the gap and request targeted evidence. If targeted evidence cannot establish the result, escalate to the next tier, up to full regression.
+- Record the tier, selected checks, reused evidence links and the reason for any full regression in the acceptance report.
 
 ### Layer Tests in `test`
 
@@ -30,7 +50,7 @@ Create actual test files as layers are implemented; empty directories do not cou
 
 ## Gate 1: Static Structural Verification
 
-Check implementation against relevant, confirmed entries in the project management role's `docs/project-rules.md` when available. Report the rule identifier and concrete evidence. A missing file, draft entry or rule without a check method is a documented gap, not a pass or a blocker to unrelated verification. Do not claim a project-specific thread, resource or performance rule was tested unless the corresponding behavior was actually checked.
+Check implementation against relevant, confirmed entries in an established project-management role's `docs/project-rules.md` when available. Report the rule identifier and concrete evidence. A missing file, draft entry or rule without a check method is a documented gap, not a pass or a blocker to unrelated verification. Do not claim a project-specific thread, resource or performance rule was tested unless the corresponding behavior was actually checked.
 
 Run the checks appropriate to the repository and risk. The static gate must verify, at minimum:
 
@@ -49,7 +69,7 @@ Run the checks appropriate to the repository and risk. The static gate must veri
 - Verify the default adjacent-layer rule and the narrow Pipeline-to-Provider-public infrastructure exception for imports and runtime calls, including factories, injection, callbacks, and re-exports. Model remains globally shared without operational-layer dependencies.
 - Check that affected module dependencies are acyclic, added directories serve the task, and internal splitting does not silently expand public contracts.
 - Verify shared contract and public-export rules, including public-entry-only external imports where required and no import-time resource initialization.
-- Verify [common and resource rules](shared-directories.md): private role directories have no foreign consumers; shared code is project-role-owned, cataloged and tested; common code does not proxy forbidden calls. Resource references and packaging must be valid, and runtime loading belongs to Provider.
+- Verify [common and resource rules](shared-directories.md): private role directories have no foreign consumers; shared code is owned by the established project-management role, cataloged and tested; common code does not proxy forbidden calls. Resource references and packaging must be valid, and runtime loading belongs to Provider.
 
 ### Contract compatibility
 

@@ -4,6 +4,15 @@ Use with [SKILL.md](../SKILL.md) and its task-specific loading routes. These rul
 
 Apply [Action selection](action-policy.md) before choosing execution scope or requesting input: establish existing authority, resolve material uncertainty, choose the smallest effective action, and provide concise feedback. Existing authorization remains valid; do not repeat confirmation merely because a task reaches its next implementation step.
 
+## Runtime Role Architecture
+
+These hard rules apply to every task:
+
+1. The customer-facing context loads only Communication and never switches to another role for the whole session.
+2. Communication starts Planning, People Operations, Scheduler and Independent Acceptance in separate subagent contexts when their work is needed. Each handoff passes only the role, its boundary or built-in default scope, the authorization, task inputs and delivery requirements; never the Communication conversation for replay.
+3. Development, test, assembly and project-management worker roles are dispatched only by the Scheduler. Communication never assigns work to, authorizes, or starts a worker role. The Scheduler is the sole dispatch gateway for worker roles.
+4. Never switch roles inside one context, and never let Communication bypass the Scheduler to assign work to a worker role.
+
 ### Design Bottom-Up; Investigate Top-Down
 
 For construction, reason about contracts and implement the required capabilities in this order:
@@ -60,7 +69,7 @@ mutation_contract:
     - <structural checks that must pass>
   dynamic_gate:
     - <tests or execution evidence required>
-  acceptance_condition: <customer-confirmed criteria checked by independent acceptance>
+  acceptance_condition: <criteria derived from the confirmed planning proposal version; checked by independent acceptance>
 ```
 
 Rules for deriving the contract:
@@ -74,9 +83,9 @@ Rules for deriving the contract:
 
 ## Execute Scoped Mutation
 
-For application code or tests, first write the relevant design, feature, change or fix document as a concrete proposal. Summarize the proposed behavior and limits in the chat, adding a small diagram/table only when it clarifies the decision. Start code changes only after the customer confirms that document and instructs implementation based on it; use an earlier same-version confirmation when one already exists. If material findings change the proposal, revise and present the affected part before coding. Do not treat a question about the proposal as approval.
+For application code or tests, first write the relevant design, feature, change or fix document as a concrete proposal. Summarize the proposed behavior and limits in the chat, adding a small diagram/table only when it clarifies the decision. Start code changes only after the customer confirms that document and instructs implementation based on it; use an earlier same-version confirmation when one already exists. This document-level confirmation is separate from the three workflow gates and never substitutes for the role-assignment confirmation (gate 2). If material findings change the proposal, revise and present the affected part before coding. Do not treat a question about the proposal as approval.
 
-For new product requirements, the scheduler routes product/requirements proposals to [planning](planning-role.md), then to project management for technical architecture, implementation design and technical review. Valid same-version proposals/authorization remain reusable; no duplicate historical proposal is required. The scheduler then arranges authorized work with its owners; independent acceptance establishes completion criteria before implementation and later judges current evidence. Keep these responsibilities in separate fixed contexts.
+For new product requirements, Communication records the request and first confirms its understanding of the intent with the customer (gate 0: goals, scope, priorities, non-goals, already-authorized boundaries and known constraints). Only then does it start the Planning context for the product proposal, architecture design, shared business contracts and acceptance criteria. Communication obtains the customer's proposal confirmation (gate 1). Only after that does the scheduler judge the team (keep, adjust boundaries, split, add or merge) by the [five-dimension standard and decision table](scheduler.md#五维判断与决策表) and complete the team plan — which roles, who does what, and each role's scope and write set, including the assignment when the roster stays unchanged. Communication obtains the customer's role-assignment confirmation (gate 2); role-assignment and boundary changes are confirmed at this gate. When the confirmed plan requires new or changed roles, the scheduler writes it to `docs/scheduling/`, and Communication starts the People Operations context; People Operations writes or changes role cards and boundaries only as that plan directs: the plan defines what capability is needed and what boundary it must have, and People Operations supplements the capability description and turns it into the card text. Only when the plan includes a technical-architecture worker role does that role add implementation design and technical review under the confirmed architecture. The scheduler then manages each role's task workflow and arranges authorized work with its owners; independent acceptance writes completion criteria from the same customer-confirmed planning proposal version before implementation and later judges current evidence. Only explicit customer agreement passes a gate; default checkmarks, team consensus, a finished proposal and silence are not agreement. Same-object, same-version, same-scope confirmation remains reusable, but each gate confirms its own object and version: an intent change reopens gate 0, a material proposal change reopens gate 1, and a role-assignment change reopens gate 2. Communication is the only customer channel. Keep these responsibilities in separate fixed contexts.
 
 Implement the smallest coherent candidate that satisfies the objective and architectural contracts.
 
@@ -93,7 +102,7 @@ First check whether the user's existing authorization already covers the additio
 
 A task-local write set may grow without a new permission request only when the additional artifact is directly necessary, already covered by this role's accepted Section 1 and existing customer authorization, and introduces no changed public contract, protected artifact, governance policy or external effect. Record the narrowed assignment and changes as appropriate.
 
-A file outside accepted Section 1 remains read-only even when its repair is reversible. Send a precise ownership/scope request to the scheduler for Team Formation handling; do not use this workflow to authorize yourself. Reuse valid existing authorization rather than asking twice.
+A file outside accepted Section 1 remains read-only even when its repair is reversible. Send a precise ownership/scope request to the scheduler for People Operations handling; do not use this workflow to authorize yourself. Reuse valid existing authorization rather than asking twice.
 
 ## Stop Conditions
 
