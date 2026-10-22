@@ -23,6 +23,12 @@ section1:
   - type: 单文件
     path: "角色卡/验收/docs/acceptance/2026-10-22_five-role-model-result.md"
     purpose: "五内置管理角色候选返工复核的独立验收结果"
+  - type: 单文件
+    path: "角色卡/验收/docs/acceptance/2026-10-22_planning-proposal-review-criteria.md"
+    purpose: "本轮策划方案复核实施的独立验收标准"
+  - type: 单文件
+    path: "角色卡/验收/docs/acceptance/2026-10-22_planning-proposal-review-result.md"
+    purpose: "本轮策划方案复核实施的独立验收结果"
   notes:
   - "未列路径默认只读。本边界不授予调度任务记录、测试源码、业务代码、其他角色报告或治理文件的写入权限。结论必须以当前候选和原始证据为依据；工具接口未启用时，文档结论不代替任务状态更新。"
   - "本轮 2026-10-20 治理授权仅增加表中列出的本角色工作文档路径；不扩大其他角色或程序文件权限。"

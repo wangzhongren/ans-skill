@@ -31,3 +31,7 @@
 ## 2026-10-22 — 验收表与风险分档
 
 依据用户新增要求，验收改为“验收表 + 查看改动记录 + 按风险定向补测”，不再每次全量重跑。验收表列包括 ID、方案条目/标准、需要的证据、实际证据路径/哈希、候选版本、产出角色、结果和验收判断（pass / fail / insufficient evidence / not applicable）；验收读取统筹的变更包（候选哈希、改动路径、任务节点、证据链接、风险档位 T0-T3），按表核对证据覆盖。风险分档以 `references/testing.md` 为唯一定义：T0 纯文档（不涉及治理/权限变更）只做链接、锚点、一致性检查；T1 局部实现做受影响单元/层测试和冒烟并复用未受影响证据；T2 跨角色/契约/shared 做受影响单元、集成/契约和受影响完整流程；T3 发布/共享抽象/治理或权限变更做全量回归、集成和完整验收。全量回归只在 T3 或证据不足时使用。同候选、同输入/依赖、同命令证据可复用，变化时只补失效部分；缺证据或覆盖不足判证据不足。同步更新验收角色卡执行原则；不改变角色身份、边界或程序权限。Doc: [acceptance-role.md](../../references/acceptance-role.md)、[role-card.md](role-card.md)。
+
+## 2026-10-22 — 策划方案复核实施的验收标准与结果路径
+
+依据客户通过闸门 2 确认并给出独立实施授权的团队计划 [2026-10-22_planning-proposal-review.md](../../docs/scheduling/2026-10-22_planning-proposal-review.md)（确认记录见 [2026-10-22_communication_planning-proposal-review.md](../../docs/communication/2026-10-22_communication_planning-proposal-review.md)）第 9.2 节，为本角色增加两个精确单文件路径：`角色卡/验收/docs/acceptance/2026-10-22_planning-proposal-review-criteria.md`，用途为本轮策划方案复核实施的独立验收标准；`角色卡/验收/docs/acceptance/2026-10-22_planning-proposal-review-result.md`，用途为本轮策划方案复核实施的独立验收结果。这是两个精确单文件，不是 `docs/acceptance/` 目录级授权；验收仍只写这两个文件，不取得其他角色文档、角色定义、任务状态或代码写权。同名 YAML 同步。本路径先于标准与结果写盘生效，验收后续只按客户确认的 P1 方案版本判断，不把复核记录当验收基线。Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。

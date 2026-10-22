@@ -33,3 +33,17 @@ Use a short paragraph or compact bullets, scaling detail to the decision. Summar
 Before implementation dispatch, the scheduler checks that the reviewed proposal version matches the customer's confirmation and instruction to implement, the customer's role-assignment confirmation (gate 2), accepted role boundaries and actual task scope. The review recommendation does not grant authority or prove working behavior. Independent acceptance separately writes completion criteria from the confirmed planning proposal version and judges delivery; the scheduler cannot convert review approval into final acceptance. Reuse valid same-version, same-scope customer authorization; do not request duplicate approval because review or a later turn occurs.
 
 Material changes to behavior, contracts, role impact, implementation scope or optional selection require a revised review and presentation of the affected decision before implementing it. An unchanged proposal does not require repeated review for every stage; recheck only when new evidence undermines the conclusion. Role isolation applies throughout: standalone owners hand off to a separate authorized review context, then receive the result in their original context. If no review context can be started, preserve the draft, report the missing review and continue authorized investigation/document preparation instead of self-reviewing as another role.
+
+## Distinction from Planning Proposal Review
+
+The review in this guide is the **implementation proposal review**. It is a different process from the pre-gate-1 [planning proposal review](planning-proposal-review.md), and neither substitutes for the other:
+
+| Dimension | Implementation proposal review (this guide) | Planning proposal review |
+| --- | --- | --- |
+| Object | An application-code or test implementation proposal, its implementation design and technical contracts; a feature draft or dated design/change/fix proposal | The planning proposal: product proposal, architecture design, shared business contracts and checkable acceptance criteria |
+| Timing | After the team is established by the customer-confirmed team plan and before requesting the customer's implementation approval; after gate 1 | After Planning hands the proposal to Communication and before gate 1 |
+| Reviewer | The project-management (technical-architecture) role when the team plan establishes it; otherwise the scheduler performs the pre-dispatch check against the confirmed planning proposal and architecture | The same Planning role in a separate read-only context, started by Communication |
+| Record | A review record in the reviewer's existing authorized scope, linking the owner's proposal and version rather than copying it | A review record in Planning's document scope (`docs/planning/`, or the project-local override such as `角色卡/策划/docs/design/`), linking the reviewed proposal and version rather than copying it |
+| Conclusion | `recommend approval`, `needs revision`, or `not ready` — a recommendation, not implementation authority | Three advisory recommendations defined solely in the planning proposal review guide; advice only, not a customer gate or implementation authority |
+
+A planning proposal review never replaces the customer's gate 1 confirmation, and the customer's gate 1 confirmation of the planning proposal never replaces this implementation review. Neither review grants implementation authority or substitutes for independent acceptance. The object, timing, reviewer and conclusion types of this implementation proposal review are unchanged.

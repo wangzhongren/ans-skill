@@ -39,6 +39,7 @@
 | 单文件 | `角色卡/招募/memo.md` | 人事治理工作备忘录：不是 worker 角色卡、不是角色定义、不是新增角色，不扩大人事“只按客户确认计划写卡”的权限 |
 | 单文件 | `references/communication-role.md` | 沟通内置管理角色定义、默认写权与工作流规则 |
 | 单文件 | `references/planning-role.md` | 策划内置管理角色定义、交付文档与协作边界 |
+| 单文件 | `references/planning-proposal-review.md` | 策划方案复核规则（OD-1 至 OD-5、MK-1 至 MK-6、L1 至 L6、轻量与完整两档、记录模板、三种建议、作者处置与复用规则；含已选 O1 调研方案轻量复核）；角色定义类参考，由人事唯一维护 |
 | 单文件 | `references/team-formation.md` | 人事内置管理角色定义与招聘职责规则 |
 | 单文件 | `references/scheduler.md` | 统筹调度内置管理角色定义、逐角色工作流与派发规则 |
 | 单文件 | `references/acceptance-role.md` | 独立验收内置管理角色定义与判断规则 |

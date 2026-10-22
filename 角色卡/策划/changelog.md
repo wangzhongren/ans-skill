@@ -30,3 +30,11 @@ Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)、[boundary.yaml]
 ## 2026-10-22 — 实施方案与调研方案归策划
 
 客户确定方案级的写作归属：**所有实施方案和调研方案都由策划写**。客户在闸门 1 确认的那一版策划方案（产品方案、架构设计、共有业务契约与完成标准）就是实施方案；需要先查清现状、根因、影响范围或可行性时，先写调研方案（要回答的问题、调查范围与入口、方法、需要的证据、停止条件和结果回填）。统筹只写团队计划和任务计划书，按调研方案安排已授权的只读调查；实现设计仍按现行模型由按团队计划建立的项目管理角色在已确认架构下细化。同步更新角色卡、`references/planning-role.md`、`references/authority-matrix.md` 与入口文档；不改变角色身份、边界或程序权限。Doc: [role-card.md](role-card.md)、[planning-role.md](../../references/planning-role.md)。
+
+## 2026-10-22 — 策划方案复核记录纳入既有设计目录用途
+
+依据客户通过闸门 2 确认并给出独立实施授权的团队计划 [2026-10-22_planning-proposal-review.md](../../docs/scheduling/2026-10-22_planning-proposal-review.md)（确认记录见 [2026-10-22_communication_planning-proposal-review.md](../../docs/communication/2026-10-22_communication_planning-proposal-review.md)）第 9.3 节，将既有 `角色卡/策划/docs/design/` 条件目录的用途从“产品方案、架构设计、共有业务契约与可验收标准”扩展为“产品方案、架构设计、共有业务契约、可验收标准，以及策划方案复核记录（含复核处置与走查记录）”。不新增路径，不改变目录范围；复核记录沿用 `YYYY-MM-DD_review_<topic>.md` 命名，仍由策划写、由沟通启动独立只读复核上下文，不改变角色身份、边界或程序权限。本条属于 N1a 边界批次，只记录目录用途变更；复核规则正文与其他角色定义由后续批次处理。Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
+
+## 2026-10-22 — 闸门 1 前独立复核与边界说明段对齐
+
+依据客户通过闸门 2 确认并给出独立实施授权的团队计划 [2026-10-22_planning-proposal-review.md](../../docs/scheduling/2026-10-22_planning-proposal-review.md) 的 N1b 批次，在角色卡执行原则与必读资料中加入闸门 1 前的独立只读复核：方案交沟通后由沟通启动同一策划角色的独立只读上下文，复核记录回作者逐项处置，复核只作建议、不替代闸门 1、不授予实施权限、不是验收基线；完整规则链接 `references/planning-proposal-review.md`，不复制清单。同时修正本角色边界表格下方的说明段，使其与已扩展的 `角色卡/策划/docs/design/` 用途一致：除产品方案、架构设计、共有业务契约和可核对完成标准外，也允许策划方案复核记录（含复核处置与走查记录）；路径和目录范围不变。Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)、[planning-proposal-review.md](../../references/planning-proposal-review.md)。
