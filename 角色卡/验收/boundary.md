@@ -13,6 +13,8 @@
 | 单文件 | `角色卡/验收/docs/acceptance/2026-10-22_five-role-model-result.md` | 五内置管理角色候选返工复核的独立验收结果 |
 | 单文件 | `角色卡/验收/docs/acceptance/2026-10-22_planning-proposal-review-criteria.md` | 本轮策划方案复核实施的独立验收标准 |
 | 单文件 | `角色卡/验收/docs/acceptance/2026-10-22_planning-proposal-review-result.md` | 本轮策划方案复核实施的独立验收结果 |
+| 单文件 | `角色卡/验收/docs/acceptance/2026-10-23_parallel-acceptance-evidence-criteria.md` | 本轮验收并行取证的独立验收标准 |
+| 单文件 | `角色卡/验收/docs/acceptance/2026-10-23_parallel-acceptance-evidence-result.md` | 本轮验收并行取证的独立验收结果 |
 
 未列路径默认只读。本边界不授予调度任务记录、测试源码、业务代码、其他角色报告或治理文件的写入权限。结论必须以当前候选和原始证据为依据；工具接口未启用时，文档结论不代替任务状态更新。
 

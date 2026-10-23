@@ -24,6 +24,8 @@ The independent [acceptance role](acceptance-role.md) writes completion criteria
 
 A report links task/stage, criteria and design versions, candidate identity, original evidence, unresolved gaps and its reasoned conclusion. Missing or stale evidence means insufficient evidence; observed noncompliance means rework. Both remain incomplete.
 
+Parallel evidence gathering does not change what counts as evidence. Evidence collected by an acceptance read-only evidence sub-context (E1–E4 are context numbers of the same acceptance role, not roles) counts only after the acceptance main context re-checks it against the same candidate, the same environment, the same command and the original output; a sub-context's own account is not evidence. The acceptance main context makes the sole judgment and writes the only B2; sub-contexts give no pass/fail and write nothing. Communication only relays sub-context task briefs and reports verbatim, without adding, removing or summarizing them into conclusions, and its customer summary cites only the B2 conclusion and evidence reviewed by the acceptance main context. The full rules are defined only in [acceptance parallel evidence](acceptance-parallel-evidence.md); this guide only summarizes them.
+
 ## Acceptance gates
 
 A verified candidate requires:
