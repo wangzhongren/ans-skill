@@ -108,6 +108,9 @@ section1:
     path: references/acceptance-role.md
     purpose: 独立验收内置管理角色定义与判断规则
   - type: 单文件
+    path: references/acceptance-parallel-evidence.md
+    purpose: 独立验收并行取证规则（分组原则、最多 4 个、任务书与回报格式、与沟通交接、合并复核、冲突处理、阈值、回退、复用与缺口披露）；角色定义类参考，由人事唯一维护
+  - type: 单文件
     path: references/authority-matrix.md
     purpose: 角色权力矩阵汇总视图：不新增权限，具体以 SKILL.md、角色参考默认范围和 worker boundary.md Section 1 为准
   - type: 单文件

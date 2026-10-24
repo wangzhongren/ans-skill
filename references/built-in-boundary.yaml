@@ -8,8 +8,8 @@ section1:
       path: "角色卡/招募/memo.md"
       purpose: "People Operations governance work memo: continuation clues and confirmed facts only; not a worker role card, not a role definition, not a new role, and it does not expand the rule that People Operations writes cards only from the customer-confirmed team plan"
     - type: Single file
-      path: "references/communication-role.md, references/planning-role.md, references/team-formation.md, references/scheduler.md, references/acceptance-role.md"
-      purpose: "The five built-in management role definitions"
+      path: "references/communication-role.md, references/planning-role.md, references/team-formation.md, references/scheduler.md, references/acceptance-role.md, references/acceptance-parallel-evidence.md"
+      purpose: "The five built-in management role definitions; references/acceptance-parallel-evidence.md holds the independent-acceptance parallel-evidence rules (grouping principles, maximum of 4, task-brief and evidence-return formats, Communication handoff, merge review, conflict handling, thresholds, fallback, reuse and gap disclosure) as a role-definition reference maintained solely by People Operations"
     - type: Single file
       path: "references/authority-matrix.md"
       purpose: "Consolidated role authority matrix; a summary view that adds no authority"

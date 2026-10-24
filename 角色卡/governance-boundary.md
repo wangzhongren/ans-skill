@@ -43,6 +43,7 @@
 | 单文件 | `references/team-formation.md` | 人事内置管理角色定义与招聘职责规则 |
 | 单文件 | `references/scheduler.md` | 统筹调度内置管理角色定义、逐角色工作流与派发规则 |
 | 单文件 | `references/acceptance-role.md` | 独立验收内置管理角色定义与判断规则 |
+| 单文件 | `references/acceptance-parallel-evidence.md` | 独立验收并行取证规则（分组原则、最多 4 个、任务书与回报格式、与沟通交接、合并复核、冲突处理、阈值、回退、复用与缺口披露）；角色定义类参考，由人事唯一维护 |
 | 单文件 | `references/authority-matrix.md` | 角色权力矩阵汇总视图：不新增权限，具体以 SKILL.md、角色参考默认范围和 worker `boundary.md` Section 1 为准 |
 | 单文件 | `references/project-role.md` | 项目管理 worker 角色定义、技术契约与共享代码职责 |
 | 单文件 | `references/test-role.md` | 固定测试 worker 角色定义与测试责任 |
