@@ -3,7 +3,7 @@ id: task-authority
 type: feature
 title: 用独立凭证派发和验收任务
 created: "2026-10-19"
-updated: "2026-10-20"
+updated: "2026-10-24"
 timezone: Asia/Shanghai
 status: implemented-unverified
 related: [task-authority-change, role-authority-split-design, task-tools-workflow-gaps-fix]
@@ -17,6 +17,9 @@ events:
   - date: "2026-10-20"
     kind: implemented
     summary: 按D1-final-1实现只读角色预检、精确工作文档范围和环境v2；开发69项通过，待本轮独立测试及验收
+  - date: "2026-10-24"
+    kind: implemented
+    summary: 支持内置角色技能参考登记（kind=built-in）和受限 git status/commit/push 入口；新增单测通过，待独立测试及验收
 ---
 
 # 用独立凭证派发和验收任务
@@ -56,6 +59,10 @@ flowchart TD
 
 形成或调整角色后，使用 `python3 scripts/task_ops.py --root <项目根> preflight-role --request -`，请求仅为 `{"configPath":".ans/project.json"}`。这条命令不需要task或凭证，不构造Store、不创建runtime/锁/日志，也不运行检查；权限齐全退出0，缺项或冲突退出2。结果逐角色列出具体路径、是否存在和是否有许可，文件未写但已获权可显示 `exists=false, permissionGranted=true`，不冒称内容完成。
 
+内置管理角色登记使用 `kind: "built-in"`：`card`/`boundary` 指向技能参考文件，可用绝对路径或相对 `skillRoot` 的路径；不要求与项目角色卡同父，不参与角色根不重叠检查。`preflight-role` 只核对参考文件存在、可读、无符号链接；内置角色是登记身份，不进入 `roles` 执行范围，不因此获得项目写权。
+
+受限 Git 通过 `git` 命令执行：`status` 需要调度凭证且只读；`commit` 需要当前 worker 的有效 assignment、`writeSet` 内的精确 `paths` 和提交信息，记录 `git-commit`（branch/HEAD/paths/message）；`push` 需要调度凭证，只推 pinned 配置 `gitPush` 批准的 remote/branch，无 force，记录 `git-push`。`.git/**` 不作为工作文件、`changedPaths` 或候选；任务记录仍由 Store 单写。
+
 配置中的可选 `roleDefinitions` 登记全部实际角色，包括非执行角色；每项包含实际card/boundary、精确requiredWorkDocuments和apiSpec/apiSpecReason。core为feature-map、memo、functional-description；实际提供接口的角色要求api-spec，纯协作角色按具体职责声明不适用。清单只检查许可；Section 1才授予权限。角色根从同父的实际card/boundary解析，不能按roleId拼目录。预检读取表格路径列，不把用途文字中的反引号当额外授权。
 
 登记启用后，init与其他范围校验复用预检：先建立全部角色保护集合及所有权，再允许自身有限根工作文件或自身docs内获准的精确Markdown进入writeFiles/writeSet。有界docs目录不等于任务文件清单；未来日期文件可按目录许可精确入选。全部登记治理MD/YAML/changelog、他角色、跨角色重叠、穿越和symlink均拒绝。统筹的原runtime/scheduling管理范围可登记核对，普通执行writeFiles仍拒绝状态路径。旧配置没有登记时保持原代码范围语义，不自动获得角色文档写权；全角色是否真实完整仍由治理交接及统筹、验收核对。
@@ -76,3 +83,4 @@ status、verify与依赖消费都使用原快照跟踪值重核实际程序路�
 | --- | --- | --- | --- |
 | 2026-10-19 | 修改 | 独立测试与验收通过 | [独立凭证与验收门禁](../change/2026-10-19_change_task-authority.md)；[批准设计](../../../项目管理/docs/design/2026-10-19_design_role-authority-split.md) |
 | 2026-10-20 | 修复 | 已实施，开发69项通过；待独立验证 | [工作文档与环境有效性修复](../fix/2026-10-20_fix_workflow-gaps.md)；[D1-final-1](../../../项目管理/docs/design/2026-10-20_design_workflow-fixes.md) |
+| 2026-10-24 | 修改 | 已实施，新增单测通过；待独立测试及验收 | [任务操作指南](../../../../references/task-operations.md)；内置角色技能参考登记与受限 Git 操作 |

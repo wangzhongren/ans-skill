@@ -25,6 +25,21 @@
 
 登记涵盖本项目全部实际角色。worker 角色用其角色卡和边界登记；五个内置管理角色以各自参考文档和默认写权作为职责与范围依据，不另建项目角色卡。当前 `preflight-role` 的 `card`/`boundary` 同根且角色根不重叠校验尚未覆盖多个内置角色共用 `references/` 的情况；具体登记形式由人事与任务工具 owner 对齐，不能为通过校验给内置角色补造项目卡或伪造边界。人事准备实际清单，原 owner 核对适用性，调度与验收核对完整性；工具只能验证提供的登记，不能证明不存在未登记角色，也不递归把隔离样例当项目角色。
 
+内置管理角色登记使用 `kind: "built-in"`：`card`/`boundary` 指向技能参考文件，可以使用绝对路径，或相对 `skillRoot` 的路径；不要求与项目角色卡同父，不参与角色根不重叠检查，`requiredWorkDocuments` 可以省略，`apiSpec` 使用 `not-applicable`。`preflight-role` 只核对参考文件存在、可读、无符号链接；内置角色是登记身份，不进入 `roles` 执行范围，不因此获得项目写权。示例片段：
+
+```json
+"roleDefinitions": {
+  "planner": {
+    "kind": "built-in",
+    "skillRoot": "<installed skill root>",
+    "card": "references/planning-role.md",
+    "boundary": "references/built-in-boundary.md",
+    "apiSpec": "not-applicable",
+    "apiSpecReason": "Built-in management role reference"
+  }
+}
+```
+
 `requiredWorkDocuments` 是职责需要的精确工作文件，仅用于预检许可，不授权、不接受目录通配，也不限制已获边界覆盖的未来日期文档。最低列实际角色根下feature-map.md、memo.md、functional-description.md；有真实对外代码/shared能力或装配接口时 `apiSpec: "required"` 并加入根api-spec.md，否则可声明 `"not-applicable"`。两种取值都须非空、可核对的apiSpecReason，不能凭角色名判断或临时漏填。纯协作角色写真实职责、交接和文档位置，无系统功能/代码就明说，不虚构代码层。
 
 人事按统筹写入 `docs/scheduling/` 的团队计划，只准备完整登记内容与角色权限定义；调度在其自身默认 `docs/scheduling/` 范围内写候选执行配置。新项目不需要先接受调度定义：内置调度在一个独立固定上下文里仅做配置准备，随后运行只读预检；齐全后再交接/派发其余实际工作。已有项目由原调度准备配置。此顺序不授权人事写配置，也不新增审批，也不以配置准备代替客户配置审核或派发门禁。候选配置具备后，运行真实只读入口：
@@ -48,6 +63,21 @@ python3 /path/to/skill/scripts/task_ops.py --root /path/to/project preflight-rol
 完整登记中的调度合法管理范围（如.ans/runtime和docs/scheduling）可以参与规范所有权核对，不因此成为普通执行writeFiles；调度状态仍由Store路由统一写入，不能借文档许可直接改机器记录。治理覆盖资料也不属于允许的普通工作文件。
 
 复用safe和规范相对路径检查，拒绝绝对路径、点段、反斜线、穿越、符号链接；未创建文件也核对现存父目录。保持全部Section 1权限的不重叠检查、批准配置与节点子集校验、授权/ack/changedPaths/候选/readSet/报告门禁。工具不提供OS沙箱，也不自动扫描所有架构缺陷。
+
+## 受限 Git 操作
+
+`task_ops` 提供受控 Git 入口，不接受任意 git 参数：
+
+```sh
+python3 scripts/task_ops.py --root <项目根> --task <任务 ID> git --request -
+```
+
+请求的 `action` 只能是 `status`、`commit`、`push`：
+
+- `status`：需要调度凭证；只读返回当前分支、HEAD 和 porcelain 状态，不写任务记录。
+- `commit`：需要当前工作角色有效的 assignment（attempt、worker、token、revisions）；`paths` 必须是该节点 `writeSet` 的精确子集，拒绝 `.git`、绝对路径和穿越路径；工具只 stage/commit 这些路径，并记录 `git-commit` 事件（branch、HEAD、paths、message）。Git 生成的 `.git/**` 元数据不进入 `writeSet`、`changedPaths` 或候选，也不靠普通文档写权记录。
+- `push`：需要调度凭证；pinned 配置必须事先批准 `gitPush`，例如 `{"remote":"origin","branches":["<branch>"]}`；只把当前 HEAD 推到批准分支，不支持 force 或任意 refspec；记录 `git-push` 事件。
+- 任务记录仍由 Store 单写；Git 提交不改变角色边界，也不把 `.git` 或任务记录当作角色工作文件。
 
 ## 配置与实际命令
 

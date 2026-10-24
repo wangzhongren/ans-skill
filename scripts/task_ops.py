@@ -12,7 +12,7 @@ import subprocess
 import sys
 # A standalone preflight must not create bytecode beside a copied tool module.
 sys.dont_write_bytecode = True
-from coordination_store import Store, Rejected, atomic, encoded, file_hash, now, safe, sha
+from coordination_store import Store, Rejected, atomic, encoded, external_file_hash, file_hash, now, safe, sha
 
 
 def read(root, path):
@@ -85,6 +85,31 @@ def scope_overlap(first, second):
             or second.endswith('/') and first.startswith(second))
 
 
+def role_document(root, definition, key):
+    """Resolve a role card/boundary; built-in roles may reference skill docs outside the project."""
+    value = definition.get(key)
+    require(isinstance(value, str) and value, 'Role '+key+' path required')
+    if definition.get('kind') == 'built-in':
+        raw = Path(value)
+        base = definition.get('skillRoot')
+        if not raw.is_absolute():
+            require(isinstance(base, str) and base, 'Built-in role '+key+' requires an absolute path or skillRoot')
+            base_path = Path(base).resolve()
+            raw = base_path/raw
+        else:
+            base_path = None
+        require(not any(part.is_symlink() for part in [raw, *raw.parents]), 'Symlink path is forbidden: '+str(value))
+        resolved = raw.resolve()
+        if base_path is not None:
+            require(resolved.is_relative_to(base_path), 'Built-in role reference escapes skillRoot: '+value)
+        require(resolved.is_file(), 'Missing '+key+': '+str(value))
+        external_file_hash(str(resolved))
+        return resolved
+    canonical_scope(root, value, exact=True)
+    require(file_hash(root, value), 'Missing '+key+': '+value)
+    return root/Path(value)
+
+
 ROOT_WORK_FILES = {'feature-map.md', 'memo.md', 'functional-description.md', 'api-spec.md'}
 GOVERNANCE_NAMES = {'role-card.md', 'boundary.md', 'boundary.yaml', 'changelog.md'}
 
@@ -112,6 +137,14 @@ def definitions_for(root, config):
     protected = set()
     for role_id, definition in definitions.items():
         require(isinstance(role_id, str) and role_id and isinstance(definition, dict), 'Invalid roleDefinitions entry')
+        kind = definition.get('kind', 'worker')
+        require(kind in {'worker', 'built-in'}, 'Role '+role_id+' kind must be worker or built-in')
+        if kind == 'built-in':
+            card = role_document(root, definition, 'card')
+            role_document(root, definition, 'boundary')
+            require(definition.get('apiSpec') in {None, 'not-applicable'}, 'Built-in role '+role_id+' apiSpec must be not-applicable or omitted')
+            registered[role_id] = {**definition, 'kind': 'built-in', 'root': str(card.parent), 'scopes': set(definition.get('defaultScope', []))}
+            continue
         for key in ['card', 'boundary']:
             canonical_scope(root, definition[key], exact=True)
             require(file_hash(root, definition[key]), 'Missing '+role_id+' '+key+': '+definition[key])
@@ -162,6 +195,16 @@ def preflight_role(root, config):
     ownership = {}
     for role_id, definition in definitions.items():
         role_result = {'roleId': role_id, 'permissionsComplete': False, 'documents': [], 'issues': []}
+        if definition.get('kind') == 'built-in':
+            for key in ['card', 'boundary']:
+                try:
+                    path = role_document(root, definition, key)
+                    role_result['documents'].append({'path': str(path), 'exists': True, 'permissionGranted': True})
+                except (Rejected, OSError, ValueError) as exc:
+                    role_result['issues'].append({'path': str(definition.get(key, '')), 'reason': str(exc)})
+            role_result['permissionsComplete'] = not role_result['issues']
+            result['roles'].append(role_result)
+            continue
         for path in sorted(definition['scopes']):
             try:
                 registered_path_valid(root, path, role_id, definitions, protected)
@@ -325,7 +368,8 @@ def authority_valid(root, config):
     require(isinstance(authority.get('roleId'), str) and authority['roleId'], 'Acceptance roleId required')
     require(authority['roleId'] != config.get('schedulerRoleId', 'scheduler') and authority['roleId'] not in config['roles'], 'Acceptance role must be independent of scheduler and executors')
     for key in ['card', 'boundary']:
-        digest = file_hash(root, authority[key])
+        path = role_document(root, authority, key)
+        digest = sha(path.read_bytes()) if authority.get('kind') == 'built-in' else file_hash(root, authority[key])
         require(digest and digest == authority.get(key+'Sha256'), 'Approved acceptance '+key+' hash required')
     digest = authority.get('credentialHash', '')
     require(isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'Acceptance credentialHash must be SHA-256')
@@ -559,6 +603,60 @@ def acceptance_results(root, bundle, planned, state, request, approval):
     return results
 
 
+def git_run(root, args):
+    proc = subprocess.run(['git', '-C', str(root), *args], text=True, capture_output=True)
+    require(proc.returncode == 0, 'Git command failed: '+(proc.stderr or proc.stdout).strip())
+    return proc
+
+
+def git_identity(root):
+    return {'branch': git_run(root, ['rev-parse', '--abbrev-ref', 'HEAD']).stdout.strip(),
+            'head': git_run(root, ['rev-parse', 'HEAD']).stdout.strip()}
+
+
+def git_operation(root, bundle, config, request, store):
+    action = request.get('action')
+    require(action in {'status', 'commit', 'push'}, 'Git action must be status, commit or push')
+    if action == 'status':
+        credential(bundle['state'].get('schedulerCredentialHash'), request.get('schedulerToken'), 'Scheduler credential required')
+        return {'status': 'ok', 'git': {**git_identity(root), 'porcelain': git_run(root, ['status', '--porcelain=v1']).stdout.strip()}}
+    if action == 'commit':
+        planned, state = node_pair(bundle, request.get('nodeId'))
+        authenticate(state, request)
+        current_inputs(root, bundle, planned, config)
+        paths = request.get('paths')
+        require(isinstance(paths, list) and paths and all(isinstance(p, str) and p for p in paths), 'Commit paths required')
+        require(len(set(paths)) == len(paths), 'Duplicate commit paths')
+        for path in paths:
+            canonical_scope(root, path, exact=True)
+            require(path != '.git' and not path.startswith('.git/'), 'Git metadata is not a work file')
+        require(set(paths) <= set(planned['writeSet']), 'Commit paths exceed write scope')
+        message = request.get('message')
+        require(isinstance(message, str) and message.strip(), 'Commit message required')
+        require(git_run(root, ['status', '--porcelain=v1', '--', *paths]).stdout.strip(), 'No changes to commit for the given paths')
+        git_run(root, ['add', '--', *paths])
+        git_run(root, ['commit', '-m', message, '--', *paths])
+        meta = git_identity(root)
+        store.producer = {'roleId': planned['roleId'], 'nodeId': request['nodeId'], 'workerId': request['workerId'], 'attemptId': request['attemptId']}
+        result = store.commit(bundle, 'git-commit', 'Committed task paths: '+', '.join(paths), request['nodeId'], {'git': {**meta, 'paths': paths, 'message': message}})
+        result['git'] = {**meta, 'paths': paths}
+        return result
+    if action == 'push':
+        credential(bundle['state'].get('schedulerCredentialHash'), request.get('schedulerToken'), 'Scheduler credential required')
+        allow = config.get('gitPush')
+        require(isinstance(allow, dict), 'gitPush is not approved in the pinned configuration')
+        remote = allow.get('remote'); branches = allow.get('branches')
+        require(isinstance(remote, str) and remote and isinstance(branches, list) and branches and all(isinstance(b, str) and b for b in branches), 'gitPush remote/branches required')
+        meta = git_identity(root)
+        branch = request.get('branch') or meta['branch']
+        require(branch in branches, 'Push branch is not approved: '+str(branch))
+        git_run(root, ['push', remote, 'HEAD:refs/heads/'+branch])
+        store.producer = {'roleId': config.get('schedulerRoleId', 'scheduler'), 'kind': 'scheduler'}
+        result = store.commit(bundle, 'git-push', 'Pushed '+meta['head']+' to '+remote+'/'+branch, None, {'git': {**meta, 'remote': remote, 'branch': branch}})
+        result['git'] = {**meta, 'remote': remote, 'branch': branch}
+        return result
+
+
 def operate(root, task, command, request):
     if command == 'preflight-role':
         root = Path(root).resolve()
@@ -596,6 +694,8 @@ def operate(root, task, command, request):
             return status(root, bundle)
         config=config_for(root,bundle); roles_valid(root,config)
         node_id=request.get('nodeId')
+        if command == 'git':
+            return git_operation(root, bundle, config, request, store)
         if command in {'accept-plan', 'verify'}:
             authority = authority_valid(root, config)
             require(authority == bundle['state']['acceptanceAuthority'], 'Acceptance authority changed')
@@ -851,7 +951,7 @@ def operate(root, task, command, request):
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,required=True);parser.add_argument('--task')
-    parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','accept-plan','verify','preflight-role'])
+    parser.add_argument('command',choices=['init','status','recover','dispatch','ack','run-check','report','stop','revise','accept-plan','verify','preflight-role','git'])
     parser.add_argument('--request',type=Path,help='Request file, or - to read JSON from standard input; keep worker tokens private')
     args=parser.parse_args(argv)
     try:

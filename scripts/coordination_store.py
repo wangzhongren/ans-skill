@@ -48,6 +48,18 @@ def file_hash(root, relative):
     return sha(path.read_bytes())
 
 
+def external_file_hash(path):
+    """Hash a read-only skill reference outside the project (built-in roles)."""
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        raise Rejected('Expected an absolute skill reference path: '+str(path))
+    if any(part.is_symlink() for part in [candidate, *candidate.parents]):
+        raise Rejected('Symlink path is forbidden: '+str(path))
+    if not candidate.is_file():
+        raise Rejected('Expected a file: '+str(path))
+    return sha(candidate.read_bytes())
+
+
 def atomic(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(dir=path.parent, prefix='.'+path.name)

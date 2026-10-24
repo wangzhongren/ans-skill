@@ -753,4 +753,44 @@ class TaskOpsTests(unittest.TestCase):
   bad={**evidence,'environmentSnapshot':{'path':evidence['environmentSnapshot']['path'],'sha256':file_hash(self.root,evidence['environmentSnapshot']['path'])}}
   with self.assertRaisesRegex(Rejected,'keys/absent'):check_environment_valid(self.root,bundle,state,'ok',check,bad)
 
+ def test_preflight_accepts_builtin_skill_references(self):
+  definitions=self.registered_config()
+  skill=self.root.parent/(self.root.name+'-builtin-skill');shutil.rmtree(skill,ignore_errors=True);(skill/'references').mkdir(parents=True);self.addCleanup(shutil.rmtree,skill,True)
+  (skill/'references'/'planning-role.md').write_text('# planning role')
+  (skill/'references'/'built-in-boundary.md').write_text('# Section 1\n| file | `docs/planning/` | default scope |')
+  definitions['planner']={'kind':'built-in','skillRoot':str(skill),'card':'references/planning-role.md','boundary':'references/built-in-boundary.md','apiSpec':'not-applicable','apiSpecReason':'built-in reference'}
+  result=preflight_role(self.root,self.config)
+  self.assertTrue(result['permissionsComplete'],result)
+  self.assertTrue(next(role for role in result['roles'] if role['roleId']=='planner')['permissionsComplete'])
+  definitions['planner']['card']=str(skill/'references/planning-role.md');definitions['planner']['boundary']=str(skill/'references/built-in-boundary.md');definitions['planner'].pop('skillRoot')
+  self.assertTrue(preflight_role(self.root,self.config)['permissionsComplete'])
+  definitions['planner']['card']='references/missing.md';definitions['planner']['skillRoot']=str(skill)
+  self.assertFalse(preflight_role(self.root,self.config)['permissionsComplete'])
+
+ def git(self,*args):
+  return subprocess.run(['git','-C',str(self.root),'-c','user.name=ANS Test','-c','user.email=ans-test@example.invalid',*args],text=True,capture_output=True,check=True)
+
+ def test_git_commit_records_metadata_and_rejects_out_of_scope(self):
+  self.git('init','-q','-b','main');self.git('add','--all');self.git('commit','-qm','initial')
+  a=self.dispatch();self.put('src/a.py','value=3')
+  result=operate(self.root,self.task,'git',{**a,'action':'commit','paths':['src/a.py'],'message':'update a'})
+  self.assertEqual(result['git']['branch'],'main');self.assertTrue(result['git']['head'])
+  self.assertEqual(self.git('log','-1','--pretty=%s').stdout.strip(),'update a')
+  with self.assertRaisesRegex(Rejected,'exceed write scope'):
+   operate(self.root,self.task,'git',{**a,'action':'commit','paths':['src/b.py'],'message':'bad'})
+  with self.assertRaisesRegex(Rejected,'Git metadata'):
+   operate(self.root,self.task,'git',{**a,'action':'commit','paths':['.git/index'],'message':'bad'})
+  with self.assertRaisesRegex(Rejected,'No changes'):
+   operate(self.root,self.task,'git',{**a,'action':'commit','paths':['src/a.py'],'message':'again'})
+
+ def test_git_push_requires_approved_branch(self):
+  self.git('init','-q','-b','main');self.git('add','--all');self.git('commit','-qm','initial')
+  remote=self.root.parent/(self.root.name+'-remote.git');shutil.rmtree(remote,ignore_errors=True);subprocess.run(['git','init','--bare','-q',str(remote)],check=True);self.addCleanup(shutil.rmtree,remote,True)
+  self.git('remote','add','origin',str(remote))
+  self.task='gitpush';self.plan['taskId']=self.task;self.config['gitPush']={'remote':'origin','branches':['main']};self.initialize()
+  result=operate(self.root,self.task,'git',{'action':'push','schedulerToken':self.scheduler,'branch':'main'})
+  self.assertEqual(result['git']['remote'],'origin');self.assertTrue(subprocess.run(['git','--git-dir',str(remote),'rev-parse','main'],text=True,capture_output=True,check=True).stdout.strip())
+  with self.assertRaisesRegex(Rejected,'not approved'):
+   operate(self.root,self.task,'git',{'action':'push','schedulerToken':self.scheduler,'branch':'other'})
+
 if __name__=='__main__':unittest.main()
