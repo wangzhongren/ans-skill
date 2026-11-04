@@ -38,3 +38,7 @@ Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)、[boundary.yaml]
 ## 2026-10-22 — 闸门 1 前独立复核与边界说明段对齐
 
 依据客户通过闸门 2 确认并给出独立实施授权的团队计划 [2026-10-22_planning-proposal-review.md](../../docs/scheduling/2026-10-22_planning-proposal-review.md) 的 N1b 批次，在角色卡执行原则与必读资料中加入闸门 1 前的独立只读复核：方案交沟通后由沟通启动同一策划角色的独立只读上下文，复核记录回作者逐项处置，复核只作建议、不替代闸门 1、不授予实施权限、不是验收基线；完整规则链接 `references/planning-proposal-review.md`，不复制清单。同时修正本角色边界表格下方的说明段，使其与已扩展的 `角色卡/策划/docs/design/` 用途一致：除产品方案、架构设计、共有业务契约和可核对完成标准外，也允许策划方案复核记录（含复核处置与走查记录）；路径和目录范围不变。Doc: [role-card.md](role-card.md)、[boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)、[planning-proposal-review.md](../../references/planning-proposal-review.md)。
+
+## 2026-11-03 — 四类工作中的变更、重构与判断权
+
+依据客户选定并指示直接实施的 P1 方案 `角色卡/策划/docs/design/2026-11-03_design_four-work-types.md`（912 行，SHA-256 `1ab5e0593f0c92e5389deefdcea7c2c324cd3de44fec387c0e945a2634f3daab`）、客户选择记录 `docs/communication/2026-11-03_communication_four-work-types.md` 和统筹计划 `docs/scheduling/2026-11-03_p1-direct-implementation.md`（A18/A19），在角色卡执行原则与必读资料中增加：新建写完整方案；变更方案由本角色判断原要求是否不合理、不足或过时并写变更方案，经复核重开闸门 1；重构由本角色判断产品/流程结构并写结构方案（默认保持已确认外部行为），按复核与分层确认推进；修复不默认经过策划，所有者或验收提出“原要求不合理”或结构问题时才进入策划判断。判断权按 P1 3.3 保持：所有者判技术性质、策划判原要求/产品流程结构、项目管理（如建立）判实现层结构、统筹判归属/路由/闸门、验收只报告事实；策划不替客户宣布原要求无效。完整规则由 `references/workflow.md` 单一来源定义，本角色只写摘要并链接。D1–D3 按 P1 原样保留并披露；闸门 2 未逐项单独确认，不伪造记录。不新增角色、边界或权限；未改代码/测试。Doc: [role-card.md](role-card.md)、[planning-role.md](../../references/planning-role.md)、[workflow.md](../../references/workflow.md)。

@@ -60,3 +60,7 @@ Doc: [boundary.md](boundary.md)、[boundary.yaml](boundary.yaml)。
 ## 2026-10-22 — 入口文档同步：实施方案与调研方案归策划
 
 客户确定方案级写作归属后，本角色维护的共享入口与流程文档同步写明：所有实施方案和调研方案由策划写；统筹只写团队计划和任务计划书，按调研方案安排已授权的只读调查；实现设计仍由按团队计划建立的项目管理（技术架构）角色在已确认架构下细化。涉及 `SKILL.md`、`SKILL.zh.md`、`README.md`、`references/documentation.md`、`site/index.html`、`site/en/index.html`。不新增角色、边界或程序权限。Doc: [SKILL.md](../../SKILL.md)、[README.md](../../README.md)。
+
+## 2026-11-03 — 四类工作与修复窄快速通道的共享入口、流程参考与文档规则
+
+依据客户选定并指示直接实施的 P1 方案 `角色卡/策划/docs/design/2026-11-03_design_four-work-types.md`（912 行，SHA-256 `1ab5e0593f0c92e5389deefdcea7c2c324cd3de44fec387c0e945a2634f3daab`）、客户选择记录 `docs/communication/2026-11-03_communication_four-work-types.md` 和统筹计划 `docs/scheduling/2026-11-03_p1-direct-implementation.md` 第 3.1、3.2 节，本轮技能规范按 S1–S10 实施 P1：`SKILL.md`、`SKILL.zh.md`、`README.md`、`references/workflow.md`（详细规则单一来源）、`references/action-policy.md`、`references/proposal-review.md`、`references/documentation.md`、`site/index.html`、`site/en/index.html` 和 `角色卡/技能规范/memo.md` 为工作区可见的修改；内容一致性由独立复核核对，本记录不作验收结论。本条由 ANS 人事按统筹计划 A21 追加，替代未获路径授权的 S15 变更记录。D1–D3 按 P1 原样保留；闸门 2 未逐项单独确认；四份 `references/documentation-*` 指南仍无 Section 1、`docs/fix`/`docs/change` 仍无目录授权、未创建 `references/work-types.md`。不新增角色、边界或权限；未改代码/测试。Doc: [SKILL.md](../../SKILL.md)、[workflow.md](../../references/workflow.md)、[documentation.md](../../references/documentation.md)。

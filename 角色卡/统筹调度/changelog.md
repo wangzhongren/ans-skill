@@ -41,3 +41,7 @@
 ## 2026-10-22 — 只写团队计划和任务计划书
 
 客户确定方案级的写作归属：所有实施方案和调研方案由策划写；统筹只写团队计划和任务计划书，不写实施方案或调研方案。需要调研时，统筹按策划的调研方案安排已授权的只读调查，不自行形成或改写调研内容；草案可以安排只读调查，但不能当已批准的实施方案。实现设计仍按现行模型由按计划建立的项目管理角色负责。同步更新角色卡、`references/scheduler.md`、`references/authority-matrix.md` 与入口文档；不改变角色身份、边界或程序权限。Doc: [role-card.md](role-card.md)、[scheduler.md](../../references/scheduler.md)。
+
+## 2026-11-03 — 四类工作、五条转换与修复窄快速通道
+
+依据客户选定并指示直接实施的 P1 方案 `角色卡/策划/docs/design/2026-11-03_design_four-work-types.md`（912 行，SHA-256 `1ab5e0593f0c92e5389deefdcea7c2c324cd3de44fec387c0e945a2634f3daab`）、客户选择记录 `docs/communication/2026-11-03_communication_four-work-types.md` 和统筹计划 `docs/scheduling/2026-11-03_p1-direct-implementation.md`（A14/A15），在角色卡执行原则与必读资料中增加：四类工作（新建、修复、变更、重构）的归属、路由和闸门适用性判断；修复窄快速通道的 F1–F9 核实、`docs/scheduling/` 记录和直接派原所有者；五条指定转换的停止、触发事实、重新分类、客户授权和证据失效；同一缺陷两次修复失败停止。判断权按 P1 3.3 保持：所有者判技术性质、策划判原要求/结构、统筹判归属/路由/闸门、验收只报告事实。完整规则由 `references/workflow.md` 单一来源定义，本角色只写摘要并链接，不复制完整规则。D1–D3 按 P1 原样保留并披露；闸门 2 未逐项单独确认，不伪造记录。不新增角色、边界或权限；未改代码/测试。Doc: [role-card.md](role-card.md)、[scheduler.md](../../references/scheduler.md)、[workflow.md](../../references/workflow.md)。
