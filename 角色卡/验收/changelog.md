@@ -47,3 +47,7 @@
 ## 2026-11-03 — 四类工作的验收基线与修复窄快速通道
 
 依据客户选定并指示直接实施的 P1 方案 `角色卡/策划/docs/design/2026-11-03_design_four-work-types.md`（912 行，SHA-256 `1ab5e0593f0c92e5389deefdcea7c2c324cd3de44fec387c0e945a2634f3daab`）、客户选择记录 `docs/communication/2026-11-03_communication_four-work-types.md` 和统筹计划 `docs/scheduling/2026-11-03_p1-direct-implementation.md`（A16/A17），在角色卡职责、必读资料与执行原则中增加：四类工作的验收基线（新建按闸门 1 确认版本；修复按既有已确认行为/契约 + 缺陷记录在实施前写 B1、修复后按同一 B1 写 B2；变更按重开闸门 1 的新版本；重构按确认的结构方案 + 保持的已确认外部行为）；发现问题只报告失败标准和证据，不重新分类、不扩大需求、不改标准；转换时旧证据按影响失效或复用，无法界定则全部失效；修复快速通道要求独立验收可用（F9），无法建立 B1 或无验收路径时报告缺口，不把“已实施、未独立验收”说成通过。完整规则由 `references/workflow.md` 单一来源定义，本角色只写摘要并链接。D1–D3 按 P1 原样保留并披露；闸门 2 未逐项单独确认，不伪造记录。不新增角色、边界或权限；未改代码/测试。补充：D3 最小措辞调整已按统筹计划 4.4/5.1 在 `references/governance-changelog.md` 以“文件/原句/改后句/理由/P1 条款”表格逐项记录，并将残留绝对句列入保留/限定清单；本条不改变规则正文与闸门适用范围。Doc: [role-card.md](role-card.md)、[acceptance-role.md](../../references/acceptance-role.md)、[workflow.md](../../references/workflow.md)。
+
+## 2026-11-05 — 取消闸门 2 后的验收基线表述
+
+依据客户直接指令记录 `docs/communication/2026-11-05_communication_cancel-gate-2.md`（该记录自述不是闸门确认）和统筹计划 `docs/scheduling/2026-11-05_cancel-gate-2.md`（A11），同步取消本角色卡开篇与执行原则中“未经客户确认的角色指派（闸门 2 未通过）不是验收基线”的限定，改为验收不按策划草稿或未确认的团队计划判断；验收基线仍为客户在闸门 1 确认的同一版策划方案，修复窄快速通道仍按既有已确认行为/契约 + 缺陷记录。闸门 0/1 保留；不新增角色、边界或权限；未改代码/测试；不伪造验收结论。Doc: [role-card.md](role-card.md)、[acceptance-role.md](../../references/acceptance-role.md)。

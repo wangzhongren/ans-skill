@@ -6,7 +6,7 @@ section1:
       purpose: "Maintain role governance artifacts only: role-card.md, boundary.md, boundary.yaml and changelog.md. Create or restructure a worker role directory only when the scheduler's authorized team plan lists that role. The People Operations governance work memo lives at the precise path below, not as a worker card"
     - type: Single file
       path: "角色卡/招募/memo.md"
-      purpose: "People Operations governance work memo: continuation clues and confirmed facts only; not a worker role card, not a role definition, not a new role, and it does not expand the rule that People Operations writes cards only from the customer-confirmed team plan"
+      purpose: "People Operations governance work memo: continuation clues and confirmed facts only; not a worker role card, not a role definition, not a new role, and it does not expand the rule that People Operations writes cards only from the scheduler's written team plan; customer confirmation of the team plan is no longer required"
     - type: Single file
       path: "references/communication-role.md, references/planning-role.md, references/team-formation.md, references/scheduler.md, references/acceptance-role.md, references/acceptance-parallel-evidence.md"
       purpose: "The five built-in management role definitions; references/acceptance-parallel-evidence.md holds the independent-acceptance parallel-evidence rules (grouping principles, maximum of 4, task-brief and evidence-return formats, Communication handoff, merge review, conflict handling, thresholds, fallback, reuse and gap disclosure) as a role-definition reference maintained solely by People Operations"

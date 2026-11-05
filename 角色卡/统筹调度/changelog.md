@@ -45,3 +45,7 @@
 ## 2026-11-03 — 四类工作、五条转换与修复窄快速通道
 
 依据客户选定并指示直接实施的 P1 方案 `角色卡/策划/docs/design/2026-11-03_design_four-work-types.md`（912 行，SHA-256 `1ab5e0593f0c92e5389deefdcea7c2c324cd3de44fec387c0e945a2634f3daab`）、客户选择记录 `docs/communication/2026-11-03_communication_four-work-types.md` 和统筹计划 `docs/scheduling/2026-11-03_p1-direct-implementation.md`（A14/A15），在角色卡执行原则与必读资料中增加：四类工作（新建、修复、变更、重构）的归属、路由和闸门适用性判断；修复窄快速通道的 F1–F9 核实、`docs/scheduling/` 记录和直接派原所有者；五条指定转换的停止、触发事实、重新分类、客户授权和证据失效；同一缺陷两次修复失败停止。判断权按 P1 3.3 保持：所有者判技术性质、策划判原要求/结构、统筹判归属/路由/闸门、验收只报告事实。完整规则由 `references/workflow.md` 单一来源定义，本角色只写摘要并链接，不复制完整规则。D1–D3 按 P1 原样保留并披露；闸门 2 未逐项单独确认，不伪造记录。不新增角色、边界或权限；未改代码/测试。Doc: [role-card.md](role-card.md)、[scheduler.md](../../references/scheduler.md)、[workflow.md](../../references/workflow.md)。
+
+## 2026-11-05 — 取消闸门 2（角色指派确认）
+
+依据客户直接指令记录 `docs/communication/2026-11-05_communication_cancel-gate-2.md`（客户原话：“这个团队计划现在不用我审批了，直接开干”“我的意思就是ANS-skill 闸2”“现在取消”；该记录自述不是闸门确认）和统筹计划 `docs/scheduling/2026-11-05_cancel-gate-2.md`（A9），取消客户确认点闸门 2：闸门 1 后统筹完成团队计划并写入 `docs/scheduling/`，直接派发/启动工作角色，不再交沟通向客户确认角色指派，也不再等待客户点击确认卡；沟通记录团队计划与派发事实并通知客户。角色/边界变化仍由统筹团队计划与人事按现有职责处理；客户实施授权保留，派发开发仍需客户明确的实施指令。修复窄快速通道改为只跳过闸门 1（不产生新的方案对象），不再产生新的角色指派确认对象。闸门 0（意图确认）与闸门 1（方案确认）保留。相应更新本角色卡开篇、执行原则与团队计划记录项；不新增角色、边界或权限；未改代码/测试；未伪造闸门确认或实施授权。Doc: [role-card.md](role-card.md)、[scheduler.md](../../references/scheduler.md)、[team-formation.md](../../references/team-formation.md)。

@@ -69,7 +69,7 @@ Each report includes a unique `reportId`, task/node/attempt IDs, role and worker
 
 1. Record proposals separately from acceptance. Identify potentially affected nodes; a proposal does not become authorized scope or require unrelated work to stop. Hold affected irreversible actions when they depend on unresolved intent.
 2. Once a change is accepted under the applicable policy, identify actual affected nodes and new canonical revisions. Block their dependent dispatch, invalidate relevant evidence and ask active affected workers to stop at a safe boundary. Keep their write reservations until they are stopped or confirmed finished.
-3. Update affected assignments and send the new design/scope to owners. Require explicit revision acknowledgment before resuming. New activations still obey the customer's role-assignment confirmation (gate 2) and the approved configuration; reassess authority if scope changes.
+3. Update affected assignments and send the new design/scope to owners. Require explicit revision acknowledgment before resuming. New activations still obey the written team plan, the approved configuration and the customer implementation authorization; reassess authority if scope changes.
 4. Preserve old reports and test evidence. Unaffected tasks may continue with the non-impact decision recorded. Do not relabel old evidence with new hashes: reconcile the implementation and rerun affected checks.
 
 ## Consistency, Rendering and Resume
